@@ -1,0 +1,1708 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SQL ablakfüggvények</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script defer src="assets/quiz.js"></script>
+<script defer src="quiz/07.js"></script>          <!-- a lecke kvízei -->
+<script defer src="assets/common.js"></script>    <!-- MINDIG az utolsó -->
+</head>
+<body>
+<nav class="topnav"><div class="inner">
+  <a href="index.html">← Tartalom</a>
+  <span>7. lecke · SQL ablakfüggvények</span>
+  <span class="spacer"></span>
+  <button id="theme-toggle" type="button" title="Világos/sötét téma">◐</button>
+</div></nav>
+<main>
+<p class="kicker">7. lecke · előadás</p>
+<h1>SQL ablakfüggvények (window functions)</h1>
+<p class="lead">Összesítés úgy, hogy a sorok megmaradnak: <code>OVER()</code>, <code>PARTITION BY</code>, <code>ORDER BY</code>, ablakkeret, rangsorolás, előző és következő sor.</p>
+
+<section id="motivacio">
+<h2>Motiváció</h2>
+<p>Egy webshop rendeléstáblájából ezt kérdezi a főnököd:</p>
+<blockquote><p>„Minden rendelés mellé írd ki, hogy az ügyfél addig összesen mennyit költött, mennyivel többet vagy kevesebbet rendelt, mint előző alkalommal,
+és az ügyfél rendelései közül hányadik legnagyobb ez.”</p></blockquote>
+<p><code>GROUP BY</code>-jal ez nem megy: a csoportosítás ügyfelenként egyetlen sort hagy, a rendelések eltűnnek.
+Self-joinnal és allekérdezésekkel megoldható, de hosszú, lassú és könnyű elrontani.
+A lecke végére egyetlen, olvasható <code>SELECT</code>-tel megírod (<a href="#alkalmazas">Alkalmazás</a>).</p>
+
+<div class="box tip"><span class="box-title">💡 Honnan van az anyag?</span>
+<p>Az előadás diáira („SQL Window Függvények”, 6 dia) és az órai jegyzetre épül. A diák röviden felsorolnak, itt minden állítást kis táblán, lefuttatott
+lekérdezéssel mutatunk meg. Az eredménytáblák SQLite 3.45-tel készültek. A szintaxis szabványos SQL, PostgreSQL-ben, SQL Serverben, MySQL 8-ban is így működik
+(az eltéréseket jelezzük).</p>
+</div>
+</section>
+
+<section id="utiterv">
+<h2>Útiterv</h2>
+<ol class="roadmap">
+  <li><a href="#lepes1">1. lépés – A <code>GROUP BY</code> korlátja és az <code>OVER()</code></a></li>
+  <li><a href="#lepes2">2. lépés – <code>PARTITION BY</code>: csoportonkénti ablak</a></li>
+  <li><a href="#lepes3">3. lépés – <code>ORDER BY</code> az ablakban: halmozott összesítés</a></li>
+  <li><a href="#lepes4">4. lépés – Ablakkeret: <code>ROWS</code> és <code>RANGE</code>, az alapértelmezett keret buktatója</a></li>
+  <li><a href="#lepes5">5. lépés – Rangsorolók: <code>ROW_NUMBER</code>, <code>RANK</code>, <code>DENSE_RANK</code>, <code>NTILE</code></a></li>
+  <li><a href="#lepes6">6. lépés – Eltolás és pozíció: <code>LAG</code>, <code>LEAD</code>, <code>FIRST_VALUE</code>, <code>LAST_VALUE</code>, <code>NTH_VALUE</code></a></li>
+  <li><a href="#lepes7">7. lépés – Kiértékelési sorrend: miért nem lehet <code>WHERE</code>-ben? (CTE, allekérdezés)</a></li>
+  <li><a href="#alkalmazas">Alkalmazás – havi riport és az előadás mintakódja</a></li>
+  <li><a href="#osszefoglalas">Összefoglalás és döntési táblázat</a></li>
+  <li><a href="#kviz">Ellenőrző kvíz</a></li>
+</ol>
+</section>
+
+<section id="adatok">
+<h2>A példatáblák</h2>
+<p>Végig három apró táblát használunk. Érdemes őket egyszer alaposan megnézni, mert minden eredményt ezekből számolunk.</p>
+
+<h4><code>rendelesek</code> – 8 rendelés, 3 ügyfél (összeg ezer Ft-ban)</h4>
+<pre><code class="language-sql">SELECT * FROM rendelesek ORDER BY id;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>ugyfel</th><th>datum</th><th>osszeg</th></tr>
+<tr><td class="num">1</td><td>Anna</td><td>2025-01-03</td><td class="num">40</td></tr>
+<tr><td class="num">2</td><td>Anna</td><td>2025-01-05</td><td class="num">25</td></tr>
+<tr><td class="num">3</td><td>Anna</td><td>2025-01-05</td><td class="num">35</td></tr>
+<tr><td class="num">4</td><td>Anna</td><td>2025-01-09</td><td class="num">40</td></tr>
+<tr><td class="num">5</td><td>Béla</td><td>2025-01-02</td><td class="num">60</td></tr>
+<tr><td class="num">6</td><td>Béla</td><td>2025-01-06</td><td class="num">20</td></tr>
+<tr><td class="num">7</td><td>Béla</td><td>2025-01-08</td><td class="num">30</td></tr>
+<tr><td class="num">8</td><td>Csilla</td><td>2025-01-04</td><td class="num">50</td></tr>
+</table></div>
+<p>Figyeld meg: Annának két rendelése is van <strong>ugyanazon a napon</strong> (01-05), és két 40-es rendelése is van. Ezek a „holtversenyek” később fontosak lesznek.
+A teljes összeg $300$, ügyfelenként Anna $140$, Béla $110$, Csilla $50$.</p>
+
+<div class="two-col">
+<div>
+<h4><code>zh</code> – 8 hallgató ZH-pontja</h4>
+<pre><code class="language-sql">SELECT * FROM zh;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>hallgato</th><th>csoport</th><th>pont</th></tr>
+<tr><td>Ádám</td><td>A</td><td class="num">92</td></tr>
+<tr><td>Bence</td><td>A</td><td class="num">85</td></tr>
+<tr><td>Cili</td><td>A</td><td class="num">85</td></tr>
+<tr><td>Dóra</td><td>A</td><td class="num">70</td></tr>
+<tr><td>Emese</td><td>B</td><td class="num">78</td></tr>
+<tr><td>Feri</td><td>B</td><td class="num">70</td></tr>
+<tr><td>Gabi</td><td>B</td><td class="num">70</td></tr>
+<tr><td>Hanna</td><td>B</td><td class="num">61</td></tr>
+</table></div>
+</div>
+<div>
+<h4><code>havi</code> – havi bevétel (ezer Ft)</h4>
+<pre><code class="language-sql">SELECT * FROM havi;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>honap</th><th>bevetel</th></tr>
+<tr><td>2025-01</td><td class="num">120</td></tr>
+<tr><td>2025-02</td><td class="num">150</td></tr>
+<tr><td>2025-03</td><td class="num">135</td></tr>
+<tr><td>2025-04</td><td class="num">180</td></tr>
+<tr><td>2025-05</td><td class="num">165</td></tr>
+<tr><td>2025-06</td><td class="num">210</td></tr>
+</table></div>
+</div>
+</div>
+
+<details class="solution"><summary>A táblák létrehozása (ha ki akarod próbálni)</summary>
+<p>Bármelyik SQL-felületen lefut (SQLite: <code>sqlite3</code> parancssor, DB Browser for SQLite, vagy Pythonból a beépített <code>sqlite3</code> modul).</p>
+<pre><code class="language-sql">CREATE TABLE rendelesek(id INTEGER, ugyfel TEXT, datum TEXT, osszeg INTEGER);
+INSERT INTO rendelesek VALUES
+ (1,'Anna','2025-01-03',40),(2,'Anna','2025-01-05',25),(3,'Anna','2025-01-05',35),
+ (4,'Anna','2025-01-09',40),(5,'Béla','2025-01-02',60),(6,'Béla','2025-01-06',20),
+ (7,'Béla','2025-01-08',30),(8,'Csilla','2025-01-04',50);
+CREATE TABLE zh(hallgato TEXT, csoport TEXT, pont INTEGER);
+INSERT INTO zh VALUES ('Ádám','A',92),('Bence','A',85),('Cili','A',85),('Dóra','A',70),
+ ('Emese','B',78),('Feri','B',70),('Gabi','B',70),('Hanna','B',61);
+CREATE TABLE havi(honap TEXT, bevetel INTEGER);
+INSERT INTO havi VALUES ('2025-01',120),('2025-02',150),('2025-03',135),
+ ('2025-04',180),('2025-05',165),('2025-06',210);</code></pre>
+<pre><code class="language-python">import sqlite3
+print(sqlite3.sqlite_version)   # 3.25 vagy újabb kell az ablakfüggvényekhez
+con = sqlite3.connect(":memory:")
+con.executescript(open("tablak.sql").read())
+for sor in con.execute("SELECT ugyfel, SUM(osszeg) OVER () FROM rendelesek"):
+    print(sor)</code></pre>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes1">
+<h2>1. lépés – A <code>GROUP BY</code> korlátja és az <code>OVER()</code></h2>
+
+<h4>Kis eset</h4>
+<p>Kérdés: <em>a teljes bevétel hány százaléka az egyes rendelés?</em> Ehhez minden sor mellé kell a teljes összeg (300). Próbáljuk meg csoportosítással:</p>
+
+<div class="two-col">
+<div class="box example"><span class="box-title">GROUP BY – a sorok összevonódnak</span>
+<pre><code class="language-sql">SELECT ugyfel, SUM(osszeg) AS ossz
+FROM rendelesek
+GROUP BY ugyfel;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>ugyfel</th><th>ossz</th></tr>
+<tr><td>Anna</td><td class="num">140</td></tr>
+<tr><td>Béla</td><td class="num">110</td></tr>
+<tr><td>Csilla</td><td class="num">50</td></tr>
+</table></div>
+<p>8 sorból 3 lett. Az egyes rendelések (id, dátum, összeg) <strong>elvesztek</strong>.</p>
+</div>
+<div class="box example"><span class="box-title">Ablakfüggvény – a sorok megmaradnak</span>
+<pre><code class="language-sql">SELECT id, ugyfel, osszeg,
+       SUM(osszeg) OVER () AS teljes
+FROM rendelesek;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>ugyfel</th><th>osszeg</th><th>teljes</th></tr>
+<tr><td class="num">1</td><td>Anna</td><td class="num">40</td><td class="num">300</td></tr>
+<tr><td class="num">2</td><td>Anna</td><td class="num">25</td><td class="num">300</td></tr>
+<tr><td class="num">3</td><td>Anna</td><td class="num">35</td><td class="num">300</td></tr>
+<tr><td class="num">4</td><td>Anna</td><td class="num">40</td><td class="num">300</td></tr>
+<tr><td class="num">5</td><td>Béla</td><td class="num">60</td><td class="num">300</td></tr>
+<tr><td class="num">6</td><td>Béla</td><td class="num">20</td><td class="num">300</td></tr>
+<tr><td class="num">7</td><td>Béla</td><td class="num">30</td><td class="num">300</td></tr>
+<tr><td class="num">8</td><td>Csilla</td><td class="num">50</td><td class="num">300</td></tr>
+</table></div>
+<p>Mind a 8 sor megvan, és mindegyik mellett ott a 300.</p>
+</div>
+</div>
+
+<p>Az <code>OVER</code> kulcsszó teszi az összesítő függvényt <strong>ablakfüggvénnyé</strong>. Az üres zárójel azt jelenti: az ablak a teljes eredményhalmaz.
+A <code>SUM</code> ugyanazt számolja, mint eddig, csak az eredményt nem egy összevont sorba írja, hanem <em>minden sor mellé</em>.</p>
+
+<div class="box def"><span class="box-title">Definíció – Ablakfüggvény (window function)</span>
+<p>Olyan függvény, amely <strong>minden sorra</strong> kiszámol egy értéket a sorhoz kapcsolódó sorok halmaza (az <strong>ablak</strong>) alapján, és
+<strong>nem vonja össze</strong> a sorokat. Formája:</p>
+<pre><code class="language-sql">függvény(argumentumok) OVER ( [PARTITION BY …] [ORDER BY …] [keret] )</code></pre>
+<p>A bemenő sorok száma = a kimenő sorok száma.</p>
+<p><strong>Miért?</strong> Mert az elemzésben gyakran egyszerre kell a sor saját adata és egy csoportszintű mutató (teljes összeg, átlag, rangsor).
+A diák szavaival: az ablakfüggvény „megtartja a rekordszintű kontextust az aggregáció mellett”.</p>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – a jegyzetbeli szintaxis</span>
+<p>Az órai jegyzetben <code>aggrfv(Over (partition by))</code> szerepel. Ez így hibás: az <code>OVER</code> <strong>a függvényhívás után</strong> jön, nem a zárójelén belül.
+Helyesen: <code>SUM(osszeg) OVER (PARTITION BY ugyfel)</code>.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – részarány a teljes bevételből</span>
+<pre><code class="language-sql">SELECT id, ugyfel, osszeg,
+       ROUND(100.0 * osszeg / SUM(osszeg) OVER (), 1) AS szazalek
+FROM rendelesek;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>ugyfel</th><th>osszeg</th><th>szazalek</th></tr>
+<tr><td class="num">1</td><td>Anna</td><td class="num">40</td><td class="num">13,3</td></tr>
+<tr><td class="num">2</td><td>Anna</td><td class="num">25</td><td class="num">8,3</td></tr>
+<tr><td class="num">3</td><td>Anna</td><td class="num">35</td><td class="num">11,7</td></tr>
+<tr><td class="num">4</td><td>Anna</td><td class="num">40</td><td class="num">13,3</td></tr>
+<tr><td class="num">5</td><td>Béla</td><td class="num">60</td><td class="num">20</td></tr>
+<tr><td class="num">6</td><td>Béla</td><td class="num">20</td><td class="num">6,7</td></tr>
+<tr><td class="num">7</td><td>Béla</td><td class="num">30</td><td class="num">10</td></tr>
+<tr><td class="num">8</td><td>Csilla</td><td class="num">50</td><td class="num">16,7</td></tr>
+</table></div>
+<p>Az 5-ös rendelés: $60/300 = 20\%$. A százalékok összege 100 (kerekítéstől eltekintve).</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – eltérés az átlagtól</span>
+<pre><code class="language-sql">SELECT id, osszeg,
+       AVG(osszeg) OVER ()          AS atlag,
+       osszeg - AVG(osszeg) OVER () AS elteres
+FROM rendelesek;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>osszeg</th><th>atlag</th><th>elteres</th></tr>
+<tr><td class="num">1</td><td class="num">40</td><td class="num">37,5</td><td class="num">2,5</td></tr>
+<tr><td class="num">2</td><td class="num">25</td><td class="num">37,5</td><td class="num">-12,5</td></tr>
+<tr><td class="num">3</td><td class="num">35</td><td class="num">37,5</td><td class="num">-2,5</td></tr>
+<tr><td class="num">4</td><td class="num">40</td><td class="num">37,5</td><td class="num">2,5</td></tr>
+<tr><td class="num">5</td><td class="num">60</td><td class="num">37,5</td><td class="num">22,5</td></tr>
+<tr><td class="num">6</td><td class="num">20</td><td class="num">37,5</td><td class="num">-17,5</td></tr>
+<tr><td class="num">7</td><td class="num">30</td><td class="num">37,5</td><td class="num">-7,5</td></tr>
+<tr><td class="num">8</td><td class="num">50</td><td class="num">37,5</td><td class="num">12,5</td></tr>
+</table></div>
+<p>Az átlag $300/8 = 37{,}5$. Pozitív eltérés: átlag feletti rendelés.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – több ablakfüggvény egy SELECT-ben</span>
+<pre><code class="language-sql">SELECT id, osszeg,
+       COUNT(*)    OVER () AS db,
+       MIN(osszeg) OVER () AS legkisebb,
+       MAX(osszeg) OVER () AS legnagyobb
+FROM rendelesek
+WHERE ugyfel = 'Anna';</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>osszeg</th><th>db</th><th>legkisebb</th><th>legnagyobb</th></tr>
+<tr><td class="num">1</td><td class="num">40</td><td class="num">4</td><td class="num">25</td><td class="num">40</td></tr>
+<tr><td class="num">2</td><td class="num">25</td><td class="num">4</td><td class="num">25</td><td class="num">40</td></tr>
+<tr><td class="num">3</td><td class="num">35</td><td class="num">4</td><td class="num">25</td><td class="num">40</td></tr>
+<tr><td class="num">4</td><td class="num">40</td><td class="num">4</td><td class="num">25</td><td class="num">40</td></tr>
+</table></div>
+<p>Az ablak a <code>WHERE</code> <em>utáni</em> sorokból áll: itt csak Anna 4 rendeléséből. (Ennek okát a <a href="#lepes7">7. lépés</a> mutatja meg.)</p>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – egész osztás</span>
+<p><code>osszeg / SUM(osszeg) OVER ()</code> két egész szám hányadosa. SQLite-ban és PostgreSQL-ben ez <strong>egészosztás</strong>: $60/300 = 0$.
+Ezért írunk <code>100.0 * osszeg / …</code>-t: a <code>100.0</code> tizedes szám, így az egész kifejezés tizedes lesz.</p>
+</div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia</span>
+<p><em>window function</em> = ablakfüggvény (ablakozó függvény) · <em>window</em> = ablak · <em>aggregate</em> = összesítő (aggregáló) függvény ·
+<em>running total</em> = halmozott (kumulált, futó) összeg · <em>partition</em> = partíció · <em>frame</em> = (ablak)keret · <em>peer rows</em> = azonos rendezési értékű sorok (holtverseny, „döntetlen”).</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – <code>OVER()</code> (5 feladat)</summary>
+<ol>
+  <li><p>Hány sort ad vissza a <code>SELECT ugyfel, COUNT(*) FROM rendelesek GROUP BY ugyfel</code>, és hányat a <code>SELECT ugyfel, COUNT(*) OVER () FROM rendelesek</code>? Mi lesz az értékük?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>A <code>GROUP BY</code> 3 sort ad (Anna 4, Béla 3, Csilla 1). Az ablakos változat 8 sort ad, mindegyikben 8 áll: az üres <code>OVER()</code> ablaka az egész tábla.</p>
+    </details></li>
+  <li><p>Írd ki minden rendelés mellé, mennyivel marad el a legnagyobb rendeléstől!</p>
+    <details class="solution"><summary>Megoldás</summary>
+<pre><code class="language-sql">SELECT id, osszeg, MAX(osszeg) OVER () - osszeg AS lemaradas
+FROM rendelesek;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>osszeg</th><th>lemaradas</th></tr>
+<tr><td class="num">1</td><td class="num">40</td><td class="num">20</td></tr>
+<tr><td class="num">2</td><td class="num">25</td><td class="num">35</td></tr>
+<tr><td class="num">3</td><td class="num">35</td><td class="num">25</td></tr>
+<tr><td class="num">4</td><td class="num">40</td><td class="num">20</td></tr>
+<tr><td class="num">5</td><td class="num">60</td><td class="num">0</td></tr>
+<tr><td class="num">6</td><td class="num">20</td><td class="num">40</td></tr>
+<tr><td class="num">7</td><td class="num">30</td><td class="num">30</td></tr>
+<tr><td class="num">8</td><td class="num">50</td><td class="num">10</td></tr>
+</table></div>
+    <p>A legnagyobb a 60 (Béla), neki 0 a lemaradása.</p>
+    </details></li>
+  <li><p>Mit ad vissza <code>SELECT id, 100 * osszeg / SUM(osszeg) OVER () FROM rendelesek</code> az 1-es rendelésnél (osszeg 40)? És ha <code>100 * osszeg</code> helyett <code>osszeg / SUM(osszeg) OVER () * 100</code>-at írunk?</p>
+    <details class="solution"><summary>Megoldás</summary>
+<pre><code class="language-sql">SELECT id, osszeg,
+       100 * osszeg / SUM(osszeg) OVER ()  AS elol_szoroz,
+       osszeg / SUM(osszeg) OVER () * 100  AS vegen_szoroz,
+       100.0 * osszeg / SUM(osszeg) OVER () AS tizedes
+FROM rendelesek
+ORDER BY id LIMIT 2;  -- csak az első két sort írjuk ki</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>osszeg</th><th>elol_szoroz</th><th>vegen_szoroz</th><th>tizedes</th></tr>
+<tr><td class="num">1</td><td class="num">40</td><td class="num">13</td><td class="num">0</td><td class="num">13,33</td></tr>
+<tr><td class="num">2</td><td class="num">25</td><td class="num">8</td><td class="num">0</td><td class="num">8,33</td></tr>
+</table></div>
+    <p>Az 1-es sor: elöl szorozva $4000/300 = 13$ (egészosztás, a tört rész levágva). Végén szorozva $40/300 = 0$, majd $0\cdot 100 = 0$. Helyesen: $13{,}33\%$. (Miért nem <code>WHERE id = 1</code>-gyel szűrtünk? Mert akkor az ablak is csak azt az egy sort látná – lásd <a href="#lepes7">7. lépés</a>. A <code>LIMIT</code> viszont az ablakfüggvények után fut.)</p>
+    </details></li>
+  <li><p>Melyik rendelések átlag felettiek? Írd ki minden sor mellé az átlagot és egy 0/1 jelzőt!</p>
+    <details class="solution"><summary>Megoldás</summary>
+<pre><code class="language-sql">SELECT id, osszeg,
+       CASE WHEN osszeg &gt; AVG(osszeg) OVER () THEN 1 ELSE 0 END AS atlag_felett
+FROM rendelesek;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>osszeg</th><th>atlag_felett</th></tr>
+<tr><td class="num">1</td><td class="num">40</td><td class="num">1</td></tr>
+<tr><td class="num">2</td><td class="num">25</td><td class="num">0</td></tr>
+<tr><td class="num">3</td><td class="num">35</td><td class="num">0</td></tr>
+<tr><td class="num">4</td><td class="num">40</td><td class="num">1</td></tr>
+<tr><td class="num">5</td><td class="num">60</td><td class="num">1</td></tr>
+<tr><td class="num">6</td><td class="num">20</td><td class="num">0</td></tr>
+<tr><td class="num">7</td><td class="num">30</td><td class="num">0</td></tr>
+<tr><td class="num">8</td><td class="num">50</td><td class="num">1</td></tr>
+</table></div>
+    <p>Átlag 37,5; felette van a 40, 40, 60, 50 (id 1, 4, 5, 8). Az ablakfüggvény <code>CASE</code>-be ágyazva is használható.</p>
+    </details></li>
+  <li><p>Mi a gond ezzel: <code>SELECT id, osszeg, SUM(osszeg) FROM rendelesek</code>? Mit csinál SQLite-ban?</p>
+    <details class="solution"><summary>Megoldás</summary>
+<pre><code class="language-sql">SELECT id, osszeg, SUM(osszeg) FROM rendelesek;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>osszeg</th><th>SUM(osszeg)</th></tr>
+<tr><td class="num">1</td><td class="num">40</td><td class="num">300</td></tr>
+</table></div>
+    <p>Ez közönséges összesítés <code>GROUP BY</code> és <code>OVER</code> nélkül: <strong>egyetlen</strong> sorba vonja a táblát. A szabvány szerint (és PostgreSQL-ben) hiba, mert
+    <code>id</code> és <code>osszeg</code> nincs csoportosítva. Az SQLite engedékeny: lefut, de az <code>id</code>, <code>osszeg</code> értéke egy tetszőleges sorból jön, értelmetlen.
+    Amit akartunk: <code>SUM(osszeg) OVER ()</code>.</p>
+    </details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes2">
+<h2>2. lépés – <code>PARTITION BY</code>: csoportonkénti ablak</h2>
+
+<h4>Kis eset</h4>
+<p>Eddig az ablak az egész tábla volt. De a kérdés gyakran így szól: <em>az ügyfél saját költésének hány százaléka ez a rendelés?</em>
+Ehhez minden sor mellé <strong>a saját ügyfelének</strong> összege kell: Annánál 140, Bélánál 110, Csillánál 50.</p>
+<pre><code class="language-sql">SELECT id, ugyfel, osszeg,
+       SUM(osszeg) OVER (PARTITION BY ugyfel) AS ugyfel_ossz
+FROM rendelesek;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>ugyfel</th><th>osszeg</th><th>ugyfel_ossz</th></tr>
+<tr><td class="num">1</td><td>Anna</td><td class="num">40</td><td class="num">140</td></tr>
+<tr><td class="num">2</td><td>Anna</td><td class="num">25</td><td class="num">140</td></tr>
+<tr><td class="num">3</td><td>Anna</td><td class="num">35</td><td class="num">140</td></tr>
+<tr><td class="num">4</td><td>Anna</td><td class="num">40</td><td class="num">140</td></tr>
+<tr><td class="num">5</td><td>Béla</td><td class="num">60</td><td class="num">110</td></tr>
+<tr><td class="num">6</td><td>Béla</td><td class="num">20</td><td class="num">110</td></tr>
+<tr><td class="num">7</td><td>Béla</td><td class="num">30</td><td class="num">110</td></tr>
+<tr><td class="num">8</td><td>Csilla</td><td class="num">50</td><td class="num">50</td></tr>
+</table></div>
+<p>Ugyanazok a számok, mint a <code>GROUP BY ugyfel</code> eredményében, de a sorok megmaradtak. A <code>PARTITION BY</code> szeleteli a táblát, és a függvény szeletenként számol.</p>
+
+<div class="box def"><span class="box-title">Definíció – PARTITION BY</span>
+<p><code>PARTITION BY k</code> a sorokat a <code>k</code> értéke szerint <strong>partíciókra</strong> bontja. Egy sor ablaka csak a saját partíciójának sorait láthatja.
+A partíciók között nincs átjárás. Ha nincs <code>PARTITION BY</code>, az egész eredményhalmaz egyetlen partíció.</p>
+<p><strong>Miért?</strong> A <code>GROUP BY</code> logikáját adja („ugyanaz a csoportosítás”), de összevonás nélkül. A jegyzet szerint: a <code>PARTITION BY</code> „az aggregációs tartomány határait jelöli ki”.</p>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Hüvelykujjszabály</span>
+<p><code>GROUP BY k</code> → csoportonként <strong>1 sor</strong>. <code>OVER (PARTITION BY k)</code> → <strong>minden sor marad</strong>, mellette a csoport értéke.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – részarány az ügyfélen belül</span>
+<pre><code class="language-sql">SELECT id, ugyfel, osszeg,
+       ROUND(100.0 * osszeg / SUM(osszeg) OVER (PARTITION BY ugyfel), 1) AS ugyfelen_beluli_pct
+FROM rendelesek;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>ugyfel</th><th>osszeg</th><th>ugyfelen_beluli_pct</th></tr>
+<tr><td class="num">1</td><td>Anna</td><td class="num">40</td><td class="num">28,6</td></tr>
+<tr><td class="num">2</td><td>Anna</td><td class="num">25</td><td class="num">17,9</td></tr>
+<tr><td class="num">3</td><td>Anna</td><td class="num">35</td><td class="num">25</td></tr>
+<tr><td class="num">4</td><td>Anna</td><td class="num">40</td><td class="num">28,6</td></tr>
+<tr><td class="num">5</td><td>Béla</td><td class="num">60</td><td class="num">54,5</td></tr>
+<tr><td class="num">6</td><td>Béla</td><td class="num">20</td><td class="num">18,2</td></tr>
+<tr><td class="num">7</td><td>Béla</td><td class="num">30</td><td class="num">27,3</td></tr>
+<tr><td class="num">8</td><td>Csilla</td><td class="num">50</td><td class="num">100</td></tr>
+</table></div>
+<p>Béla 60-as rendelése $60/110 = 54{,}5\%$. Csilla egyetlen rendelése 100%. Ez a diákon szereplő „kategórián belüli részarány” minta.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – két különböző ablak egy lekérdezésben</span>
+<pre><code class="language-sql">SELECT id, ugyfel, osszeg,
+       SUM(osszeg) OVER (PARTITION BY ugyfel) AS ugyfel_ossz,
+       SUM(osszeg) OVER ()                    AS teljes,
+       ROUND(100.0 * SUM(osszeg) OVER (PARTITION BY ugyfel)
+                   / SUM(osszeg) OVER (), 1)  AS ugyfel_resz_pct
+FROM rendelesek;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>ugyfel</th><th>osszeg</th><th>ugyfel_ossz</th><th>teljes</th><th>ugyfel_resz_pct</th></tr>
+<tr><td class="num">1</td><td>Anna</td><td class="num">40</td><td class="num">140</td><td class="num">300</td><td class="num">46,7</td></tr>
+<tr><td class="num">2</td><td>Anna</td><td class="num">25</td><td class="num">140</td><td class="num">300</td><td class="num">46,7</td></tr>
+<tr><td class="num">3</td><td>Anna</td><td class="num">35</td><td class="num">140</td><td class="num">300</td><td class="num">46,7</td></tr>
+<tr><td class="num">4</td><td>Anna</td><td class="num">40</td><td class="num">140</td><td class="num">300</td><td class="num">46,7</td></tr>
+<tr><td class="num">5</td><td>Béla</td><td class="num">60</td><td class="num">110</td><td class="num">300</td><td class="num">36,7</td></tr>
+<tr><td class="num">6</td><td>Béla</td><td class="num">20</td><td class="num">110</td><td class="num">300</td><td class="num">36,7</td></tr>
+<tr><td class="num">7</td><td>Béla</td><td class="num">30</td><td class="num">110</td><td class="num">300</td><td class="num">36,7</td></tr>
+<tr><td class="num">8</td><td>Csilla</td><td class="num">50</td><td class="num">50</td><td class="num">300</td><td class="num">16,7</td></tr>
+</table></div>
+<p>Ez a jegyzet fő gondolata: „a különböző aggregációs függvényeknek egy parancsban más-más aggregációs tartománya lehet”. Anna a teljes bevétel $140/300 = 46{,}7\%$-át hozza.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – eltérés a csoport átlagától</span>
+<pre><code class="language-sql">SELECT hallgato, csoport, pont,
+       AVG(pont) OVER (PARTITION BY csoport)        AS csop_atlag,
+       pont - AVG(pont) OVER (PARTITION BY csoport) AS elteres
+FROM zh;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>hallgato</th><th>csoport</th><th>pont</th><th>csop_atlag</th><th>elteres</th></tr>
+<tr><td>Ádám</td><td>A</td><td class="num">92</td><td class="num">83</td><td class="num">9</td></tr>
+<tr><td>Bence</td><td>A</td><td class="num">85</td><td class="num">83</td><td class="num">2</td></tr>
+<tr><td>Cili</td><td>A</td><td class="num">85</td><td class="num">83</td><td class="num">2</td></tr>
+<tr><td>Dóra</td><td>A</td><td class="num">70</td><td class="num">83</td><td class="num">-13</td></tr>
+<tr><td>Emese</td><td>B</td><td class="num">78</td><td class="num">69,75</td><td class="num">8,25</td></tr>
+<tr><td>Feri</td><td>B</td><td class="num">70</td><td class="num">69,75</td><td class="num">0,25</td></tr>
+<tr><td>Gabi</td><td>B</td><td class="num">70</td><td class="num">69,75</td><td class="num">0,25</td></tr>
+<tr><td>Hanna</td><td>B</td><td class="num">61</td><td class="num">69,75</td><td class="num">-8,75</td></tr>
+</table></div>
+<p>Az A csoport átlaga $(92+85+85+70)/4 = 83$, a B csoporté $(78+70+70+61)/4 = 69{,}75$. Feri 70 pontja a B-ben átlag feletti, Dóra 70 pontja az A-ban átlag alatti.</p>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+<li>A <code>PARTITION BY</code> <strong>nem rendezi</strong> és nem csoportosítja a kimenetet. A sorok kiírási sorrendjét csak a lekérdezés végi <code>ORDER BY</code> garantálja.</li>
+<li>A <code>PARTITION BY</code> nem szűr: Csilla egyetlen rendelése is megmarad, egyelemű partícióban.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – <code>PARTITION BY</code> (5 feladat)</summary>
+<ol>
+  <li><p>Írd ki minden rendelés mellé az ügyfél rendeléseinek számát és átlagos rendelési értékét!</p>
+    <details class="solution"><summary>Megoldás</summary>
+<pre><code class="language-sql">SELECT id, ugyfel, osszeg,
+       COUNT(*)    OVER (PARTITION BY ugyfel) AS db,
+       ROUND(AVG(osszeg) OVER (PARTITION BY ugyfel), 2) AS atlag
+FROM rendelesek;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>ugyfel</th><th>osszeg</th><th>db</th><th>atlag</th></tr>
+<tr><td class="num">1</td><td>Anna</td><td class="num">40</td><td class="num">4</td><td class="num">35</td></tr>
+<tr><td class="num">2</td><td>Anna</td><td class="num">25</td><td class="num">4</td><td class="num">35</td></tr>
+<tr><td class="num">3</td><td>Anna</td><td class="num">35</td><td class="num">4</td><td class="num">35</td></tr>
+<tr><td class="num">4</td><td>Anna</td><td class="num">40</td><td class="num">4</td><td class="num">35</td></tr>
+<tr><td class="num">5</td><td>Béla</td><td class="num">60</td><td class="num">3</td><td class="num">36,67</td></tr>
+<tr><td class="num">6</td><td>Béla</td><td class="num">20</td><td class="num">3</td><td class="num">36,67</td></tr>
+<tr><td class="num">7</td><td>Béla</td><td class="num">30</td><td class="num">3</td><td class="num">36,67</td></tr>
+<tr><td class="num">8</td><td>Csilla</td><td class="num">50</td><td class="num">1</td><td class="num">50</td></tr>
+</table></div>
+    <p>Anna: 4 rendelés, átlag $140/4 = 35$. Béla: 3, átlag $110/3 \approx 36{,}67$. Csilla: 1, átlag 50.</p>
+    </details></li>
+  <li><p>Jelöld meg minden ügyfél legnagyobb rendelését (1 = ez a legnagyobb)!</p>
+    <details class="solution"><summary>Megoldás</summary>
+<pre><code class="language-sql">SELECT id, ugyfel, osszeg,
+       CASE WHEN osszeg = MAX(osszeg) OVER (PARTITION BY ugyfel) THEN 1 ELSE 0 END AS legnagyobb
+FROM rendelesek;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>ugyfel</th><th>osszeg</th><th>legnagyobb</th></tr>
+<tr><td class="num">1</td><td>Anna</td><td class="num">40</td><td class="num">1</td></tr>
+<tr><td class="num">2</td><td>Anna</td><td class="num">25</td><td class="num">0</td></tr>
+<tr><td class="num">3</td><td>Anna</td><td class="num">35</td><td class="num">0</td></tr>
+<tr><td class="num">4</td><td>Anna</td><td class="num">40</td><td class="num">1</td></tr>
+<tr><td class="num">5</td><td>Béla</td><td class="num">60</td><td class="num">1</td></tr>
+<tr><td class="num">6</td><td>Béla</td><td class="num">20</td><td class="num">0</td></tr>
+<tr><td class="num">7</td><td>Béla</td><td class="num">30</td><td class="num">0</td></tr>
+<tr><td class="num">8</td><td>Csilla</td><td class="num">50</td><td class="num">1</td></tr>
+</table></div>
+    <p>Annánál két 40-es is van, mindkettő 1-et kap. (Ha csak egyet akarnál, <code>ROW_NUMBER</code> kell – <a href="#lepes5">5. lépés</a>.)</p>
+    </details></li>
+  <li><p>A ZH-táblában írd ki minden hallgató mellé a csoportja legmagasabb pontszámát és a lemaradását tőle!</p>
+    <details class="solution"><summary>Megoldás</summary>
+<pre><code class="language-sql">SELECT hallgato, csoport, pont,
+       MAX(pont) OVER (PARTITION BY csoport)        AS csop_max,
+       MAX(pont) OVER (PARTITION BY csoport) - pont AS lemaradas
+FROM zh;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>hallgato</th><th>csoport</th><th>pont</th><th>csop_max</th><th>lemaradas</th></tr>
+<tr><td>Ádám</td><td>A</td><td class="num">92</td><td class="num">92</td><td class="num">0</td></tr>
+<tr><td>Bence</td><td>A</td><td class="num">85</td><td class="num">92</td><td class="num">7</td></tr>
+<tr><td>Cili</td><td>A</td><td class="num">85</td><td class="num">92</td><td class="num">7</td></tr>
+<tr><td>Dóra</td><td>A</td><td class="num">70</td><td class="num">92</td><td class="num">22</td></tr>
+<tr><td>Emese</td><td>B</td><td class="num">78</td><td class="num">78</td><td class="num">0</td></tr>
+<tr><td>Feri</td><td>B</td><td class="num">70</td><td class="num">78</td><td class="num">8</td></tr>
+<tr><td>Gabi</td><td>B</td><td class="num">70</td><td class="num">78</td><td class="num">8</td></tr>
+<tr><td>Hanna</td><td>B</td><td class="num">61</td><td class="num">78</td><td class="num">17</td></tr>
+</table></div>
+    </details></li>
+  <li><p>Partícionálhatunk kifejezés szerint is. Bontsd a rendeléseket „nagy” (≥ 40) és „kicsi” csoportra, és írd ki, hány rendelés van a saját csoportjában!</p>
+    <details class="solution"><summary>Megoldás</summary>
+<pre><code class="language-sql">SELECT id, osszeg,
+       CASE WHEN osszeg &gt;= 40 THEN 'nagy' ELSE 'kicsi' END AS meret,
+       COUNT(*) OVER (PARTITION BY osszeg &gt;= 40) AS db_a_csoportban
+FROM rendelesek ORDER BY id;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>osszeg</th><th>meret</th><th>db_a_csoportban</th></tr>
+<tr><td class="num">1</td><td class="num">40</td><td>nagy</td><td class="num">4</td></tr>
+<tr><td class="num">2</td><td class="num">25</td><td>kicsi</td><td class="num">4</td></tr>
+<tr><td class="num">3</td><td class="num">35</td><td>kicsi</td><td class="num">4</td></tr>
+<tr><td class="num">4</td><td class="num">40</td><td>nagy</td><td class="num">4</td></tr>
+<tr><td class="num">5</td><td class="num">60</td><td>nagy</td><td class="num">4</td></tr>
+<tr><td class="num">6</td><td class="num">20</td><td>kicsi</td><td class="num">4</td></tr>
+<tr><td class="num">7</td><td class="num">30</td><td>kicsi</td><td class="num">4</td></tr>
+<tr><td class="num">8</td><td class="num">50</td><td>nagy</td><td class="num">4</td></tr>
+</table></div>
+    <p>Nagy: 40, 40, 60, 50 → 4 db. Kicsi: 25, 35, 20, 30 → 4 db.</p>
+    </details></li>
+  <li><p>Ugyanazt adja-e a <code>SUM(osszeg) OVER (PARTITION BY ugyfel)</code> és a <code>SUM(osszeg) OVER ()</code>, ha előtte <code>WHERE ugyfel = 'Béla'</code> szűrés van? Miért?</p>
+    <details class="solution"><summary>Megoldás</summary>
+<pre><code class="language-sql">SELECT id, osszeg,
+       SUM(osszeg) OVER (PARTITION BY ugyfel) AS part,
+       SUM(osszeg) OVER ()                    AS ures
+FROM rendelesek WHERE ugyfel = 'Béla';</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>osszeg</th><th>part</th><th>ures</th></tr>
+<tr><td class="num">5</td><td class="num">60</td><td class="num">110</td><td class="num">110</td></tr>
+<tr><td class="num">6</td><td class="num">20</td><td class="num">110</td><td class="num">110</td></tr>
+<tr><td class="num">7</td><td class="num">30</td><td class="num">110</td><td class="num">110</td></tr>
+</table></div>
+    <p>Igen, mindkettő 110. A <code>WHERE</code> után csak Béla sorai maradnak, tehát egyetlen partíció van, és az megegyezik az egész eredményhalmazzal.</p>
+    </details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l07-lepes2"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes3">
+<h2>3. lépés – <code>ORDER BY</code> az ablakban: halmozott összesítés</h2>
+
+<h4>Kis eset</h4>
+<p>Béla rendelései időrendben: 60, 20, 30. Kérdés: <em>mennyit költött összesen az egyes rendelések után?</em> Kézzel: $60$, $60+20=80$, $80+30=110$.
+Az ablak tehát soronként nő: az első sornál csak önmaga, a másodiknál az első kettő, és így tovább.</p>
+<pre><code class="language-sql">SELECT id, datum, osszeg,
+       SUM(osszeg) OVER (ORDER BY datum) AS halmozott
+FROM rendelesek
+WHERE ugyfel = 'Béla';</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>datum</th><th>osszeg</th><th>halmozott</th></tr>
+<tr><td class="num">5</td><td>2025-01-02</td><td class="num">60</td><td class="num">60</td></tr>
+<tr><td class="num">6</td><td>2025-01-06</td><td class="num">20</td><td class="num">80</td></tr>
+<tr><td class="num">7</td><td>2025-01-08</td><td class="num">30</td><td class="num">110</td></tr>
+</table></div>
+
+<div class="box def"><span class="box-title">Definíció – ORDER BY az OVER-ben</span>
+<p>Ha az <code>OVER</code>-ben <code>ORDER BY</code> van, az összesítő függvény ablaka <strong>a partíció elejétől az aktuális sorig</strong> tart (pontosabban: az aktuális sorig és a vele azonos rendezési értékű sorokig – lásd <a href="#lepes4">4. lépés</a>).
+Így a <code>SUM</code> halmozott összeg, a <code>COUNT</code> futó darabszám, a <code>MAX</code> „eddigi rekord”, az <code>AVG</code> halmozott átlag lesz.</p>
+<p><strong>Miért?</strong> Időbeli folyamatoknál (költés, készlet, pontgyűjtés) az „eddig összesen” a természetes kérdés. A jegyzet szerint: az <code>ORDER BY</code> „inkrementális aggregálás”.</p>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Hüvelykujjszabály</span>
+<p><code>PARTITION BY</code> → <em>kinek</em> a sorai (hol kezdődik újra). <code>ORDER BY</code> → <em>milyen sorrendben</em> gyűlik az összeg.
+Halmozott összeg ügyfelenként: <code>SUM(x) OVER (PARTITION BY ügyfél ORDER BY dátum)</code>.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – halmozott összeg ügyfelenként</span>
+<p>Most egyedi rendezési kulcsot adunk (<code>datum, id</code>), hogy ne legyen holtverseny. (Hogy miért kell, a 4. lépésben kiderül.)</p>
+<pre><code class="language-sql">SELECT id, ugyfel, datum, osszeg,
+       SUM(osszeg) OVER (PARTITION BY ugyfel ORDER BY datum, id) AS halmozott
+FROM rendelesek
+ORDER BY ugyfel, datum, id;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>ugyfel</th><th>datum</th><th>osszeg</th><th>halmozott</th></tr>
+<tr><td class="num">1</td><td>Anna</td><td>2025-01-03</td><td class="num">40</td><td class="num">40</td></tr>
+<tr><td class="num">2</td><td>Anna</td><td>2025-01-05</td><td class="num">25</td><td class="num">65</td></tr>
+<tr><td class="num">3</td><td>Anna</td><td>2025-01-05</td><td class="num">35</td><td class="num">100</td></tr>
+<tr><td class="num">4</td><td>Anna</td><td>2025-01-09</td><td class="num">40</td><td class="num">140</td></tr>
+<tr><td class="num">5</td><td>Béla</td><td>2025-01-02</td><td class="num">60</td><td class="num">60</td></tr>
+<tr><td class="num">6</td><td>Béla</td><td>2025-01-06</td><td class="num">20</td><td class="num">80</td></tr>
+<tr><td class="num">7</td><td>Béla</td><td>2025-01-08</td><td class="num">30</td><td class="num">110</td></tr>
+<tr><td class="num">8</td><td>Csilla</td><td>2025-01-04</td><td class="num">50</td><td class="num">50</td></tr>
+</table></div>
+<p>Minden ügyfélnél újraindul a számolás. A partíció utolsó sora az ügyfél teljes összege (140, 110, 50).</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – futó darabszám és eddigi maximum az egész táblán</span>
+<pre><code class="language-sql">SELECT id, datum, osszeg,
+       COUNT(*)    OVER (ORDER BY datum, id) AS hanyadik,
+       MAX(osszeg) OVER (ORDER BY datum, id) AS eddigi_max
+FROM rendelesek
+ORDER BY datum, id;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>datum</th><th>osszeg</th><th>hanyadik</th><th>eddigi_max</th></tr>
+<tr><td class="num">5</td><td>2025-01-02</td><td class="num">60</td><td class="num">1</td><td class="num">60</td></tr>
+<tr><td class="num">1</td><td>2025-01-03</td><td class="num">40</td><td class="num">2</td><td class="num">60</td></tr>
+<tr><td class="num">8</td><td>2025-01-04</td><td class="num">50</td><td class="num">3</td><td class="num">60</td></tr>
+<tr><td class="num">2</td><td>2025-01-05</td><td class="num">25</td><td class="num">4</td><td class="num">60</td></tr>
+<tr><td class="num">3</td><td>2025-01-05</td><td class="num">35</td><td class="num">5</td><td class="num">60</td></tr>
+<tr><td class="num">6</td><td>2025-01-06</td><td class="num">20</td><td class="num">6</td><td class="num">60</td></tr>
+<tr><td class="num">7</td><td>2025-01-08</td><td class="num">30</td><td class="num">7</td><td class="num">60</td></tr>
+<tr><td class="num">4</td><td>2025-01-09</td><td class="num">40</td><td class="num">8</td><td class="num">60</td></tr>
+</table></div>
+<p>Az első rendelés 60 volt, ezt később senki nem múlta felül, így az eddigi maximum végig 60.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – ugyanaz a függvény, rendezéssel és anélkül</span>
+<pre><code class="language-sql">SELECT id, datum, osszeg,
+       SUM(osszeg) OVER (PARTITION BY ugyfel)                    AS osszes,
+       SUM(osszeg) OVER (PARTITION BY ugyfel ORDER BY datum, id) AS halmozott
+FROM rendelesek
+WHERE ugyfel = 'Béla';</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>datum</th><th>osszeg</th><th>osszes</th><th>halmozott</th></tr>
+<tr><td class="num">5</td><td>2025-01-02</td><td class="num">60</td><td class="num">110</td><td class="num">60</td></tr>
+<tr><td class="num">6</td><td>2025-01-06</td><td class="num">20</td><td class="num">110</td><td class="num">80</td></tr>
+<tr><td class="num">7</td><td>2025-01-08</td><td class="num">30</td><td class="num">110</td><td class="num">110</td></tr>
+</table></div>
+<p>Az egyetlen különbség az <code>ORDER BY</code>. Nélküle a teljes partíció az ablak, vele „az elejétől idáig”.</p>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+<li>Az <code>OVER (ORDER BY …)</code> a <strong>számolás</strong> sorrendjét adja meg, nem a kiírásét. A kimenet sorrendjét a lekérdezés végi <code>ORDER BY</code> szabja meg; ha az hiányzik, a sorrend nem garantált.</li>
+<li>Ha a rendezési kulcs nem egyedi (pl. két rendelés ugyanazon a napon), a halmozott érték meglepő lehet. Ez a következő lépés témája.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – halmozott összesítés (5 feladat)</summary>
+<ol>
+  <li><p>Mennyi Anna halmozott költése a 3. rendelése után, ha a rendezés <code>datum, id</code>? Számold ki kézzel, majd SQL-lel!</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>Anna rendelései <code>datum, id</code> szerint: 40 (id 1), 25 (id 2), 35 (id 3), 40 (id 4). A harmadik után: $40+25+35 = 100$.</p>
+<pre><code class="language-sql">SELECT id, osszeg, SUM(osszeg) OVER (ORDER BY datum, id) AS halmozott
+FROM rendelesek WHERE ugyfel = 'Anna';</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>osszeg</th><th>halmozott</th></tr>
+<tr><td class="num">1</td><td class="num">40</td><td class="num">40</td></tr>
+<tr><td class="num">2</td><td class="num">25</td><td class="num">65</td></tr>
+<tr><td class="num">3</td><td class="num">35</td><td class="num">100</td></tr>
+<tr><td class="num">4</td><td class="num">40</td><td class="num">140</td></tr>
+</table></div>
+    </details></li>
+  <li><p>Számolj halmozott bevételt az egész táblára, időrendben!</p>
+    <details class="solution"><summary>Megoldás</summary>
+<pre><code class="language-sql">SELECT id, datum, osszeg, SUM(osszeg) OVER (ORDER BY datum, id) AS halmozott
+FROM rendelesek ORDER BY datum, id;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>datum</th><th>osszeg</th><th>halmozott</th></tr>
+<tr><td class="num">5</td><td>2025-01-02</td><td class="num">60</td><td class="num">60</td></tr>
+<tr><td class="num">1</td><td>2025-01-03</td><td class="num">40</td><td class="num">100</td></tr>
+<tr><td class="num">8</td><td>2025-01-04</td><td class="num">50</td><td class="num">150</td></tr>
+<tr><td class="num">2</td><td>2025-01-05</td><td class="num">25</td><td class="num">175</td></tr>
+<tr><td class="num">3</td><td>2025-01-05</td><td class="num">35</td><td class="num">210</td></tr>
+<tr><td class="num">6</td><td>2025-01-06</td><td class="num">20</td><td class="num">230</td></tr>
+<tr><td class="num">7</td><td>2025-01-08</td><td class="num">30</td><td class="num">260</td></tr>
+<tr><td class="num">4</td><td>2025-01-09</td><td class="num">40</td><td class="num">300</td></tr>
+</table></div>
+    <p>Az utolsó sor a teljes bevétel, 300.</p>
+    </details></li>
+  <li><p>Számold ki Béla halmozott átlagos rendelési értékét (az eddigi rendelések átlagát)!</p>
+    <details class="solution"><summary>Megoldás</summary>
+<pre><code class="language-sql">SELECT id, osszeg, ROUND(AVG(osszeg) OVER (ORDER BY datum, id), 2) AS eddigi_atlag
+FROM rendelesek WHERE ugyfel = 'Béla';</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>osszeg</th><th>eddigi_atlag</th></tr>
+<tr><td class="num">5</td><td class="num">60</td><td class="num">60</td></tr>
+<tr><td class="num">6</td><td class="num">20</td><td class="num">40</td></tr>
+<tr><td class="num">7</td><td class="num">30</td><td class="num">36,67</td></tr>
+</table></div>
+    <p>$60$; $(60+20)/2 = 40$; $(60+20+30)/3 \approx 36{,}67$.</p>
+    </details></li>
+  <li><p>Hányadik rendelése ez az ügyfélnek? Oldd meg <code>COUNT</code>-tal, ablakfüggvénnyel!</p>
+    <details class="solution"><summary>Megoldás</summary>
+<pre><code class="language-sql">SELECT id, ugyfel, datum,
+       COUNT(*) OVER (PARTITION BY ugyfel ORDER BY datum, id) AS hanyadik
+FROM rendelesek ORDER BY ugyfel, datum, id;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>ugyfel</th><th>datum</th><th>hanyadik</th></tr>
+<tr><td class="num">1</td><td>Anna</td><td>2025-01-03</td><td class="num">1</td></tr>
+<tr><td class="num">2</td><td>Anna</td><td>2025-01-05</td><td class="num">2</td></tr>
+<tr><td class="num">3</td><td>Anna</td><td>2025-01-05</td><td class="num">3</td></tr>
+<tr><td class="num">4</td><td>Anna</td><td>2025-01-09</td><td class="num">4</td></tr>
+<tr><td class="num">5</td><td>Béla</td><td>2025-01-02</td><td class="num">1</td></tr>
+<tr><td class="num">6</td><td>Béla</td><td>2025-01-06</td><td class="num">2</td></tr>
+<tr><td class="num">7</td><td>Béla</td><td>2025-01-08</td><td class="num">3</td></tr>
+<tr><td class="num">8</td><td>Csilla</td><td>2025-01-04</td><td class="num">1</td></tr>
+</table></div>
+    <p>Erre van külön függvény is: <code>ROW_NUMBER()</code> (<a href="#lepes5">5. lépés</a>).</p>
+    </details></li>
+  <li><p>Futó részarány: az időrendben eddigi bevétel a teljes bevétel hány százaléka? (Két ablak kell: egy rendezett és egy üres.)</p>
+    <details class="solution"><summary>Megoldás</summary>
+<pre><code class="language-sql">SELECT id, datum, osszeg,
+       ROUND(100.0 * SUM(osszeg) OVER (ORDER BY datum, id)
+                   / SUM(osszeg) OVER (), 1) AS eddig_pct
+FROM rendelesek ORDER BY datum, id;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>datum</th><th>osszeg</th><th>eddig_pct</th></tr>
+<tr><td class="num">5</td><td>2025-01-02</td><td class="num">60</td><td class="num">20</td></tr>
+<tr><td class="num">1</td><td>2025-01-03</td><td class="num">40</td><td class="num">33,3</td></tr>
+<tr><td class="num">8</td><td>2025-01-04</td><td class="num">50</td><td class="num">50</td></tr>
+<tr><td class="num">2</td><td>2025-01-05</td><td class="num">25</td><td class="num">58,3</td></tr>
+<tr><td class="num">3</td><td>2025-01-05</td><td class="num">35</td><td class="num">70</td></tr>
+<tr><td class="num">6</td><td>2025-01-06</td><td class="num">20</td><td class="num">76,7</td></tr>
+<tr><td class="num">7</td><td>2025-01-08</td><td class="num">30</td><td class="num">86,7</td></tr>
+<tr><td class="num">4</td><td>2025-01-09</td><td class="num">40</td><td class="num">100</td></tr>
+</table></div>
+    <p>Például a harmadik rendelés után: $(60+40+50)/300 = 50\%$. Ez a logika áll a Pareto- (ABC-) elemzés mögött is.</p>
+    </details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes4">
+<h2>4. lépés – Ablakkeret: <code>ROWS</code> és <code>RANGE</code></h2>
+
+<h4>Kis eset: a meglepetés</h4>
+<p>Írjuk meg Anna halmozott összegét úgy, ahogy elsőre bárki írná: <code>ORDER BY datum</code>, tie-breaker (<code>id</code>) nélkül. Mellé tesszük a <code>ROWS</code>-os változatot is.</p>
+<pre><code class="language-sql">SELECT id, datum, osszeg,
+       SUM(osszeg) OVER (ORDER BY datum)                    AS alapertelmezett,
+       SUM(osszeg) OVER (ORDER BY datum
+                         ROWS BETWEEN UNBOUNDED PRECEDING
+                              AND CURRENT ROW)             AS sorokkal
+FROM rendelesek
+WHERE ugyfel = 'Anna'
+ORDER BY datum, id;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>datum</th><th>osszeg</th><th>alapertelmezett</th><th>sorokkal</th></tr>
+<tr><td class="num">1</td><td>2025-01-03</td><td class="num">40</td><td class="num">40</td><td class="num">40</td></tr>
+<tr><td class="num">2</td><td>2025-01-05</td><td class="num">25</td><td class="num">100</td><td class="num">65</td></tr>
+<tr><td class="num">3</td><td>2025-01-05</td><td class="num">35</td><td class="num">100</td><td class="num">100</td></tr>
+<tr><td class="num">4</td><td>2025-01-09</td><td class="num">40</td><td class="num">140</td><td class="num">140</td></tr>
+</table></div>
+<p>A 2-es sornál az alapértelmezett változat 100-at mutat, pedig „eddig” csak $40+25 = 65$ jött össze. Ok: a 2-es és 3-as rendelés <strong>ugyanazon a napon</strong> volt.
+Az alapértelmezett keret az aktuális nappal azonos dátumú sorokat <em>mind</em> beveszi. A <code>ROWS</code> fizikailag sorról sorra lép.</p>
+
+<div class="box def"><span class="box-title">Definíció – Ablakkeret (frame)</span>
+<p>A keret a partíción belül az aktuális sorhoz tartozó sorok tartománya. Az összesítő és a pozicionáló függvények (<code>FIRST_VALUE</code>, <code>LAST_VALUE</code>, <code>NTH_VALUE</code>) <strong>a kereten</strong> számolnak.</p>
+<pre><code class="language-sql">{ ROWS | RANGE } BETWEEN kezdet AND vég</code></pre>
+<div class="table-wrap"><table>
+<tr><th>Határ</th><th>Jelentés</th></tr>
+<tr><td><code>UNBOUNDED PRECEDING</code></td><td>a partíció első sora</td></tr>
+<tr><td><code>N PRECEDING</code></td><td><code>ROWS</code>: N sorral előbb · <code>RANGE</code>: N-nel kisebb rendezési érték</td></tr>
+<tr><td><code>CURRENT ROW</code></td><td><code>ROWS</code>: az aktuális sor · <code>RANGE</code>: az aktuális sor és az összes vele azonos értékű sor</td></tr>
+<tr><td><code>N FOLLOWING</code></td><td><code>ROWS</code>: N sorral később · <code>RANGE</code>: N-nel nagyobb rendezési érték</td></tr>
+<tr><td><code>UNBOUNDED FOLLOWING</code></td><td>a partíció utolsó sora</td></tr>
+</table></div>
+<ul>
+<li><strong><code>ROWS</code></strong> – fizikai sorszámláló: „2 sorral előbbtől idáig”.</li>
+<li><strong><code>RANGE</code></strong> – logikai értékhatár: a rendezési oszlop <em>értéke</em> számít, az azonos értékű sorokat (holtversenyeket) együtt kezeli.</li>
+</ul>
+<p>Rövid alak: <code>ROWS 2 PRECEDING</code> = <code>ROWS BETWEEN 2 PRECEDING AND CURRENT ROW</code>.</p>
+</div>
+
+<figure>
+<svg viewBox="0 0 630 210" role="img" aria-label="Ablakkeretek egy hatsoros partíción, az aktuális sor a negyedik" style="max-width:630px;width:100%">
+  <g font-family="Inter, sans-serif" font-size="13" fill="currentColor">
+    <text x="10" y="22" font-weight="600">partíció (rendezve)</text>
+    <g stroke="currentColor" stroke-width="1" fill="none">
+      <rect x="240" y="8" width="56" height="26" rx="4"/><rect x="302" y="8" width="56" height="26" rx="4"/>
+      <rect x="364" y="8" width="56" height="26" rx="4"/>
+      <rect x="488" y="8" width="56" height="26" rx="4"/><rect x="550" y="8" width="56" height="26" rx="4"/>
+    </g>
+    <rect x="426" y="8" width="56" height="26" rx="4" fill="var(--accent)" fill-opacity="0.25" stroke="var(--accent)" stroke-width="2"/>
+    <text x="260" y="26">1.</text><text x="322" y="26">2.</text><text x="384" y="26">3.</text>
+    <text x="434" y="26" font-weight="700">4. akt.</text><text x="508" y="26">5.</text><text x="570" y="26">6.</text>
+    <text x="10" y="66">ROWS 1 PREC … 1 FOLL</text>
+    <rect x="364" y="52" width="180" height="18" rx="4" fill="var(--accent)" fill-opacity="0.55"/>
+    <text x="10" y="102">UNBOUNDED PREC … CURRENT</text>
+    <rect x="240" y="88" width="242" height="18" rx="4" fill="var(--accent)" fill-opacity="0.55"/>
+    <text x="10" y="138">CURRENT … UNBOUNDED FOLL</text>
+    <rect x="426" y="124" width="180" height="18" rx="4" fill="var(--accent)" fill-opacity="0.55"/>
+    <text x="10" y="174">nincs ORDER BY</text>
+    <rect x="240" y="160" width="366" height="18" rx="4" fill="var(--accent)" fill-opacity="0.55"/>
+    <text x="10" y="202" font-size="12" opacity="0.8">(a teljes partíció)</text>
+  </g>
+</svg>
+<figcaption>Néhány keret a 4. sorhoz. A sáv azokat a sorokat jelöli, amelyeken a függvény számol.</figcaption>
+</figure>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – az alapértelmezett keret</span>
+<ul>
+<li><strong>Nincs <code>ORDER BY</code></strong> az <code>OVER</code>-ben → a keret a <strong>teljes partíció</strong>.</li>
+<li><strong>Van <code>ORDER BY</code></strong>, de keret nincs megadva → <code>RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW</code>.
+Ez a <code>RANGE</code> miatt <strong>az aktuális sorral azonos rendezési értékű sorokat is</strong> beveszi. Holtversenynél ezért ugrik a halmozott összeg (fenti 100, 100).</li>
+<li>Megoldás: egyedi rendezési kulcs (<code>ORDER BY datum, id</code>), vagy kifejezetten <code>ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW</code>. Az előadás mintakódja is így írja ki.</li>
+<li><code>ROWS</code> holtversennyel: az azonos dátumú sorok sorrendje nem meghatározott, így futtatásról futtatásra eltérhet, melyik kapja a 65-öt. <strong>ROWS mellé is tegyél tie-breakert.</strong></li>
+</ul>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – mozgó összeg: ROWS vs. RANGE számértékkel</span>
+<p>„Az elmúlt 3 nap” bevétele mást jelent, mint „az utolsó 3 rendelés” bevétele. A <code>julianday(datum)</code> a dátumot napszámmá alakítja (SQLite), így a <code>RANGE 2 PRECEDING</code> „legfeljebb 2 nappal korábbi” sorokat jelent.</p>
+<pre><code class="language-sql">SELECT id, datum, osszeg,
+       SUM(osszeg) OVER (ORDER BY datum, id
+                         ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)  AS utolso_3_rendeles,
+       SUM(osszeg) OVER (ORDER BY julianday(datum)
+                         RANGE BETWEEN 2 PRECEDING AND CURRENT ROW) AS utolso_3_nap
+FROM rendelesek
+ORDER BY datum, id;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>datum</th><th>osszeg</th><th>utolso_3_rendeles</th><th>utolso_3_nap</th></tr>
+<tr><td class="num">5</td><td>2025-01-02</td><td class="num">60</td><td class="num">60</td><td class="num">60</td></tr>
+<tr><td class="num">1</td><td>2025-01-03</td><td class="num">40</td><td class="num">100</td><td class="num">100</td></tr>
+<tr><td class="num">8</td><td>2025-01-04</td><td class="num">50</td><td class="num">150</td><td class="num">150</td></tr>
+<tr><td class="num">2</td><td>2025-01-05</td><td class="num">25</td><td class="num">115</td><td class="num">150</td></tr>
+<tr><td class="num">3</td><td>2025-01-05</td><td class="num">35</td><td class="num">110</td><td class="num">150</td></tr>
+<tr><td class="num">6</td><td>2025-01-06</td><td class="num">20</td><td class="num">80</td><td class="num">130</td></tr>
+<tr><td class="num">7</td><td>2025-01-08</td><td class="num">30</td><td class="num">85</td><td class="num">50</td></tr>
+<tr><td class="num">4</td><td>2025-01-09</td><td class="num">40</td><td class="num">90</td><td class="num">70</td></tr>
+</table></div>
+<p>Az 01-08-as sornál: az utolsó 3 rendelés $35+20+30 = 85$, de az utolsó 3 napban (01-06…01-08) csak $20+30 = 50$ jött be, mert 01-07-én nem volt rendelés.
+Az 01-05-ös két sornál a <code>RANGE</code> mindkettőnek ugyanazt adja (150), a <code>ROWS</code> nem.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – centrált mozgóátlag (előző, aktuális, következő)</span>
+<pre><code class="language-sql">SELECT id, datum, osszeg,
+       ROUND(AVG(osszeg) OVER (ORDER BY datum, id
+             ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING), 2) AS mozgo_atlag_3
+FROM rendelesek
+ORDER BY datum, id;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>datum</th><th>osszeg</th><th>mozgo_atlag_3</th></tr>
+<tr><td class="num">5</td><td>2025-01-02</td><td class="num">60</td><td class="num">50</td></tr>
+<tr><td class="num">1</td><td>2025-01-03</td><td class="num">40</td><td class="num">50</td></tr>
+<tr><td class="num">8</td><td>2025-01-04</td><td class="num">50</td><td class="num">38,33</td></tr>
+<tr><td class="num">2</td><td>2025-01-05</td><td class="num">25</td><td class="num">36,67</td></tr>
+<tr><td class="num">3</td><td>2025-01-05</td><td class="num">35</td><td class="num">26,67</td></tr>
+<tr><td class="num">6</td><td>2025-01-06</td><td class="num">20</td><td class="num">28,33</td></tr>
+<tr><td class="num">7</td><td>2025-01-08</td><td class="num">30</td><td class="num">30</td></tr>
+<tr><td class="num">4</td><td>2025-01-09</td><td class="num">40</td><td class="num">35</td></tr>
+</table></div>
+<p>Az első sornál nincs előző sor, ezért csak 2 sor átlaga: $(60+40)/2 = 50$. A keret a partíció szélén <strong>rövidebb</strong>, nem hiba és nem <code>NULL</code>.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – „hátralévő” összeg</span>
+<pre><code class="language-sql">SELECT id, datum, osszeg,
+       SUM(osszeg) OVER (PARTITION BY ugyfel ORDER BY datum, id
+             ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING) AS ettol_vegig
+FROM rendelesek
+WHERE ugyfel = 'Anna';</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>datum</th><th>osszeg</th><th>ettol_vegig</th></tr>
+<tr><td class="num">1</td><td>2025-01-03</td><td class="num">40</td><td class="num">140</td></tr>
+<tr><td class="num">2</td><td>2025-01-05</td><td class="num">25</td><td class="num">100</td></tr>
+<tr><td class="num">3</td><td>2025-01-05</td><td class="num">35</td><td class="num">75</td></tr>
+<tr><td class="num">4</td><td>2025-01-09</td><td class="num">40</td><td class="num">40</td></tr>
+</table></div>
+<p>Fordított halmozás: az aktuális sortól a partíció végéig. Az első sor a teljes összeg (140).</p>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – „7 napos” mozgóátlag</span>
+<p>A dia mintakódja: <code>AVG(osszeg) OVER (ORDER BY rendeles_datum ROWS BETWEEN 6 PRECEDING AND CURRENT ROW)</code>. Ez <strong>7 sor</strong> átlaga.
+Csak akkor 7 nap, ha minden napra pontosan egy sor jut. Kimaradó napoknál vagy napi több rendelésnél a valódi időtartamhoz <code>RANGE</code> kell
+(PostgreSQL-ben <code>RANGE BETWEEN INTERVAL '6 days' PRECEDING AND CURRENT ROW</code>, SQLite-ban napszámmal, mint fent). Az első 6 sornál pedig kevesebb, mint 7 sor átlaga jön ki.
+A diák állítása, hogy a <code>ROWS</code> „mindig pontosan N sort vesz figyelembe”, tehát a partíció elején nem teljesül.</p>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés (nem szerepelt az előadáson)</span>
+<p>A szabvány egy harmadik keretmódot is ismer: <code>GROUPS</code> (PostgreSQL 11+, SQLite 3.28+). Ez holtverseny-csoportokat számol: <code>GROUPS 1 PRECEDING</code> = az előző értékcsoport és a sajátja.
+Az <code>EXCLUDE CURRENT ROW</code> opcióval pedig az aktuális sor kihagyható a keretből (pl. „a többiek átlaga”). MySQL és SQL Server ezeket nem támogatja.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – ablakkeret (5 feladat)</summary>
+<ol>
+  <li><p>Mi a keret a <code>SUM(osszeg) OVER (PARTITION BY ugyfel)</code>, illetve a <code>SUM(osszeg) OVER (PARTITION BY ugyfel ORDER BY datum)</code> esetén?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>Az első: a teljes partíció (nincs <code>ORDER BY</code>). A második: <code>RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW</code>, vagyis a partíció elejétől az aktuális dátumig, az azonos dátumú sorokat is beleértve.</p>
+    </details></li>
+  <li><p>Számold ki Anna sorainál kézzel a <code>COUNT(*) OVER (ORDER BY datum)</code> értékét, majd ellenőrizd!</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>01-03: 1. A két 01-05-ös sor: mindkettőnél 3 (az 1-es és mindkét azonos dátumú sor). 01-09: 4.</p>
+<pre><code class="language-sql">SELECT id, datum, COUNT(*) OVER (ORDER BY datum) AS db
+FROM rendelesek WHERE ugyfel = 'Anna' ORDER BY datum, id;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>datum</th><th>db</th></tr>
+<tr><td class="num">1</td><td>2025-01-03</td><td class="num">1</td></tr>
+<tr><td class="num">2</td><td>2025-01-05</td><td class="num">3</td></tr>
+<tr><td class="num">3</td><td>2025-01-05</td><td class="num">3</td></tr>
+<tr><td class="num">4</td><td>2025-01-09</td><td class="num">4</td></tr>
+</table></div>
+    </details></li>
+  <li><p>A <code>havi</code> táblán számolj 3 havi visszatekintő mozgóátlagot (az adott és a két előző hónap)!</p>
+    <details class="solution"><summary>Megoldás</summary>
+<pre><code class="language-sql">SELECT honap, bevetel,
+       ROUND(AVG(bevetel) OVER (ORDER BY honap
+             ROWS BETWEEN 2 PRECEDING AND CURRENT ROW), 2) AS mozgo_3
+FROM havi;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>honap</th><th>bevetel</th><th>mozgo_3</th></tr>
+<tr><td>2025-01</td><td class="num">120</td><td class="num">120</td></tr>
+<tr><td>2025-02</td><td class="num">150</td><td class="num">135</td></tr>
+<tr><td>2025-03</td><td class="num">135</td><td class="num">135</td></tr>
+<tr><td>2025-04</td><td class="num">180</td><td class="num">155</td></tr>
+<tr><td>2025-05</td><td class="num">165</td><td class="num">160</td></tr>
+<tr><td>2025-06</td><td class="num">210</td><td class="num">185</td></tr>
+</table></div>
+    <p>Március: $(120+150+135)/3 = 135$. Január és február még 1, illetve 2 hónap átlaga.</p>
+    </details></li>
+  <li><p>A <code>havi</code> táblán: mekkora a bevétel az aktuális és a következő hónapban együtt?</p>
+    <details class="solution"><summary>Megoldás</summary>
+<pre><code class="language-sql">SELECT honap, bevetel,
+       SUM(bevetel) OVER (ORDER BY honap
+             ROWS BETWEEN CURRENT ROW AND 1 FOLLOWING) AS ez_es_kov
+FROM havi;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>honap</th><th>bevetel</th><th>ez_es_kov</th></tr>
+<tr><td>2025-01</td><td class="num">120</td><td class="num">270</td></tr>
+<tr><td>2025-02</td><td class="num">150</td><td class="num">285</td></tr>
+<tr><td>2025-03</td><td class="num">135</td><td class="num">315</td></tr>
+<tr><td>2025-04</td><td class="num">180</td><td class="num">345</td></tr>
+<tr><td>2025-05</td><td class="num">165</td><td class="num">375</td></tr>
+<tr><td>2025-06</td><td class="num">210</td><td class="num">210</td></tr>
+</table></div>
+    <p>Júniusban nincs következő hónap, ezért csak 210.</p>
+    </details></li>
+  <li><p>Írj „a többi rendelés átlaga az ügyfélnél” oszlopot <code>EXCLUDE</code> nélkül! (Ötlet: két teljes partíciós ablak.)</p>
+    <details class="solution"><summary>Megoldás</summary>
+<pre><code class="language-sql">SELECT id, ugyfel, osszeg,
+       ROUND(1.0 * (SUM(osszeg) OVER (PARTITION BY ugyfel) - osszeg)
+                 / (COUNT(*)    OVER (PARTITION BY ugyfel) - 1), 2) AS tobbiek_atlaga
+FROM rendelesek ORDER BY id;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>ugyfel</th><th>osszeg</th><th>tobbiek_atlaga</th></tr>
+<tr><td class="num">1</td><td>Anna</td><td class="num">40</td><td class="num">33,33</td></tr>
+<tr><td class="num">2</td><td>Anna</td><td class="num">25</td><td class="num">38,33</td></tr>
+<tr><td class="num">3</td><td>Anna</td><td class="num">35</td><td class="num">35</td></tr>
+<tr><td class="num">4</td><td>Anna</td><td class="num">40</td><td class="num">33,33</td></tr>
+<tr><td class="num">5</td><td>Béla</td><td class="num">60</td><td class="num">25</td></tr>
+<tr><td class="num">6</td><td>Béla</td><td class="num">20</td><td class="num">45</td></tr>
+<tr><td class="num">7</td><td>Béla</td><td class="num">30</td><td class="num">40</td></tr>
+<tr><td class="num">8</td><td>Csilla</td><td class="num">50</td><td class="num"><em>NULL</em></td></tr>
+</table></div>
+    <p>Az 1-es sor: $(140-40)/3 \approx 33{,}33$. Csillánál $0/0$: SQLite-ban a nullával osztás <code>NULL</code> (más rendszerben hiba lehet; ott <code>NULLIF(…, 0)</code> kell a nevezőbe).</p>
+    </details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l07-lepes4"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes5">
+<h2>5. lépés – Rangsorolók: <code>ROW_NUMBER</code>, <code>RANK</code>, <code>DENSE_RANK</code>, <code>NTILE</code></h2>
+
+<h4>Kis eset</h4>
+<p>A ZH-pontok csökkenő sorrendben: 92, 85, 85, 78, 70, 70, 70, 61. Hányadik helyezett Emese (78)? Attól függ, hogyan kezeled a holtversenyt:</p>
+<ul>
+<li>sorszámozva: 4. (mindenki egyedi számot kap),</li>
+<li>„olimpiai” módon: 4. (két 2. hely után nincs 3.),</li>
+<li>tömören: 3. (78 a harmadik különböző pontszám).</li>
+</ul>
+<p>Pontosan ezt a három szabályt valósítja meg a három rangsoroló függvény:</p>
+<pre><code class="language-sql">SELECT hallgato, pont,
+       ROW_NUMBER() OVER (ORDER BY pont DESC) AS row_number,
+       RANK()       OVER (ORDER BY pont DESC) AS rank,
+       DENSE_RANK() OVER (ORDER BY pont DESC) AS dense_rank,
+       NTILE(4)     OVER (ORDER BY pont DESC) AS ntile_4
+FROM zh
+ORDER BY pont DESC, row_number;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>hallgato</th><th>pont</th><th>row_number</th><th>rank</th><th>dense_rank</th><th>ntile_4</th></tr>
+<tr><td>Ádám</td><td class="num">92</td><td class="num">1</td><td class="num">1</td><td class="num">1</td><td class="num">1</td></tr>
+<tr><td>Bence</td><td class="num">85</td><td class="num">2</td><td class="num">2</td><td class="num">2</td><td class="num">1</td></tr>
+<tr><td>Cili</td><td class="num">85</td><td class="num">3</td><td class="num">2</td><td class="num">2</td><td class="num">2</td></tr>
+<tr><td>Emese</td><td class="num">78</td><td class="num">4</td><td class="num">4</td><td class="num">3</td><td class="num">2</td></tr>
+<tr><td>Dóra</td><td class="num">70</td><td class="num">5</td><td class="num">5</td><td class="num">4</td><td class="num">3</td></tr>
+<tr><td>Feri</td><td class="num">70</td><td class="num">6</td><td class="num">5</td><td class="num">4</td><td class="num">3</td></tr>
+<tr><td>Gabi</td><td class="num">70</td><td class="num">7</td><td class="num">5</td><td class="num">4</td><td class="num">4</td></tr>
+<tr><td>Hanna</td><td class="num">61</td><td class="num">8</td><td class="num">8</td><td class="num">5</td><td class="num">4</td></tr>
+</table></div>
+
+<div class="box def"><span class="box-title">Definíció – Rangsoroló függvények</span>
+<div class="table-wrap"><table>
+<tr><th>Függvény</th><th>Holtverseny</th><th>Utána</th><th>Példa (92, 85, 85, 78)</th></tr>
+<tr><td><code>ROW_NUMBER()</code></td><td>különböző szám (önkényes sorrendben)</td><td>folytatólagos</td><td>1, 2, 3, 4</td></tr>
+<tr><td><code>RANK()</code></td><td>azonos rang</td><td><strong>kihagy</strong> (hézag)</td><td>1, 2, 2, 4</td></tr>
+<tr><td><code>DENSE_RANK()</code></td><td>azonos rang</td><td><strong>nem hagy ki</strong></td><td>1, 2, 2, 3</td></tr>
+<tr><td><code>NTILE(n)</code></td><td>nem nézi</td><td>—</td><td>n közel egyenlő „vödörbe” osztja a sorokat</td></tr>
+</table></div>
+<p>Mindegyikhez <code>ORDER BY</code> kell az <code>OVER</code>-ben (ez adja a rangsor alapját). Argumentumuk nincs (kivéve <code>NTILE(n)</code>), és <strong>a keretet figyelmen kívül hagyják</strong>.</p>
+<p><code>RANK</code> = 1 + (a nálam szigorúan jobb sorok száma). <code>DENSE_RANK</code> = 1 + (a nálam jobb <em>különböző</em> értékek száma).</p>
+<p><strong>Miért?</strong> Self-join és <code>COUNT</code> nélkül, egy lépésben adnak sorszámot. Klasszikus felhasználás: top-N csoportonként, duplikátumszűrés, kvartilisbe sorolás.</p>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – NTILE és a holtverseny</span>
+<p>Az <code>NTILE</code> csak a sorokat számolja: 8 sor / 4 vödör = 2 sor vödrönként. A fenti táblában Bence és Cili egyaránt 85 pontos, mégis különböző negyedbe (1 és 2) kerül,
+és a három 70-es is szétszakad (3, 3, 4). Ha a sorok száma nem osztható <code>n</code>-nel, az <strong>első</strong> vödrök kapnak eggyel több sort (pl. 8 sor, 3 vödör: 3, 3, 2).</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – rangsor csoportonként</span>
+<pre><code class="language-sql">SELECT hallgato, csoport, pont,
+       RANK() OVER (PARTITION BY csoport ORDER BY pont DESC) AS helyezes
+FROM zh
+ORDER BY csoport, helyezes;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>hallgato</th><th>csoport</th><th>pont</th><th>helyezes</th></tr>
+<tr><td>Ádám</td><td>A</td><td class="num">92</td><td class="num">1</td></tr>
+<tr><td>Bence</td><td>A</td><td class="num">85</td><td class="num">2</td></tr>
+<tr><td>Cili</td><td>A</td><td class="num">85</td><td class="num">2</td></tr>
+<tr><td>Dóra</td><td>A</td><td class="num">70</td><td class="num">4</td></tr>
+<tr><td>Emese</td><td>B</td><td class="num">78</td><td class="num">1</td></tr>
+<tr><td>Feri</td><td>B</td><td class="num">70</td><td class="num">2</td></tr>
+<tr><td>Gabi</td><td>B</td><td class="num">70</td><td class="num">2</td></tr>
+<tr><td>Hanna</td><td>B</td><td class="num">61</td><td class="num">4</td></tr>
+</table></div>
+<p>A <code>PARTITION BY</code> itt is újraindítja a számolást. A B csoportban Feri és Gabi holtversenyben 2., ezért Hanna 4. (nincs 3.).</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – NTILE: 3 vödör 8 sorra</span>
+<pre><code class="language-sql">SELECT hallgato, pont, NTILE(3) OVER (ORDER BY pont DESC) AS harmad
+FROM zh ORDER BY pont DESC, harmad;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>hallgato</th><th>pont</th><th>harmad</th></tr>
+<tr><td>Ádám</td><td class="num">92</td><td class="num">1</td></tr>
+<tr><td>Bence</td><td class="num">85</td><td class="num">1</td></tr>
+<tr><td>Cili</td><td class="num">85</td><td class="num">1</td></tr>
+<tr><td>Emese</td><td class="num">78</td><td class="num">2</td></tr>
+<tr><td>Dóra</td><td class="num">70</td><td class="num">2</td></tr>
+<tr><td>Feri</td><td class="num">70</td><td class="num">2</td></tr>
+<tr><td>Gabi</td><td class="num">70</td><td class="num">3</td></tr>
+<tr><td>Hanna</td><td class="num">61</td><td class="num">3</td></tr>
+</table></div>
+<p>$8 = 3+3+2$: az első két vödör 3 sort, a harmadik 2 sort kap.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – determinisztikus ROW_NUMBER</span>
+<p>A holtversenyesek közötti <code>ROW_NUMBER</code>-sorrend nem meghatározott (a fenti Bence–Cili sorrend akár fordított is lehetne). Ha számít, adj második rendezési kulcsot:</p>
+<pre><code class="language-sql">SELECT hallgato, pont,
+       ROW_NUMBER() OVER (ORDER BY pont DESC, hallgato) AS sorszam
+FROM zh ORDER BY sorszam;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>hallgato</th><th>pont</th><th>sorszam</th></tr>
+<tr><td>Ádám</td><td class="num">92</td><td class="num">1</td></tr>
+<tr><td>Bence</td><td class="num">85</td><td class="num">2</td></tr>
+<tr><td>Cili</td><td class="num">85</td><td class="num">3</td></tr>
+<tr><td>Emese</td><td class="num">78</td><td class="num">4</td></tr>
+<tr><td>Dóra</td><td class="num">70</td><td class="num">5</td></tr>
+<tr><td>Feri</td><td class="num">70</td><td class="num">6</td></tr>
+<tr><td>Gabi</td><td class="num">70</td><td class="num">7</td></tr>
+<tr><td>Hanna</td><td class="num">61</td><td class="num">8</td></tr>
+</table></div>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Hüvelykujjszabály</span>
+<p>Pontosan N sor kell csoportonként → <code>ROW_NUMBER</code>. A holtversenyesek mind kellenek → <code>RANK</code> vagy <code>DENSE_RANK</code>.
+„A 3. legnagyobb <em>érték</em>” → <code>DENSE_RANK = 3</code>. Kvartilis, decilis → <code>NTILE(4)</code>, <code>NTILE(10)</code>.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – rangsorolók (5 feladat)</summary>
+<ol>
+  <li><p>Pontszámok: 50, 40, 40, 40, 30. Add meg kézzel a <code>RANK</code> és a <code>DENSE_RANK</code> értékét (csökkenő sorrend)!</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p><code>RANK</code>: 1, 2, 2, 2, 5 (három 2. hely után a következő az 5.). <code>DENSE_RANK</code>: 1, 2, 2, 2, 3.</p>
+<pre><code class="language-sql">WITH p(x) AS (VALUES (50),(40),(40),(40),(30))
+SELECT x, RANK() OVER (ORDER BY x DESC) AS rnk,
+          DENSE_RANK() OVER (ORDER BY x DESC) AS drnk
+FROM p ORDER BY x DESC;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>x</th><th>rnk</th><th>drnk</th></tr>
+<tr><td class="num">50</td><td class="num">1</td><td class="num">1</td></tr>
+<tr><td class="num">40</td><td class="num">2</td><td class="num">2</td></tr>
+<tr><td class="num">40</td><td class="num">2</td><td class="num">2</td></tr>
+<tr><td class="num">40</td><td class="num">2</td><td class="num">2</td></tr>
+<tr><td class="num">30</td><td class="num">5</td><td class="num">3</td></tr>
+</table></div>
+    </details></li>
+  <li><p>Rangsorold a rendeléseket ügyfelenként összeg szerint csökkenően <code>DENSE_RANK</code>-kal (ez a dia mintakódjának 4. oszlopa)!</p>
+    <details class="solution"><summary>Megoldás</summary>
+<pre><code class="language-sql">SELECT id, ugyfel, osszeg,
+       DENSE_RANK() OVER (PARTITION BY ugyfel ORDER BY osszeg DESC) AS rnk
+FROM rendelesek ORDER BY ugyfel, rnk, id;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>ugyfel</th><th>osszeg</th><th>rnk</th></tr>
+<tr><td class="num">1</td><td>Anna</td><td class="num">40</td><td class="num">1</td></tr>
+<tr><td class="num">4</td><td>Anna</td><td class="num">40</td><td class="num">1</td></tr>
+<tr><td class="num">3</td><td>Anna</td><td class="num">35</td><td class="num">2</td></tr>
+<tr><td class="num">2</td><td>Anna</td><td class="num">25</td><td class="num">3</td></tr>
+<tr><td class="num">5</td><td>Béla</td><td class="num">60</td><td class="num">1</td></tr>
+<tr><td class="num">7</td><td>Béla</td><td class="num">30</td><td class="num">2</td></tr>
+<tr><td class="num">6</td><td>Béla</td><td class="num">20</td><td class="num">3</td></tr>
+<tr><td class="num">8</td><td>Csilla</td><td class="num">50</td><td class="num">1</td></tr>
+</table></div>
+    <p>Annánál a két 40-es is 1., a 35-ös 2., a 25-ös 3.</p>
+    </details></li>
+  <li><p>Hány különböző rangértéket ad <code>RANK</code>, <code>DENSE_RANK</code> és <code>ROW_NUMBER</code> a teljes <code>zh</code> táblán (pont szerint csökkenően)?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p><code>ROW_NUMBER</code>: 8 (1–8). <code>RANK</code>: 5 (1, 2, 4, 5, 8). <code>DENSE_RANK</code>: 5 (1–5) – annyi, ahány különböző pontszám van (92, 85, 78, 70, 61). A <code>RANK</code> és <code>DENSE_RANK</code> mindig ugyanannyi különböző értéket ad, csak a számok mások.</p>
+    </details></li>
+  <li><p><code>NTILE(3)</code> 7 sorra: hány sor kerül az egyes vödrökbe?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>$7 = 3+2+2$: az 1. vödör 3, a 2. és 3. vödör 2–2 sort kap (a maradék az elejére kerül).</p>
+<pre><code class="language-sql">SELECT hallgato, pont, NTILE(3) OVER (ORDER BY pont DESC) AS v
+FROM zh WHERE hallgato &lt;&gt; 'Hanna' ORDER BY pont DESC, v;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>hallgato</th><th>pont</th><th>v</th></tr>
+<tr><td>Ádám</td><td class="num">92</td><td class="num">1</td></tr>
+<tr><td>Bence</td><td class="num">85</td><td class="num">1</td></tr>
+<tr><td>Cili</td><td class="num">85</td><td class="num">1</td></tr>
+<tr><td>Emese</td><td class="num">78</td><td class="num">2</td></tr>
+<tr><td>Dóra</td><td class="num">70</td><td class="num">2</td></tr>
+<tr><td>Feri</td><td class="num">70</td><td class="num">3</td></tr>
+<tr><td>Gabi</td><td class="num">70</td><td class="num">3</td></tr>
+</table></div>
+    </details></li>
+  <li><p>Melyik függvénnyel kapod meg csoportonként a legjobb hallgatót úgy, hogy holtversenynél <em>mindkettő</em> megjelenjen? Írd meg a rangot számoló részt!</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p><code>RANK()</code> (vagy <code>DENSE_RANK()</code>) – a <code>ROW_NUMBER</code> önkényesen csak az egyiket hagyná meg.
+    A szűrés (<code>= 1</code>) viszont nem mehet a <code>WHERE</code>-be; a teljes megoldás a <a href="#lepes7">7. lépésben</a> van.</p>
+<pre><code class="language-sql">SELECT hallgato, csoport, pont,
+       RANK() OVER (PARTITION BY csoport ORDER BY pont DESC) AS rnk
+FROM zh ORDER BY csoport, rnk;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>hallgato</th><th>csoport</th><th>pont</th><th>rnk</th></tr>
+<tr><td>Ádám</td><td>A</td><td class="num">92</td><td class="num">1</td></tr>
+<tr><td>Bence</td><td>A</td><td class="num">85</td><td class="num">2</td></tr>
+<tr><td>Cili</td><td>A</td><td class="num">85</td><td class="num">2</td></tr>
+<tr><td>Dóra</td><td>A</td><td class="num">70</td><td class="num">4</td></tr>
+<tr><td>Emese</td><td>B</td><td class="num">78</td><td class="num">1</td></tr>
+<tr><td>Feri</td><td>B</td><td class="num">70</td><td class="num">2</td></tr>
+<tr><td>Gabi</td><td>B</td><td class="num">70</td><td class="num">2</td></tr>
+<tr><td>Hanna</td><td>B</td><td class="num">61</td><td class="num">4</td></tr>
+</table></div>
+    </details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l07-lepes5"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes6">
+<h2>6. lépés – Eltolás és pozíció: <code>LAG</code>, <code>LEAD</code>, <code>FIRST_VALUE</code>, <code>LAST_VALUE</code>, <code>NTH_VALUE</code></h2>
+
+<h4>Kis eset</h4>
+<p>Havi bevétel: január 120, február 150. <em>Mennyivel nőtt februárban?</em> $150 - 120 = 30$. Ehhez a február sorában látni kell a január értékét, vagyis
+<strong>egy másik sor</strong> adatát. Régen ehhez self-join kellett (a táblát önmagával összekapcsolni „hónap = előző hónap + 1” feltétellel). Ablakfüggvénnyel:</p>
+<pre><code class="language-sql">SELECT honap, bevetel,
+       LAG(bevetel) OVER (ORDER BY honap)           AS elozo,
+       bevetel - LAG(bevetel) OVER (ORDER BY honap) AS valtozas
+FROM havi;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>honap</th><th>bevetel</th><th>elozo</th><th>valtozas</th></tr>
+<tr><td>2025-01</td><td class="num">120</td><td class="num"><em>NULL</em></td><td class="num"><em>NULL</em></td></tr>
+<tr><td>2025-02</td><td class="num">150</td><td class="num">120</td><td class="num">30</td></tr>
+<tr><td>2025-03</td><td class="num">135</td><td class="num">150</td><td class="num">-15</td></tr>
+<tr><td>2025-04</td><td class="num">180</td><td class="num">135</td><td class="num">45</td></tr>
+<tr><td>2025-05</td><td class="num">165</td><td class="num">180</td><td class="num">-15</td></tr>
+<tr><td>2025-06</td><td class="num">210</td><td class="num">165</td><td class="num">45</td></tr>
+</table></div>
+<p>Januárnak nincs előző hónapja: <code>NULL</code>, és a különbség is <code>NULL</code>.</p>
+
+<div class="box def"><span class="box-title">Definíció – Eltolásos függvények (offset)</span>
+<ul>
+<li><code>LAG(oszlop, n, alapérték)</code> – a partíción belül <strong>n sorral előbbi</strong> sor értéke (alapból $n = 1$).</li>
+<li><code>LEAD(oszlop, n, alapérték)</code> – az <strong>n sorral későbbi</strong> sor értéke.</li>
+<li>Ha nincs ilyen sor, az eredmény az alapérték, ennek hiányában <code>NULL</code>.</li>
+</ul>
+<p>Rendezés (<code>ORDER BY</code>) kell hozzájuk, a keretet figyelmen kívül hagyják. <strong>Miért?</strong> Az idősoros változás (MoM: hónapról hónapra, YoY: évről évre) a leggyakoribb üzleti kérdések egyike, és így nem kell self-join.</p>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Pozicionális függvények</span>
+<ul>
+<li><code>FIRST_VALUE(oszlop)</code> – a <strong>keret</strong> első sorának értéke.</li>
+<li><code>LAST_VALUE(oszlop)</code> – a <strong>keret</strong> utolsó sorának értéke.</li>
+<li><code>NTH_VALUE(oszlop, n)</code> – a <strong>keret</strong> n-edik sorának értéke (ha a keret rövidebb, <code>NULL</code>).</li>
+</ul>
+<p>Ezek – ellentétben a <code>LAG</code>/<code>LEAD</code>-del – <strong>a kereten</strong> dolgoznak, így az alapértelmezett keret itt is számít.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – előző rendelés ügyfelenként</span>
+<pre><code class="language-sql">SELECT id, ugyfel, datum, osszeg,
+       LAG(osszeg) OVER (PARTITION BY ugyfel ORDER BY datum, id)          AS elozo,
+       osszeg - LAG(osszeg) OVER (PARTITION BY ugyfel ORDER BY datum, id) AS valtozas,
+       LEAD(datum) OVER (PARTITION BY ugyfel ORDER BY datum, id)          AS kov_datum
+FROM rendelesek
+ORDER BY ugyfel, datum, id;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>ugyfel</th><th>datum</th><th>osszeg</th><th>elozo</th><th>valtozas</th><th>kov_datum</th></tr>
+<tr><td class="num">1</td><td>Anna</td><td>2025-01-03</td><td class="num">40</td><td class="num"><em>NULL</em></td><td class="num"><em>NULL</em></td><td>2025-01-05</td></tr>
+<tr><td class="num">2</td><td>Anna</td><td>2025-01-05</td><td class="num">25</td><td class="num">40</td><td class="num">-15</td><td>2025-01-05</td></tr>
+<tr><td class="num">3</td><td>Anna</td><td>2025-01-05</td><td class="num">35</td><td class="num">25</td><td class="num">10</td><td>2025-01-09</td></tr>
+<tr><td class="num">4</td><td>Anna</td><td>2025-01-09</td><td class="num">40</td><td class="num">35</td><td class="num">5</td><td class="num"><em>NULL</em></td></tr>
+<tr><td class="num">5</td><td>Béla</td><td>2025-01-02</td><td class="num">60</td><td class="num"><em>NULL</em></td><td class="num"><em>NULL</em></td><td>2025-01-06</td></tr>
+<tr><td class="num">6</td><td>Béla</td><td>2025-01-06</td><td class="num">20</td><td class="num">60</td><td class="num">-40</td><td>2025-01-08</td></tr>
+<tr><td class="num">7</td><td>Béla</td><td>2025-01-08</td><td class="num">30</td><td class="num">20</td><td class="num">10</td><td class="num"><em>NULL</em></td></tr>
+<tr><td class="num">8</td><td>Csilla</td><td>2025-01-04</td><td class="num">50</td><td class="num"><em>NULL</em></td><td class="num"><em>NULL</em></td><td class="num"><em>NULL</em></td></tr>
+</table></div>
+<p>Minden ügyfél első rendelésénél <code>NULL</code> az előző, az utolsónál <code>NULL</code> a következő dátum. A partíció határán a <code>LAG</code> nem „lát át” a másik ügyfélre.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – alapérték és eltolás</span>
+<pre><code class="language-sql">SELECT honap, bevetel,
+       LAG(bevetel, 1, 0) OVER (ORDER BY honap) AS elozo_vagy_0,
+       LAG(bevetel, 2)    OVER (ORDER BY honap) AS ket_honappal_korabban,
+       LEAD(bevetel)      OVER (ORDER BY honap) AS kovetkezo
+FROM havi;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>honap</th><th>bevetel</th><th>elozo_vagy_0</th><th>ket_honappal_korabban</th><th>kovetkezo</th></tr>
+<tr><td>2025-01</td><td class="num">120</td><td class="num">0</td><td class="num"><em>NULL</em></td><td class="num">150</td></tr>
+<tr><td>2025-02</td><td class="num">150</td><td class="num">120</td><td class="num"><em>NULL</em></td><td class="num">135</td></tr>
+<tr><td>2025-03</td><td class="num">135</td><td class="num">150</td><td class="num">120</td><td class="num">180</td></tr>
+<tr><td>2025-04</td><td class="num">180</td><td class="num">135</td><td class="num">150</td><td class="num">165</td></tr>
+<tr><td>2025-05</td><td class="num">165</td><td class="num">180</td><td class="num">135</td><td class="num">210</td></tr>
+<tr><td>2025-06</td><td class="num">210</td><td class="num">165</td><td class="num">180</td><td class="num"><em>NULL</em></td></tr>
+</table></div>
+<p>Vigyázz az alapértékkel: a „0 volt az előző hónap” üzletileg mást jelent, mint a „nincs adat” (<code>NULL</code>). Százalékos változásnál a 0 nevező hibát okozna.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – első, utolsó, második rendelés, és a LAST_VALUE csapdája</span>
+<pre><code class="language-sql">SELECT id, ugyfel, osszeg,
+       FIRST_VALUE(osszeg) OVER w        AS elso,
+       LAST_VALUE(osszeg)  OVER w        AS utolso_rossz,
+       LAST_VALUE(osszeg)  OVER (PARTITION BY ugyfel ORDER BY datum, id
+             ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS utolso_jo,
+       NTH_VALUE(osszeg, 2) OVER w       AS masodik
+FROM rendelesek
+WINDOW w AS (PARTITION BY ugyfel ORDER BY datum, id)
+ORDER BY ugyfel, datum, id;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>ugyfel</th><th>osszeg</th><th>elso</th><th>utolso_rossz</th><th>utolso_jo</th><th>masodik</th></tr>
+<tr><td class="num">1</td><td>Anna</td><td class="num">40</td><td class="num">40</td><td class="num">40</td><td class="num">40</td><td class="num"><em>NULL</em></td></tr>
+<tr><td class="num">2</td><td>Anna</td><td class="num">25</td><td class="num">40</td><td class="num">25</td><td class="num">40</td><td class="num">25</td></tr>
+<tr><td class="num">3</td><td>Anna</td><td class="num">35</td><td class="num">40</td><td class="num">35</td><td class="num">40</td><td class="num">25</td></tr>
+<tr><td class="num">4</td><td>Anna</td><td class="num">40</td><td class="num">40</td><td class="num">40</td><td class="num">40</td><td class="num">25</td></tr>
+<tr><td class="num">5</td><td>Béla</td><td class="num">60</td><td class="num">60</td><td class="num">60</td><td class="num">30</td><td class="num"><em>NULL</em></td></tr>
+<tr><td class="num">6</td><td>Béla</td><td class="num">20</td><td class="num">60</td><td class="num">20</td><td class="num">30</td><td class="num">20</td></tr>
+<tr><td class="num">7</td><td>Béla</td><td class="num">30</td><td class="num">60</td><td class="num">30</td><td class="num">30</td><td class="num">20</td></tr>
+<tr><td class="num">8</td><td>Csilla</td><td class="num">50</td><td class="num">50</td><td class="num">50</td><td class="num">50</td><td class="num"><em>NULL</em></td></tr>
+</table></div>
+<p>Az <code>utolso_rossz</code> oszlop mindig az aktuális sor saját összege! Ok: az alapértelmezett keret az aktuális sornál ér véget, így annak „utolsó” eleme maga az aktuális sor.
+A keretet ki kell terjeszteni <code>UNBOUNDED FOLLOWING</code>-ig. Hasonlóan a <code>masodik</code> az első sornál <code>NULL</code>, mert ott a keret még csak 1 sor hosszú.</p>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – LAST_VALUE</span>
+<p><code>LAST_VALUE(x) OVER (ORDER BY …)</code> keret nélkül szinte sosem azt adja, amit vársz. Két jó megoldás:</p>
+<ul>
+<li><code>LAST_VALUE(x) OVER (… ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)</code>,</li>
+<li><code>FIRST_VALUE(x) OVER (… ORDER BY … DESC)</code> – fordított rendezéssel az „utolsó” lesz az első, és a <code>FIRST_VALUE</code>-nak az alapértelmezett keret is elég.</li>
+</ul>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés – nevesített ablak (<code>WINDOW</code>)</span>
+<p>A fenti példában a <code>WINDOW w AS (…)</code> záradék egyszer definiálja az ablakot, amit aztán <code>OVER w</code> néven többször használunk. A diákon nem szerepelt;
+PostgreSQL, SQLite és MySQL 8 is ismeri (SQL Server csak 2022-től).</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – LAG, LEAD és társaik (5 feladat)</summary>
+<ol>
+  <li><p>Számold ki a <code>havi</code> táblán a hónapról hónapra vett százalékos változást egy tizedesre!</p>
+    <details class="solution"><summary>Megoldás</summary>
+<pre><code class="language-sql">SELECT honap, bevetel,
+       ROUND(100.0 * (bevetel - LAG(bevetel) OVER (ORDER BY honap))
+                   / LAG(bevetel) OVER (ORDER BY honap), 1) AS mom_pct
+FROM havi;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>honap</th><th>bevetel</th><th>mom_pct</th></tr>
+<tr><td>2025-01</td><td class="num">120</td><td class="num"><em>NULL</em></td></tr>
+<tr><td>2025-02</td><td class="num">150</td><td class="num">25</td></tr>
+<tr><td>2025-03</td><td class="num">135</td><td class="num">-10</td></tr>
+<tr><td>2025-04</td><td class="num">180</td><td class="num">33,3</td></tr>
+<tr><td>2025-05</td><td class="num">165</td><td class="num">-8,3</td></tr>
+<tr><td>2025-06</td><td class="num">210</td><td class="num">27,3</td></tr>
+</table></div>
+    <p>Február: $(150-120)/120 = 25\%$. Április: $(180-135)/135 \approx 33{,}3\%$. A nevező az <em>előző</em> hónap, nem az aktuális.</p>
+    </details></li>
+  <li><p>Hány nap telt el az egyes ügyfeleknél két egymást követő rendelés között? (SQLite: <code>julianday()</code> különbsége.)</p>
+    <details class="solution"><summary>Megoldás</summary>
+<pre><code class="language-sql">SELECT id, ugyfel, datum,
+       julianday(datum) - julianday(LAG(datum) OVER (PARTITION BY ugyfel ORDER BY datum, id)) AS napok
+FROM rendelesek ORDER BY ugyfel, datum, id;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>ugyfel</th><th>datum</th><th>napok</th></tr>
+<tr><td class="num">1</td><td>Anna</td><td>2025-01-03</td><td class="num"><em>NULL</em></td></tr>
+<tr><td class="num">2</td><td>Anna</td><td>2025-01-05</td><td class="num">2</td></tr>
+<tr><td class="num">3</td><td>Anna</td><td>2025-01-05</td><td class="num">0</td></tr>
+<tr><td class="num">4</td><td>Anna</td><td>2025-01-09</td><td class="num">4</td></tr>
+<tr><td class="num">5</td><td>Béla</td><td>2025-01-02</td><td class="num"><em>NULL</em></td></tr>
+<tr><td class="num">6</td><td>Béla</td><td>2025-01-06</td><td class="num">4</td></tr>
+<tr><td class="num">7</td><td>Béla</td><td>2025-01-08</td><td class="num">2</td></tr>
+<tr><td class="num">8</td><td>Csilla</td><td>2025-01-04</td><td class="num"><em>NULL</em></td></tr>
+</table></div>
+    <p>Anna 2-es és 3-as rendelése ugyanazon a napon volt: 0 nap. (PostgreSQL-ben egyszerűen <code>datum - LAG(datum) OVER (…)</code>.)</p>
+    </details></li>
+  <li><p>Mit ad a <code>LEAD(bevetel, 2) OVER (ORDER BY honap)</code> áprilisban és májusban?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>Április: a két hónappal későbbi június értéke, 210. Május: két hónappal később már nincs sor, <code>NULL</code>.</p>
+<pre><code class="language-sql">SELECT honap, LEAD(bevetel, 2) OVER (ORDER BY honap) AS ket_honap_mulva FROM havi;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>honap</th><th>ket_honap_mulva</th></tr>
+<tr><td>2025-01</td><td class="num">135</td></tr>
+<tr><td>2025-02</td><td class="num">180</td></tr>
+<tr><td>2025-03</td><td class="num">165</td></tr>
+<tr><td>2025-04</td><td class="num">210</td></tr>
+<tr><td>2025-05</td><td class="num"><em>NULL</em></td></tr>
+<tr><td>2025-06</td><td class="num"><em>NULL</em></td></tr>
+</table></div>
+    </details></li>
+  <li><p>Írd ki minden rendelés mellé az ügyfél <em>legutolsó</em> rendelésének összegét úgy, hogy <code>FIRST_VALUE</code>-t használsz!</p>
+    <details class="solution"><summary>Megoldás</summary>
+<pre><code class="language-sql">SELECT id, ugyfel, datum, osszeg,
+       FIRST_VALUE(osszeg) OVER (PARTITION BY ugyfel ORDER BY datum DESC, id DESC) AS utolso
+FROM rendelesek ORDER BY ugyfel, datum, id;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>ugyfel</th><th>datum</th><th>osszeg</th><th>utolso</th></tr>
+<tr><td class="num">1</td><td>Anna</td><td>2025-01-03</td><td class="num">40</td><td class="num">40</td></tr>
+<tr><td class="num">2</td><td>Anna</td><td>2025-01-05</td><td class="num">25</td><td class="num">40</td></tr>
+<tr><td class="num">3</td><td>Anna</td><td>2025-01-05</td><td class="num">35</td><td class="num">40</td></tr>
+<tr><td class="num">4</td><td>Anna</td><td>2025-01-09</td><td class="num">40</td><td class="num">40</td></tr>
+<tr><td class="num">5</td><td>Béla</td><td>2025-01-02</td><td class="num">60</td><td class="num">30</td></tr>
+<tr><td class="num">6</td><td>Béla</td><td>2025-01-06</td><td class="num">20</td><td class="num">30</td></tr>
+<tr><td class="num">7</td><td>Béla</td><td>2025-01-08</td><td class="num">30</td><td class="num">30</td></tr>
+<tr><td class="num">8</td><td>Csilla</td><td>2025-01-04</td><td class="num">50</td><td class="num">50</td></tr>
+</table></div>
+    <p>Fordított rendezésnél a legkésőbbi rendelés lesz az első, és az alapértelmezett keret mindig tartalmazza a partíció első sorát.</p>
+    </details></li>
+  <li><p>A <code>havi</code> táblán miért ad mást februárban a <code>MAX(bevetel) OVER (ORDER BY honap)</code> és a <code>MAX(bevetel) OVER ()</code>? És befolyásolja-e a <code>LAG</code>-ot, ha keretet adsz meg?</p>
+    <details class="solution"><summary>Megoldás</summary>
+<pre><code class="language-sql">SELECT honap, bevetel,
+       MAX(bevetel) OVER (ORDER BY honap) AS eddigi_max,
+       MAX(bevetel) OVER ()               AS teljes_max,
+       LAG(bevetel) OVER (ORDER BY honap
+                          ROWS BETWEEN CURRENT ROW AND CURRENT ROW) AS lag_kerettel
+FROM havi;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>honap</th><th>bevetel</th><th>eddigi_max</th><th>teljes_max</th><th>lag_kerettel</th></tr>
+<tr><td>2025-01</td><td class="num">120</td><td class="num">120</td><td class="num">210</td><td class="num"><em>NULL</em></td></tr>
+<tr><td>2025-02</td><td class="num">150</td><td class="num">150</td><td class="num">210</td><td class="num">120</td></tr>
+<tr><td>2025-03</td><td class="num">135</td><td class="num">150</td><td class="num">210</td><td class="num">150</td></tr>
+<tr><td>2025-04</td><td class="num">180</td><td class="num">180</td><td class="num">210</td><td class="num">135</td></tr>
+<tr><td>2025-05</td><td class="num">165</td><td class="num">180</td><td class="num">210</td><td class="num">180</td></tr>
+<tr><td>2025-06</td><td class="num">210</td><td class="num">210</td><td class="num">210</td><td class="num">165</td></tr>
+</table></div>
+    <p>Az <code>ORDER BY</code> miatt az első a januártól az aktuális hónapig tartó kereten számol: februárban $\max(120, 150) = 150$. A második a teljes táblán: 210.
+    A <code>LAG</code> viszont a keretet figyelmen kívül hagyja: egysoros kerettel is kiadja az előző hónapot.</p>
+    </details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes7">
+<h2>7. lépés – Kiértékelési sorrend: miért nem lehet <code>WHERE</code>-ben?</h2>
+
+<h4>Kis eset</h4>
+<p>Feladat: <em>csoportonként a legjobb hallgató</em>. Kézenfekvőnek tűnik:</p>
+<pre><code class="language-sql">SELECT hallgato, csoport, pont
+FROM zh
+WHERE RANK() OVER (PARTITION BY csoport ORDER BY pont DESC) = 1;</code></pre>
+<p><strong>Eredmény (SQLite):</strong> hiba – <code>misuse of window function RANK()</code>. PostgreSQL-ben: <code>window functions are not allowed in WHERE</code>.</p>
+<p>Hibát kapunk. Az ok a lekérdezés <strong>logikai kiértékelési sorrendje</strong>.</p>
+
+<div class="box def"><span class="box-title">Definíció – Logikai lekérdezési életciklus (a dia szerint)</span>
+<ol>
+<li><code>FROM</code> és <code>JOIN</code> – adatforrások</li>
+<li><code>WHERE</code> – sorszintű szűrés</li>
+<li><code>GROUP BY</code> – csoportosítás</li>
+<li><code>HAVING</code> – csoportszintű szűrés</li>
+<li><code>SELECT</code> – itt értékelődnek ki az <strong>ablakfüggvények</strong></li>
+<li><code>ORDER BY</code> – végső rendezés (utána <code>LIMIT</code>)</li>
+</ol>
+<p><strong>Következmények:</strong></p>
+<ul>
+<li>Ablakfüggvény <strong>nem</strong> állhat <code>WHERE</code>, <code>GROUP BY</code>, <code>HAVING</code> záradékban – azok idején még nincs kiszámolva.</li>
+<li>Ablakfüggvény állhat a <code>SELECT</code>-ben és a végső <code>ORDER BY</code>-ban.</li>
+<li>Az ablak a <code>WHERE</code> és <code>GROUP BY</code> <em>utáni</em> sorokat látja.</li>
+<li>Szűrni az eredményére: <strong>CTE (<code>WITH</code>) vagy allekérdezés</strong>, és a külső lekérdezés <code>WHERE</code>-jében.</li>
+</ul>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – top-1 csoportonként CTE-vel</span>
+<pre><code class="language-sql">WITH rangsor AS (
+  SELECT hallgato, csoport, pont,
+         RANK() OVER (PARTITION BY csoport ORDER BY pont DESC) AS rnk
+  FROM zh
+)
+SELECT hallgato, csoport, pont
+FROM rangsor
+WHERE rnk = 1;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>hallgato</th><th>csoport</th><th>pont</th></tr>
+<tr><td>Ádám</td><td>A</td><td class="num">92</td></tr>
+<tr><td>Emese</td><td>B</td><td class="num">78</td></tr>
+</table></div>
+<p>A belső lekérdezés kiszámolja a rangot, a külső már egy kész oszlopként szűr rá.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – ugyanez allekérdezéssel, top-2 holtversennyel</span>
+<pre><code class="language-sql">SELECT *
+FROM (SELECT hallgato, csoport, pont,
+             RANK()       OVER (PARTITION BY csoport ORDER BY pont DESC) AS rnk,
+             ROW_NUMBER() OVER (PARTITION BY csoport ORDER BY pont DESC, hallgato) AS rn
+      FROM zh) AS t
+WHERE rnk &lt;= 2
+ORDER BY csoport, rnk;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>hallgato</th><th>csoport</th><th>pont</th><th>rnk</th><th>rn</th></tr>
+<tr><td>Ádám</td><td>A</td><td class="num">92</td><td class="num">1</td><td class="num">1</td></tr>
+<tr><td>Bence</td><td>A</td><td class="num">85</td><td class="num">2</td><td class="num">2</td></tr>
+<tr><td>Cili</td><td>A</td><td class="num">85</td><td class="num">2</td><td class="num">3</td></tr>
+<tr><td>Emese</td><td>B</td><td class="num">78</td><td class="num">1</td><td class="num">1</td></tr>
+<tr><td>Feri</td><td>B</td><td class="num">70</td><td class="num">2</td><td class="num">2</td></tr>
+<tr><td>Gabi</td><td>B</td><td class="num">70</td><td class="num">2</td><td class="num">3</td></tr>
+</table></div>
+<p>A <code>rnk &lt;= 2</code> a B csoportban 3 sort ad (Feri és Gabi holtversenyben 2.). Ha pontosan 2 sor kell csoportonként, <code>rn &lt;= 2</code>-re szűrj.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – ablakfüggvény GROUP BY eredményén</span>
+<p>Mivel az ablakfüggvény a <code>GROUP BY</code> <em>után</em> fut, egy már csoportosított eredményen is számolhat. Ügyfelenkénti összeg és annak részaránya egy lépésben:</p>
+<pre><code class="language-sql">SELECT ugyfel,
+       SUM(osszeg)                                        AS ossz,
+       ROUND(100.0 * SUM(osszeg) / SUM(SUM(osszeg)) OVER (), 1) AS resz_pct,
+       RANK() OVER (ORDER BY SUM(osszeg) DESC)            AS helyezes
+FROM rendelesek
+GROUP BY ugyfel
+ORDER BY helyezes;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>ugyfel</th><th>ossz</th><th>resz_pct</th><th>helyezes</th></tr>
+<tr><td>Anna</td><td class="num">140</td><td class="num">46,7</td><td class="num">1</td></tr>
+<tr><td>Béla</td><td class="num">110</td><td class="num">36,7</td><td class="num">2</td></tr>
+<tr><td>Csilla</td><td class="num">50</td><td class="num">16,7</td><td class="num">3</td></tr>
+</table></div>
+<p>A <code>SUM(SUM(osszeg)) OVER ()</code> elsőre furcsa: a belső <code>SUM</code> a <code>GROUP BY</code> összesítése (ügyfelenként), a külső <code>SUM … OVER ()</code> ezeket adja össze a 3 csoportsoron át: $140+110+50 = 300$.</p>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+<li>A <code>SELECT</code>-ben adott álnév (pl. <code>AS rnk</code>) sem használható ugyanannak a lekérdezésnek a <code>WHERE</code>-jében – ugyanazért: a <code>WHERE</code> előbb fut.</li>
+<li>A <code>WHERE</code> az ablak <em>előtt</em> szűr. <code>WHERE ugyfel = 'Anna'</code> mellett az <code>OVER ()</code> csak Anna sorait látja – a részarány Anna összegéhez képest számolódik, nem a 300-hoz.
+Ha a teljes táblához viszonyított értéket akarsz, de csak Anna sorait kiírni: előbb CTE-ben számolj, és kívül szűrj.</li>
+</ul>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés – <code>QUALIFY</code></span>
+<p>Néhány rendszer (Snowflake, BigQuery, DuckDB, Teradata) ismeri a <code>QUALIFY</code> záradékot, ami pont az ablakfüggvények eredményére szűr:
+<code>… QUALIFY RANK() OVER (PARTITION BY csoport ORDER BY pont DESC) = 1</code>. Ez nem szabványos; PostgreSQL, SQLite, MySQL, SQL Server nem támogatja – ott marad a CTE.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – kiértékelési sorrend (5 feladat)</summary>
+<ol>
+  <li><p>Melyik záradékban állhat ablakfüggvény: <code>WHERE</code>, <code>GROUP BY</code>, <code>HAVING</code>, <code>SELECT</code>, <code>ORDER BY</code>?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>Csak a <code>SELECT</code>-ben és a (végső) <code>ORDER BY</code>-ban. A többi az ablakfüggvények kiértékelése előtt fut.</p>
+<pre><code class="language-sql">SELECT hallgato, pont FROM zh
+ORDER BY RANK() OVER (ORDER BY pont DESC), hallgato;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>hallgato</th><th>pont</th></tr>
+<tr><td>Ádám</td><td class="num">92</td></tr>
+<tr><td>Bence</td><td class="num">85</td></tr>
+<tr><td>Cili</td><td class="num">85</td></tr>
+<tr><td>Emese</td><td class="num">78</td></tr>
+<tr><td>Dóra</td><td class="num">70</td></tr>
+<tr><td>Feri</td><td class="num">70</td></tr>
+<tr><td>Gabi</td><td class="num">70</td></tr>
+<tr><td>Hanna</td><td class="num">61</td></tr>
+</table></div>
+    </details></li>
+  <li><p>Írd ki minden ügyfél <em>legutóbbi</em> rendelését (pontosan egy sor ügyfelenként)!</p>
+    <details class="solution"><summary>Megoldás</summary>
+<pre><code class="language-sql">WITH t AS (
+  SELECT id, ugyfel, datum, osszeg,
+         ROW_NUMBER() OVER (PARTITION BY ugyfel ORDER BY datum DESC, id DESC) AS rn
+  FROM rendelesek
+)
+SELECT id, ugyfel, datum, osszeg FROM t WHERE rn = 1 ORDER BY ugyfel;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>ugyfel</th><th>datum</th><th>osszeg</th></tr>
+<tr><td class="num">4</td><td>Anna</td><td>2025-01-09</td><td class="num">40</td></tr>
+<tr><td class="num">7</td><td>Béla</td><td>2025-01-08</td><td class="num">30</td></tr>
+<tr><td class="num">8</td><td>Csilla</td><td>2025-01-04</td><td class="num">50</td></tr>
+</table></div>
+    <p>Pontosan egy sor kell → <code>ROW_NUMBER</code>, egyedi tie-breakerrel (<code>id DESC</code>).</p>
+    </details></li>
+  <li><p>Listázd azokat a rendeléseket, amelyek az ügyfél költésének legalább 40%-át adják!</p>
+    <details class="solution"><summary>Megoldás</summary>
+<pre><code class="language-sql">WITH t AS (
+  SELECT id, ugyfel, osszeg,
+         100.0 * osszeg / SUM(osszeg) OVER (PARTITION BY ugyfel) AS pct
+  FROM rendelesek
+)
+SELECT id, ugyfel, osszeg, ROUND(pct, 1) AS pct FROM t WHERE pct &gt;= 40 ORDER BY id;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>ugyfel</th><th>osszeg</th><th>pct</th></tr>
+<tr><td class="num">5</td><td>Béla</td><td class="num">60</td><td class="num">54,5</td></tr>
+<tr><td class="num">8</td><td>Csilla</td><td class="num">50</td><td class="num">100</td></tr>
+</table></div>
+    <p>Annánál egyik sem (40/140 ≈ 28,6%), Bélánál a 60-as (54,5%), Csillánál az egyetlen rendelés (100%).</p>
+    </details></li>
+  <li><p>Mit ad a következő lekérdezés, és miért nem 20% Béla 60-as rendelésének aránya?
+    <code>SELECT id, ROUND(100.0*osszeg/SUM(osszeg) OVER (),1) FROM rendelesek WHERE ugyfel = 'Béla'</code></p>
+    <details class="solution"><summary>Megoldás</summary>
+<pre><code class="language-sql">SELECT id, osszeg, ROUND(100.0*osszeg/SUM(osszeg) OVER (),1) AS pct
+FROM rendelesek WHERE ugyfel = 'Béla';</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>osszeg</th><th>pct</th></tr>
+<tr><td class="num">5</td><td class="num">60</td><td class="num">54,5</td></tr>
+<tr><td class="num">6</td><td class="num">20</td><td class="num">18,2</td></tr>
+<tr><td class="num">7</td><td class="num">30</td><td class="num">27,3</td></tr>
+</table></div>
+    <p>A <code>WHERE</code> előbb fut, az ablak csak Béla 3 sorát látja (összeg 110): $60/110 = 54{,}5\%$. A teljes táblához képest ($60/300 = 20\%$) így kapod:</p>
+<pre><code class="language-sql">WITH t AS (
+  SELECT id, ugyfel, osszeg, ROUND(100.0*osszeg/SUM(osszeg) OVER (),1) AS pct
+  FROM rendelesek
+)
+SELECT id, osszeg, pct FROM t WHERE ugyfel = 'Béla';</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>osszeg</th><th>pct</th></tr>
+<tr><td class="num">5</td><td class="num">60</td><td class="num">20</td></tr>
+<tr><td class="num">6</td><td class="num">20</td><td class="num">6,7</td></tr>
+<tr><td class="num">7</td><td class="num">30</td><td class="num">10</td></tr>
+</table></div>
+    </details></li>
+  <li><p>Melyik hónapokban volt a bevétel nagyobb, mint az előző hónapban?</p>
+    <details class="solution"><summary>Megoldás</summary>
+<pre><code class="language-sql">SELECT honap, bevetel, elozo
+FROM (SELECT honap, bevetel, LAG(bevetel) OVER (ORDER BY honap) AS elozo FROM havi) AS t
+WHERE bevetel &gt; elozo;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>honap</th><th>bevetel</th><th>elozo</th></tr>
+<tr><td>2025-02</td><td class="num">150</td><td class="num">120</td></tr>
+<tr><td>2025-04</td><td class="num">180</td><td class="num">135</td></tr>
+<tr><td>2025-06</td><td class="num">210</td><td class="num">165</td></tr>
+</table></div>
+    <p>Január kiesik, mert <code>150 &gt; NULL</code> nem igaz (ismeretlen), így a <code>WHERE</code> elveti.</p>
+    </details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="alkalmazas">
+<h2>Alkalmazás – havi riport és az előadás mintakódja</h2>
+
+<h3>1. Havi bevételi riport egyetlen lekérdezésben</h3>
+<p>A <code>havi</code> táblából egy tipikus vezetői riport: halmozott bevétel, 3 havi mozgóátlag, változás az előző hónaphoz, részesedés a féléves bevételből és rangsor.</p>
+<pre><code class="language-sql">SELECT honap, bevetel,
+       SUM(bevetel) OVER (ORDER BY honap
+             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)       AS halmozott,
+       ROUND(AVG(bevetel) OVER (ORDER BY honap
+             ROWS BETWEEN 2 PRECEDING AND CURRENT ROW), 1)          AS mozgo_3,
+       bevetel - LAG(bevetel) OVER (ORDER BY honap)                  AS valtozas,
+       ROUND(100.0 * bevetel / SUM(bevetel) OVER (), 1)              AS resz_pct,
+       RANK() OVER (ORDER BY bevetel DESC)                           AS helyezes
+FROM havi
+ORDER BY honap;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>honap</th><th>bevetel</th><th>halmozott</th><th>mozgo_3</th><th>valtozas</th><th>resz_pct</th><th>helyezes</th></tr>
+<tr><td>2025-01</td><td class="num">120</td><td class="num">120</td><td class="num">120</td><td class="num"><em>NULL</em></td><td class="num">12,5</td><td class="num">6</td></tr>
+<tr><td>2025-02</td><td class="num">150</td><td class="num">270</td><td class="num">135</td><td class="num">30</td><td class="num">15,6</td><td class="num">4</td></tr>
+<tr><td>2025-03</td><td class="num">135</td><td class="num">405</td><td class="num">135</td><td class="num">-15</td><td class="num">14,1</td><td class="num">5</td></tr>
+<tr><td>2025-04</td><td class="num">180</td><td class="num">585</td><td class="num">155</td><td class="num">45</td><td class="num">18,8</td><td class="num">2</td></tr>
+<tr><td>2025-05</td><td class="num">165</td><td class="num">750</td><td class="num">160</td><td class="num">-15</td><td class="num">17,2</td><td class="num">3</td></tr>
+<tr><td>2025-06</td><td class="num">210</td><td class="num">960</td><td class="num">185</td><td class="num">45</td><td class="num">21,9</td><td class="num">1</td></tr>
+</table></div>
+<p><strong>Értelmezés.</strong> A félév bevétele 960. A legjobb hónap a június (210, 21,9%). A havi adat ingadozik (márciusban és májusban visszaesés, $-15$),
+de a mozgóátlag (120 → 185) folyamatosan nem csökken: a trend emelkedő. Ezért használunk mozgóátlagot: kisimítja a havi zajt.</p>
+
+<h3>2. Az előadás mintakódja a rendelés-táblán</h3>
+<p>Az utolsó dia négy mintát mutat egy lekérdezésben. A mi táblánkra igazítva (<code>rendeles_id</code> → <code>id</code>, <code>ugyfel_id</code> → <code>ugyfel</code>,
+<code>rendeles_datum</code> → <code>datum</code>), a holtversenyek miatt <code>id</code> tie-breakerrel:</p>
+<pre><code class="language-sql">SELECT id, ugyfel, datum, osszeg,
+       -- 1. Halmozott összeg ügyfelenként
+       SUM(osszeg) OVER (PARTITION BY ugyfel ORDER BY datum, id
+             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS kumulalt,
+       -- 2. Előző rendelés összege (LAG)
+       LAG(osszeg, 1) OVER (PARTITION BY ugyfel ORDER BY datum, id) AS elozo,
+       -- 3. Gördülő átlag: az utolsó 7 SOR (nem 7 nap!)
+       ROUND(AVG(osszeg) OVER (ORDER BY datum, id
+             ROWS BETWEEN 6 PRECEDING AND CURRENT ROW), 2) AS avg_7sor,
+       -- 4. Ügyfélen belüli sorrend összeg szerint
+       DENSE_RANK() OVER (PARTITION BY ugyfel ORDER BY osszeg DESC) AS rnk
+FROM rendelesek
+ORDER BY ugyfel, datum, id;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>ugyfel</th><th>datum</th><th>osszeg</th><th>kumulalt</th><th>elozo</th><th>avg_7sor</th><th>rnk</th></tr>
+<tr><td class="num">1</td><td>Anna</td><td>2025-01-03</td><td class="num">40</td><td class="num">40</td><td class="num"><em>NULL</em></td><td class="num">50</td><td class="num">1</td></tr>
+<tr><td class="num">2</td><td>Anna</td><td>2025-01-05</td><td class="num">25</td><td class="num">65</td><td class="num">40</td><td class="num">43,75</td><td class="num">3</td></tr>
+<tr><td class="num">3</td><td>Anna</td><td>2025-01-05</td><td class="num">35</td><td class="num">100</td><td class="num">25</td><td class="num">42</td><td class="num">2</td></tr>
+<tr><td class="num">4</td><td>Anna</td><td>2025-01-09</td><td class="num">40</td><td class="num">140</td><td class="num">35</td><td class="num">34,29</td><td class="num">1</td></tr>
+<tr><td class="num">5</td><td>Béla</td><td>2025-01-02</td><td class="num">60</td><td class="num">60</td><td class="num"><em>NULL</em></td><td class="num">60</td><td class="num">1</td></tr>
+<tr><td class="num">6</td><td>Béla</td><td>2025-01-06</td><td class="num">20</td><td class="num">80</td><td class="num">60</td><td class="num">38,33</td><td class="num">3</td></tr>
+<tr><td class="num">7</td><td>Béla</td><td>2025-01-08</td><td class="num">30</td><td class="num">110</td><td class="num">20</td><td class="num">37,14</td><td class="num">2</td></tr>
+<tr><td class="num">8</td><td>Csilla</td><td>2025-01-04</td><td class="num">50</td><td class="num">50</td><td class="num"><em>NULL</em></td><td class="num">50</td><td class="num">1</td></tr>
+</table></div>
+<p>Négy különböző ablak egy lekérdezésben: két ügyfelenkénti időrendi, egy az egész táblán futó, egy ügyfelenkénti összeg szerinti. Az <code>avg_7sor</code> az egész táblán számol
+(nincs <code>PARTITION BY</code>), ezért keveri az ügyfeleket – ez napi forgalomhoz jó, ügyfélelemzéshez nem.</p>
+
+<h3>3. A motivációs kérdés megoldása</h3>
+<p>„Minden rendelés mellé: addig összesen mennyit költött, mennyivel tér el az előző rendeléstől, és hányadik legnagyobb az ügyfél rendelései közül.”</p>
+<pre><code class="language-sql">SELECT id, ugyfel, datum, osszeg,
+       SUM(osszeg) OVER w                         AS eddig_osszesen,
+       osszeg - LAG(osszeg) OVER w                AS elteres_elozotol,
+       RANK() OVER (PARTITION BY ugyfel ORDER BY osszeg DESC) AS hanyadik_legnagyobb
+FROM rendelesek
+WINDOW w AS (PARTITION BY ugyfel ORDER BY datum, id
+             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+ORDER BY ugyfel, datum, id;</code></pre>
+<p class="kicker">Eredmény</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>ugyfel</th><th>datum</th><th>osszeg</th><th>eddig_osszesen</th><th>elteres_elozotol</th><th>hanyadik_legnagyobb</th></tr>
+<tr><td class="num">1</td><td>Anna</td><td>2025-01-03</td><td class="num">40</td><td class="num">40</td><td class="num"><em>NULL</em></td><td class="num">1</td></tr>
+<tr><td class="num">2</td><td>Anna</td><td>2025-01-05</td><td class="num">25</td><td class="num">65</td><td class="num">-15</td><td class="num">4</td></tr>
+<tr><td class="num">3</td><td>Anna</td><td>2025-01-05</td><td class="num">35</td><td class="num">100</td><td class="num">10</td><td class="num">3</td></tr>
+<tr><td class="num">4</td><td>Anna</td><td>2025-01-09</td><td class="num">40</td><td class="num">140</td><td class="num">5</td><td class="num">1</td></tr>
+<tr><td class="num">5</td><td>Béla</td><td>2025-01-02</td><td class="num">60</td><td class="num">60</td><td class="num"><em>NULL</em></td><td class="num">1</td></tr>
+<tr><td class="num">6</td><td>Béla</td><td>2025-01-06</td><td class="num">20</td><td class="num">80</td><td class="num">-40</td><td class="num">3</td></tr>
+<tr><td class="num">7</td><td>Béla</td><td>2025-01-08</td><td class="num">30</td><td class="num">110</td><td class="num">10</td><td class="num">2</td></tr>
+<tr><td class="num">8</td><td>Csilla</td><td>2025-01-04</td><td class="num">50</td><td class="num">50</td><td class="num"><em>NULL</em></td><td class="num">1</td></tr>
+</table></div>
+<p>Anna utolsó (4-es) rendelése után 140-et költött, ez 5-tel több, mint az előző (35), és a két 40-es holtversenyben az 1. legnagyobb.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="osszefoglalas">
+<h2>Összefoglalás</h2>
+<ul>
+<li>Az ablakfüggvény <strong>minden sorra</strong> számol egy értéket egy sorhalmazon (ablakon), és <strong>nem vonja össze</strong> a sorokat.</li>
+<li><code>OVER ( PARTITION BY … ORDER BY … keret )</code>: <em>kik</em> tartoznak egy csoportba, <em>milyen sorrendben</em>, és <em>melyik sorokon</em> számol.</li>
+<li>Alapértelmezett keret: <code>ORDER BY</code> nélkül a teljes partíció; <code>ORDER BY</code>-jal <code>RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW</code> (a holtversenyeseket is beveszi).</li>
+<li><code>ROWS</code> = fizikai sorok, <code>RANGE</code> = rendezési érték alapján.</li>
+<li>Rangsorolók és <code>LAG</code>/<code>LEAD</code>: a keretet figyelmen kívül hagyják. <code>FIRST_VALUE</code>/<code>LAST_VALUE</code>/<code>NTH_VALUE</code> és az összesítők: a kereten számolnak.</li>
+<li>Az ablakfüggvények a <code>WHERE</code>/<code>GROUP BY</code>/<code>HAVING</code> után értékelődnek ki: szűréshez CTE vagy allekérdezés kell.</li>
+</ul>
+
+<h3>Döntési táblázat</h3>
+<div class="table-wrap"><table>
+<tr><th>Ha a feladatban ez áll…</th><th>…ezt használd</th></tr>
+<tr><td>csoportonként egy sor, összesítve</td><td><code>GROUP BY</code></td></tr>
+<tr><td>minden sor maradjon, mellette a teljes összeg / átlag</td><td><code>SUM(x) OVER ()</code>, <code>AVG(x) OVER ()</code></td></tr>
+<tr><td>… a saját csoportjának összege / átlaga</td><td><code>SUM(x) OVER (PARTITION BY csoport)</code></td></tr>
+<tr><td>részarány (kategórián belül)</td><td><code>100.0 * x / SUM(x) OVER (PARTITION BY kategória)</code></td></tr>
+<tr><td>halmozott (kumulált, futó) összeg</td><td><code>SUM(x) OVER (PARTITION BY … ORDER BY dátum, id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)</code></td></tr>
+<tr><td>mozgóátlag az utolsó N sorra</td><td><code>AVG(x) OVER (ORDER BY … ROWS BETWEEN N-1 PRECEDING AND CURRENT ROW)</code></td></tr>
+<tr><td>mozgóátlag az utolsó N napra (hiányzó napokkal)</td><td><code>RANGE</code> keret dátum / napszám szerint</td></tr>
+<tr><td>sorszám, pontosan N sor csoportonként</td><td><code>ROW_NUMBER()</code> + CTE + <code>WHERE rn &lt;= N</code></td></tr>
+<tr><td>helyezés, holtversenyben azonos, hézaggal (1, 2, 2, 4)</td><td><code>RANK()</code></td></tr>
+<tr><td>helyezés hézag nélkül (1, 2, 2, 3); „N-edik legnagyobb érték”</td><td><code>DENSE_RANK()</code></td></tr>
+<tr><td>kvartilis, decilis, N egyenlő csoport</td><td><code>NTILE(N)</code></td></tr>
+<tr><td>változás az előző időszakhoz (MoM, YoY)</td><td><code>x - LAG(x) OVER (ORDER BY időszak)</code></td></tr>
+<tr><td>a következő esemény értéke / dátuma</td><td><code>LEAD(x) OVER (…)</code></td></tr>
+<tr><td>a csoport első / utolsó értéke</td><td><code>FIRST_VALUE</code>; utolsóhoz <code>FIRST_VALUE … DESC</code> vagy <code>LAST_VALUE</code> + <code>UNBOUNDED FOLLOWING</code></td></tr>
+<tr><td>szűrés ablakfüggvény eredményére</td><td>CTE (<code>WITH</code>) vagy allekérdezés, kívül <code>WHERE</code></td></tr>
+</table></div>
+</section>
+
+<section id="kviz">
+<h2>Ellenőrző kvíz</h2>
+<p>A kérdések a teljes leckét lefedik, a kis példatáblákra hivatkoznak (<a href="#adatok">lásd fent</a>).</p>
+<div class="quiz" data-quiz="l07-vegso"></div>
+</section>
+
+<nav class="pager">
+  <a href="06-neuralis-halo.html">← 6. Neurális háló</a>
+  <a href="08-osszefoglalas.html">8. Összefoglalás →</a>
+</nav>
+</main>
+</body>
+</html>

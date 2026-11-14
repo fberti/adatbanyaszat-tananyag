@@ -1,0 +1,759 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kosárelemzés: Apriori és szabályok</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script defer src="assets/quiz.js"></script>
+<script defer src="quiz/02.js"></script>          <!-- a lecke kvízei -->
+<script defer src="assets/common.js"></script>    <!-- MINDIG az utolsó -->
+</head>
+<body>
+<nav class="topnav"><div class="inner">
+  <a href="index.html">← Tartalom</a>
+  <span>2. lecke · Kosárelemzés</span>
+  <span class="spacer"></span>
+  <button id="theme-toggle" type="button" title="Világos/sötét téma">◐</button>
+</div></nav>
+<main>
+<p class="kicker">2. lecke · 2. gyakorlat</p>
+<h1>Vásárlói kosarak elemzése: Apriori és asszociációs szabályok</h1>
+<p class="lead">Mely termékeket veszik gyakran együtt, és ebből milyen „ha ezt veszi, azt is veszi” szabály következik? Megnézzük, hogyan találja meg az Apriori a gyakori termékhalmazokat, és hogyan ítéljük meg a szabályokat támogatottsággal, megbízhatósággal és lifttel.</p>
+
+<section id="motivacio">
+<h2>Motiváció</h2>
+<p>A bolt 1151 vásárlását (kosarát) ismerjük, 18 féle termékkel. A gyakorlat végén ilyen szabály jön ki:</p>
+<p style="text-align:center"><strong>vaj → kenyér</strong> &nbsp;·&nbsp; megbízhatóság 0,74 &nbsp;·&nbsp; lift 1,33</p>
+<p>Ugyanebben az adatban a <strong>kávé → kenyér</strong> szabály megbízhatósága 0,55. Ez is elég magasnak tűnik. A lecke végére ki tudod számolni mindkét szabály mutatóit, és meg tudod indokolni, <strong>miért érdekes az első, és miért semmitmondó a második</strong>.</p>
+</section>
+
+<section id="utiterv">
+<h2>Útiterv</h2>
+<ol class="roadmap">
+  <li><a href="#lepes1">1. lépés – Kosár, elemhalmaz, kosár–termék mátrix</a></li>
+  <li><a href="#lepes2">2. lépés – Támogatottság és gyakori elemhalmaz</a></li>
+  <li><a href="#lepes3">3. lépés – Az Apriori-elv és az Apriori algoritmus</a></li>
+  <li><a href="#lepes4">4. lépés – Asszociációs szabály és megbízhatóság</a></li>
+  <li><a href="#lepes5">5. lépés – Lift: mikor érdekes egy szabály?</a></li>
+  <li><a href="#lepes6">6. lépés – A küszöbök hatása a szabályok számára</a></li>
+  <li><a href="#alkalmazas">Alkalmazás – a gyakorlat munkafolyamata a valódi adatokon</a></li>
+  <li><a href="#osszefoglalas">Összefoglalás és döntési táblázat</a></li>
+  <li><a href="#kviz">Ellenőrző kvíz</a></li>
+</ol>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes1">
+<h2>1. lépés – Kosár, elemhalmaz, kosár–termék mátrix</h2>
+
+<h4>Kis eset</h4>
+<p>Az 1. gyakorlat tisztított adatában egy sor = egy termék egy vásárláson belül. Négy sor:</p>
+<div class="table-wrap"><table>
+<tr><th>transaction_id</th><th>product</th><th class="num">quantity</th></tr>
+<tr><td>T1</td><td>kenyér</td><td class="num">2</td></tr>
+<tr><td>T1</td><td>tej</td><td class="num">1</td></tr>
+<tr><td>T2</td><td>kenyér</td><td class="num">1</td></tr>
+<tr><td>T2</td><td>vaj</td><td class="num">3</td></tr>
+</table></div>
+<p>Ha a vásárlásazonosító szerint összegyűjtjük a termékeket, két <strong>kosarat</strong> kapunk: T1 = {kenyér, tej}, T2 = {kenyér, vaj}. A mennyiség eltűnt: a kosárelemzés csak azt nézi, <em>benne van-e</em> a termék a kosárban, nem azt, hány darab.</p>
+
+<div class="box def"><span class="box-title">Definíció – Tranzakció (kosár), elemhalmaz</span>
+<p><strong>Elem</strong> (item): egy termék. <strong>Tranzakció</strong> vagy <strong>kosár</strong>: egy vásárlás során vett termékek <em>halmaza</em>. A gyakorlaton a kosarat a <code>transaction_id</code> határozza meg (nem a vásárló!).</p>
+<p><strong>Elemhalmaz</strong> (itemset): termékek tetszőleges nem üres halmaza, pl. {kenyér, vaj}. A $k$ elemű elemhalmaz neve $k$-elemhalmaz.</p>
+<p>Egy kosár <strong>tartalmazza</strong> az $X$ elemhalmazt, ha $X$ minden terméke benne van: $X \subseteq t$.</p>
+<p><strong>Miért halmaz?</strong> Mert csak az számít, mi van együtt a kosárban. A sorrend és a darabszám nem hordoz információt arról, hogy két termék „összetartozik-e”.</p>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Kosár–termék mátrix (bináris kódolás)</span>
+<p>Sor = kosár, oszlop = termék, cella = 1 (True), ha a termék a kosárban van, különben 0 (False). Ezt készíti a <code>TransactionEncoder</code>. Az algoritmus ezen a 0/1 táblán dolgozik, mert számokkal könnyű számolni: egy oszlop összege = hány kosárban szerepel a termék.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Kosarak a sorokból</span>
+<p>Sorok: (T1, kávé, 1), (T1, keksz, 2), (T2, kávé, 1), (T2, kávé, 1), (T3, tej, 4). Mik a kosarak?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>T1 = {kávé, keksz}, T2 = {kávé}, T3 = {tej}. T2-ben a kávé két sorban szerepel, de a halmazban egyszer van. Ezt csinálja a gyakorlat kódjában a <code>drop_duplicates()</code> a <code>[transaction_id, product]</code> oszlopokon.</p>
+</details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – A mátrix egy sora</span>
+<p>Oszlopok sorrendje: kávé, keksz, kenyér, tej, vaj. Mi a {kenyér, tej} kosár sora?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>0, 0, 1, 1, 0. A gyakorlat valódi adatán az első kosár {milk, tomato sauce}: a 18 oszlopból kettőben True, tizenhatban False.</p>
+</details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+<li>A kosár <strong>nem a vásárló</strong>. Ugyanaz a vásárló (customer_id) sokszor vásárol; minden vásárlás külön kosár.</li>
+<li>Ha 3 kenyeret vett, a mátrixban akkor is 1 áll, nem 3.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Kosarak és mátrix (5 feladat)</summary>
+<p>Sorok: (T1, kenyér, 2), (T1, tej, 1), (T2, kávé, 1), (T2, keksz, 3), (T2, kávé, 1), (T3, kenyér, 1), (T3, vaj, 1), (T3, tej, 2).</p>
+<ol>
+  <li><p>Hány kosár van, és melyik a legnagyobb?</p>
+    <details class="solution"><summary>Megoldás</summary><p>3 kosár (T1, T2, T3). A legnagyobb T3 = {kenyér, vaj, tej}, 3 termékkel.</p></details></li>
+  <li><p>Mi a T2 kosár?</p>
+    <details class="solution"><summary>Megoldás</summary><p>T2 = {kávé, keksz}. A kávé két sorban van, de a halmazban csak egyszer – a kosár mérete 2.</p></details></li>
+  <li><p>Oszlopok: kávé, keksz, kenyér, tej, vaj. Írd fel a T3 sorát.</p>
+    <details class="solution"><summary>Megoldás</summary><p>0, 0, 1, 1, 1.</p></details></li>
+  <li><p>T1-ben 2 kenyér van. Mi áll a mátrixban a (T1, kenyér) cellában?</p>
+    <details class="solution"><summary>Megoldás</summary><p>1 (True). A mennyiség nem számít, csak a jelenlét.</p></details></li>
+  <li><p>A gyakorlat adatában 18 termék van. Hány oszlopa van a kosár–termék mátrixnak, és hány különböző nem üres elemhalmaz képezhető a termékekből?</p>
+    <details class="solution"><summary>Megoldás</summary><p>18 oszlop (termékenként egy; a kosárazonosító a sorindex). Nem üres részhalmaz: $2^{18}-1 = 262\,143$. Ebből termékpár $\binom{18}{2}=153$. Ezért nem lehet minden halmazt egyenként végignézni – ezt oldja meg az Apriori (3. lépés).</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes2">
+<h2>2. lépés – Támogatottság és gyakori elemhalmaz</h2>
+
+<h4>Kis eset – a gyakorlat demóadata</h4>
+<p>Az órai demó (<code>Demo/apriori.py</code>) öt kosara:</p>
+<div class="table-wrap"><table>
+<tr><th>Kosár</th><th>Termékek</th></tr>
+<tr><td>T1</td><td>Kenyér, Tej, Vaj</td></tr>
+<tr><td>T2</td><td>Kenyér, Tej, Vaj</td></tr>
+<tr><td>T3</td><td>Kenyér, Tej</td></tr>
+<tr><td>T4</td><td>Kenyér, Sajt</td></tr>
+<tr><td>T5</td><td>Kenyér, Sajt, Tea</td></tr>
+</table></div>
+<p>Hány kosárban van a {Tej, Vaj}? T1-ben és T2-ben, tehát 2 kosárban az 5-ből, azaz a kosarak 40%-ában. Ez a halmaz <strong>támogatottsága</strong>.</p>
+
+<div class="box def"><span class="box-title">Definíció – Támogatottság (support)</span>
+<p>$N$ kosár esetén az $X$ elemhalmaz</p>
+<p>$$\text{abszolút támogatottsága: } \sigma(X) = \#\{t : X \subseteq t\}, \qquad \text{relatív támogatottsága: } \operatorname{support}(X) = \frac{\sigma(X)}{N}.$$</p>
+<p>Az abszolút a darabszám (hány kosár tartalmazza), a relatív az arány (0 és 1 között). Az <code>mlxtend</code> és a gyakorlat <code>support</code> oszlopa a relatívat adja; a <code>basket_count</code> oszlop az abszolútat.</p>
+<p><strong>Miért arány?</strong> Mert így a különböző méretű adathalmazok összehasonlíthatók, és a küszöb („a kosarak 10%-a”) nem függ $N$-től.</p>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Gyakori elemhalmaz, minimum támogatottság</span>
+<p>A <strong>minimum támogatottságot</strong> ($s_{\min}$, <code>min_support</code>) <em>mi</em> választjuk meg. Az $X$ elemhalmaz <strong>gyakori</strong>, ha $\operatorname{support}(X) \ge s_{\min}$, különben <strong>ritka</strong>.</p>
+<p>Darabszámban: legalább $\lceil s_{\min}\cdot N \rceil$ kosárban kell szerepelnie (felfelé kerekítünk, mert „legalább” a feltétel).</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Támogatottság a demóadaton</span>
+<p>Számold ki: support({Kenyér}), support({Tea}), support({Kenyér, Tej}).</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Kenyér mind az 5 kosárban: $5/5 = 1$. Tea csak T5-ben: $1/5 = 0{,}2$. {Kenyér, Tej}: T1, T2, T3: $3/5 = 0{,}6$.</p>
+</details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Küszöb darabszámban</span>
+<p>(a) $N=5$, $s_{\min}=0{,}4$. (b) A gyakorlat adata: $N=1151$, $s_{\min}=0{,}10$. Legalább hány kosár kell?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>(a) $0{,}4\cdot 5 = 2$ → legalább 2 kosár. (b) $0{,}10\cdot 1151 = 115{,}1$ → legalább <strong>116</strong> kosár. Ellenőrzés: a gyakorlat <code>retail_frequent_pairs.csv</code> fájljában a legritkább gyakori pár (biscuits, tea) éppen 116 kosárban van (support 0,1008).</p>
+</details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – Bővítéskor nem nőhet</span>
+<p>support({Tej}) = 0,6, support({Tej, Vaj}) = 0,4. Lehet-e support({Kenyér, Tej, Vaj}) = 0,5?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Nem. Minden kosár, amelyben {Kenyér, Tej, Vaj} benne van, a {Tej, Vaj}-t is tartalmazza. Tehát legfeljebb 0,4 lehet. (Valójában 0,4: T1, T2.)</p>
+</details>
+</div>
+
+<div class="box thm"><span class="box-title">Megfigyelés – A támogatottság antimonoton</span>
+<p>Ha $X \subseteq Y$, akkor $\operatorname{support}(Y) \le \operatorname{support}(X)$.</p>
+<p><strong>Miért?</strong> Az $Y$-t tartalmazó kosarak mind tartalmazzák $X$-et is. Termék hozzávételével a feltétel szigorúbb lesz, a megfelelő kosarak köre csak szűkülhet. Erre épül a következő lépés.</p>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+<li>A küszöböt darabszámra váltva <strong>felfelé</strong> kerekíts: 115,1 → 116. A 115 kosaras halmaz 9,99%-os, tehát ritka.</li>
+<li>A support egy elemhalmaz tulajdonsága, nem egy terméké: support({kávé, keksz}) az <em>együttes</em> előfordulás aránya, nem a kettő összege.</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia</span>
+<p><em>transaction</em> = tranzakció, kosár · <em>item</em> = elem, termék · <em>itemset</em> = elemhalmaz · <em>support</em> = támogatottság · <em>min_support</em> = minimum támogatottság · <em>frequent itemset</em> = gyakori elemhalmaz · <em>basket_count</em> = abszolút támogatottság (a gyakorlat oszlopneve).</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Támogatottság (6 feladat)</summary>
+<p>A gyakorló adathalmaz (6 kosár), amelyet a 3–5. lépésben is használunk:</p>
+<div class="table-wrap"><table>
+<tr><th>Kosár</th><th>Termékek</th></tr>
+<tr><td>K1</td><td>kávé, keksz, tej</td></tr>
+<tr><td>K2</td><td>kávé, keksz</td></tr>
+<tr><td>K3</td><td>kávé, keksz, kenyér</td></tr>
+<tr><td>K4</td><td>kenyér, tej</td></tr>
+<tr><td>K5</td><td>kávé, kenyér, tej</td></tr>
+<tr><td>K6</td><td>kenyér, tej</td></tr>
+</table></div>
+<ol>
+  <li><p>Add meg a {kávé} abszolút és relatív támogatottságát.</p>
+    <details class="solution"><summary>Megoldás</summary><p>K1, K2, K3, K5: $\sigma = 4$, support $= 4/6 \approx 0{,}667$.</p></details></li>
+  <li><p>support({kávé, keksz}) = ?</p>
+    <details class="solution"><summary>Megoldás</summary><p>K1, K2, K3: $3/6 = 0{,}5$.</p></details></li>
+  <li><p>support({kávé, kenyér, tej}) = ?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Csak K5: $1/6 \approx 0{,}167$.</p></details></li>
+  <li><p>$s_{\min} = 0{,}3$. Legalább hány kosár kell a gyakorisághoz? Mely termékpárok gyakoriak?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$0{,}3\cdot 6 = 1{,}8$ → legalább 2 kosár. A hat pár darabszáma: {kávé, keksz} 3, {kenyér, tej} 3, {kávé, tej} 2, {kávé, kenyér} 2, {keksz, tej} 1, {keksz, kenyér} 1. Gyakori az első négy.</p></details></li>
+  <li><p>support({keksz, tej}) = 1/6. Lehet-e support({kávé, keksz, tej}) = 1/3?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Nem: a bővítés támogatottsága nem lehet nagyobb a részhalmazáénál, tehát legfeljebb 1/6. (Valóban 1/6: K1.)</p></details></li>
+  <li><p>A gyakorlat adatán ($N = 1151$) $s_{\min} = 0{,}20$. Legalább hány kosár kell?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$0{,}2\cdot 1151 = 230{,}2$ → legalább 231 kosár.</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l02-lepes2"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes3">
+<h2>3. lépés – Az Apriori-elv és az Apriori algoritmus</h2>
+
+<p>Eddig egy adott halmaz támogatottságát számoltuk. De melyik halmazokat érdemes egyáltalán megszámolni? 18 termékből 262 143 halmaz képezhető – mindet nem akarjuk. Az előző lépés megfigyelése megmutatja, mit lehet kihagyni.</p>
+
+<h4>Kis eset</h4>
+<p>A demóban a Tea csak 1 kosárban van (20%), $s_{\min} = 40\%$. Gyakori lehet-e a {Kenyér, Tea}? Nem: a támogatottsága legfeljebb a Tea 20%-a. Meg sem kell számolni. Ugyanígy egyetlen Teát tartalmazó halmazt sem.</p>
+
+<div class="box thm"><span class="box-title">Tétel – Apriori-elv</span>
+<p><strong>Gyakori halmaz minden részhalmaza gyakori.</strong> Ugyanez megfordítva (kontrapozíció): <strong>ha egy halmaz ritka, akkor minden bővítése (őt tartalmazó halmaz) is ritka.</strong></p>
+<p><strong>Miért?</strong> A támogatottság antimonoton (2. lépés): bővítéskor nem nőhet. Ha már $X$ is a küszöb alatt van, $X \cup \{\text{bármi}\}$ is alatta marad.</p>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – a fordított irány hamis</span>
+<p>Abból, hogy {Sajt} és {Tej} gyakori, <strong>nem</strong> következik, hogy {Sajt, Tej} is gyakori. A demóban mindkettő gyakori, együtt viszont egyszer sem szerepelnek. Az Apriori-elv csak kizárni tud, igazolni nem – ezért kell a jelölteket utána megszámolni.</p>
+</div>
+
+<div class="box def"><span class="box-title">Algoritmus – Apriori (a gyakorlat pszeudokódja szerint)</span>
+<p>Bemenet: kosarak $T$, minimum támogatottság $s_{\min}$. Kimenet: az összes gyakori elemhalmaz $F$.</p>
+<ol>
+<li><strong>Indulás:</strong> $L_1$ = a gyakori egytermékes halmazok (minden terméket megszámolunk). $k = 2$.</li>
+<li>Amíg $L_{k-1}$ nem üres:
+  <ol type="a">
+  <li><strong>Jelöltgenerálás (összekapcsolás):</strong> két különböző $A, B \in L_{k-1}$ halmaz uniója jelölt, ha $|A\cup B| = k$.</li>
+  <li><strong>Apriori-metszés:</strong> a $c$ jelöltet csak akkor tartjuk meg ($c \in C_k$), ha <em>minden</em> $(k-1)$-elemű részhalmaza benne van $L_{k-1}$-ben. Ha egy is ritka, $c$-t számolás nélkül elhagyjuk.</li>
+  <li><strong>Számlálás és szűrés:</strong> minden $c \in C_k$ jelöltre megszámoljuk, hány kosár tartalmazza; $L_k$ = azok, amelyekre $\operatorname{support}(c) \ge s_{\min}$.</li>
+  <li>$F \leftarrow F \cup L_k$, $k \leftarrow k+1$.</li>
+  </ol></li>
+<li><strong>Leállás:</strong> ha nem képezhető új jelölt, vagy $L_k$ üres. Az eredmény $F$.</li>
+</ol>
+<p><strong>Miért szintenként?</strong> Mert a $k$-elemű jelöltek metszéséhez a $(k-1)$-elemű eredmények kellenek. Egy szint a kosarak egyszeri végigolvasása.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – A demó végigszámolva ($s_{\min} = 40\%$ → legalább 2 kosár)</span>
+<p><strong>1. szint.</strong> Kenyér 5, Sajt 2, Tej 3, Vaj 2, Tea 1. A Tea ritka (20%) → kiesik. $L_1$ = {Kenyér}, {Sajt}, {Tej}, {Vaj}.</p>
+<p><strong>2. szint.</strong> A 4 termékből $\binom{4}{2} = 6$ pár. Metszés: minden pár mindkét eleme gyakori, nincs mit elhagyni. Számlálás:</p>
+<div class="table-wrap"><table>
+<tr><th>Jelölt</th><th>Kosarak</th><th class="num">Darab</th><th>Döntés</th></tr>
+<tr><td>{Kenyér, Sajt}</td><td>T4, T5</td><td class="num">2</td><td>gyakori</td></tr>
+<tr><td>{Kenyér, Tej}</td><td>T1, T2, T3</td><td class="num">3</td><td>gyakori</td></tr>
+<tr><td>{Kenyér, Vaj}</td><td>T1, T2</td><td class="num">2</td><td>gyakori</td></tr>
+<tr><td>{Sajt, Tej}</td><td>–</td><td class="num">0</td><td>ritka</td></tr>
+<tr><td>{Sajt, Vaj}</td><td>–</td><td class="num">0</td><td>ritka</td></tr>
+<tr><td>{Tej, Vaj}</td><td>T1, T2</td><td class="num">2</td><td>gyakori</td></tr>
+</table></div>
+<p><strong>3. szint.</strong> Összekapcsolás $L_2$ párjaiból (unió 3 elemű): {Kenyér, Sajt, Tej}, {Kenyér, Sajt, Vaj}, {Kenyér, Tej, Vaj}. Metszés: az első kettőben ritka részhalmaz van ({Sajt, Tej}, ill. {Sajt, Vaj}) → számolás nélkül kiesnek. Marad {Kenyér, Tej, Vaj}: T1, T2 → 2 darab, gyakori.</p>
+<p><strong>4. szint.</strong> $L_3$-ban egyetlen halmaz van, nincs mivel összekapcsolni → leáll.</p>
+<p><strong>Eredmény:</strong> 4 egyelemű + 4 kételemű + 1 háromelemű = <strong>9 gyakori elemhalmaz</strong>.</p>
+</div>
+
+<figure style="margin:1.2em 0">
+<svg viewBox="0 0 640 300" width="100%" role="img" aria-label="A demó elemhalmaz-hálója: gyakori, megszámolt de ritka, és metszéssel kiesett halmazok" style="max-width:640px;display:block;margin:0 auto;font-family:Inter,system-ui,sans-serif">
+  <g stroke="currentColor" stroke-opacity="0.25" stroke-width="1">
+    <!-- 1→2 szint: KS KT KV ST SV TV ; K=80 S=200 T=320 V=440 -->
+    <line x1="80" y1="57" x2="70" y2="123"/><line x1="200" y1="57" x2="70" y2="123"/>
+    <line x1="80" y1="57" x2="170" y2="123"/><line x1="320" y1="57" x2="170" y2="123"/>
+    <line x1="80" y1="57" x2="270" y2="123"/><line x1="440" y1="57" x2="270" y2="123"/>
+    <line x1="200" y1="57" x2="370" y2="123"/><line x1="320" y1="57" x2="370" y2="123"/>
+    <line x1="200" y1="57" x2="470" y2="123"/><line x1="440" y1="57" x2="470" y2="123"/>
+    <line x1="320" y1="57" x2="570" y2="123"/><line x1="440" y1="57" x2="570" y2="123"/>
+    <!-- 2→3 szint: KST(170)=KS,KT,ST ; KSV(320)=KS,KV,SV ; KTV(470)=KT,KV,TV -->
+    <line x1="70" y1="157" x2="170" y2="223"/><line x1="170" y1="157" x2="170" y2="223"/><line x1="370" y1="157" x2="170" y2="223"/>
+    <line x1="70" y1="157" x2="320" y2="223"/><line x1="270" y1="157" x2="320" y2="223"/><line x1="470" y1="157" x2="320" y2="223"/>
+    <line x1="170" y1="157" x2="470" y2="223"/><line x1="270" y1="157" x2="470" y2="223"/><line x1="570" y1="157" x2="470" y2="223"/>
+  </g>
+  <g font-size="13" text-anchor="middle" fill="currentColor">
+    <!-- 1. szint -->
+    <rect x="38" y="23" width="84" height="34" rx="8" fill="var(--ex-bg)" stroke="var(--ex)" stroke-width="2"/><text x="80" y="45">{K} 5/5</text>
+    <rect x="158" y="23" width="84" height="34" rx="8" fill="var(--ex-bg)" stroke="var(--ex)" stroke-width="2"/><text x="200" y="45">{S} 2/5</text>
+    <rect x="278" y="23" width="84" height="34" rx="8" fill="var(--ex-bg)" stroke="var(--ex)" stroke-width="2"/><text x="320" y="45">{T} 3/5</text>
+    <rect x="398" y="23" width="84" height="34" rx="8" fill="var(--ex-bg)" stroke="var(--ex)" stroke-width="2"/><text x="440" y="45">{V} 2/5</text>
+    <rect x="518" y="23" width="84" height="34" rx="8" fill="var(--warn-bg)" stroke="var(--bad)" stroke-width="2"/><text x="560" y="45">{Tea} 1/5</text>
+    <!-- 2. szint -->
+    <rect x="25" y="123" width="90" height="34" rx="8" fill="var(--ex-bg)" stroke="var(--ex)" stroke-width="2"/><text x="70" y="145">{K,S} 2/5</text>
+    <rect x="125" y="123" width="90" height="34" rx="8" fill="var(--ex-bg)" stroke="var(--ex)" stroke-width="2"/><text x="170" y="145">{K,T} 3/5</text>
+    <rect x="225" y="123" width="90" height="34" rx="8" fill="var(--ex-bg)" stroke="var(--ex)" stroke-width="2"/><text x="270" y="145">{K,V} 2/5</text>
+    <rect x="325" y="123" width="90" height="34" rx="8" fill="var(--warn-bg)" stroke="var(--bad)" stroke-width="2"/><text x="370" y="145">{S,T} 0/5</text>
+    <rect x="425" y="123" width="90" height="34" rx="8" fill="var(--warn-bg)" stroke="var(--bad)" stroke-width="2"/><text x="470" y="145">{S,V} 0/5</text>
+    <rect x="525" y="123" width="90" height="34" rx="8" fill="var(--ex-bg)" stroke="var(--ex)" stroke-width="2"/><text x="570" y="145">{T,V} 2/5</text>
+    <!-- 3. szint -->
+    <rect x="118" y="223" width="104" height="34" rx="8" fill="none" stroke="var(--muted)" stroke-width="2" stroke-dasharray="5 4"/><text x="170" y="245" fill="var(--muted)">{K,S,T} ✂</text>
+    <rect x="268" y="223" width="104" height="34" rx="8" fill="none" stroke="var(--muted)" stroke-width="2" stroke-dasharray="5 4"/><text x="320" y="245" fill="var(--muted)">{K,S,V} ✂</text>
+    <rect x="418" y="223" width="104" height="34" rx="8" fill="var(--ex-bg)" stroke="var(--ex)" stroke-width="2"/><text x="470" y="245">{K,T,V} 2/5</text>
+  </g>
+  <g font-size="12" fill="currentColor">
+    <rect x="20" y="276" width="14" height="14" rx="3" fill="var(--ex-bg)" stroke="var(--ex)" stroke-width="2"/><text x="40" y="288">gyakori</text>
+    <rect x="120" y="276" width="14" height="14" rx="3" fill="var(--warn-bg)" stroke="var(--bad)" stroke-width="2"/><text x="140" y="288">megszámoltuk, ritka</text>
+    <rect x="290" y="276" width="14" height="14" rx="3" fill="none" stroke="var(--muted)" stroke-width="2" stroke-dasharray="4 3"/><text x="310" y="288">metszéssel kiesett (nem számoltuk)</text>
+  </g>
+</svg>
+<figcaption style="text-align:center;color:var(--muted);font-size:.9rem">K = Kenyér, S = Sajt, T = Tej, V = Vaj. A Teát tartalmazó párokat már elő sem állítjuk, mert a Tea nincs $L_1$-ben.</figcaption>
+</figure>
+
+<div class="two-col">
+  <div class="box example"><span class="box-title">Kidolgozott példa 2a – $s_{\min} = 40\%$ (≥ 2 kosár)</span>
+  <p>$L_1$: Kenyér, Sajt, Tej, Vaj (4 db)<br>$L_2$: 4 pár<br>$L_3$: {Kenyér, Tej, Vaj}<br><strong>Összesen 9</strong> gyakori halmaz.</p></div>
+  <div class="box example"><span class="box-title">Kidolgozott példa 2b – $s_{\min} = 60\%$ (≥ 3 kosár)</span>
+  <p>$L_1$: Kenyér (5), Tej (3) – a Sajt, Vaj (2) is kiesik<br>$L_2$: {Kenyér, Tej} (3 kosár, 60%)<br>$L_3$: nincs jelölt<br><strong>Összesen 3</strong> gyakori halmaz.</p></div>
+</div>
+<p>Ez volt a demó 4. megbeszélési kérdése: magasabb küszöb → kevesebb gyakori halmaz.</p>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – Mit takarít meg a metszés?</span>
+<p>Miért nem számoltuk meg a {Kenyér, Sajt, Tej} jelöltet?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Mert a {Sajt, Tej} részhalmazáról a 2. szinten kiderült, hogy ritka. Az Apriori-elv szerint akkor a bővítése is ritka, ezért a kosarak átnézése nélkül elhagyható. (Ez az órai demó 2. kérdése.)</p>
+</details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktatók</span>
+<ul>
+<li>A $k$-elemű jelölteket az <strong>előző szint</strong> ($L_{k-1}$) gyakori halmazaiból képezzük, nem az eredeti termékekből.</li>
+<li>A metszésen átjutott jelölt <strong>még nem biztos, hogy gyakori</strong> – meg kell számolni. (A gyakorló feladatokban lesz rá példa.)</li>
+<li>Az Apriori csak gyakori halmazokat keres; szabályt, megbízhatóságot nem számol. Az egy külön algoritmus (4. lépés).</li>
+</ul>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés (nem szerepelt a gyakorlaton)</span>
+<p>A tankönyvi Apriori az összekapcsolást hatékonyabban végzi: a halmazok elemeit rendezve két $(k-1)$-halmazt csak akkor kapcsol össze, ha az első $k-2$ elemük megegyezik. Ugyanazokat a jelölteket adja, csak kevesebb felesleges párosítással. A gyakorlat (és a demó) egyszerűbb szabálya – „bármely kettő, ha az unió $k$ elemű” – ugyanarra az eredményre vezet.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Apriori kézzel (5 feladat)</summary>
+<p>A 2. lépés gyakorló adata (K1–K6), $s_{\min} = 1/3$ (legalább 2 kosár).</p>
+<ol>
+  <li><p>Add meg $L_1$-et a darabszámokkal.</p>
+    <details class="solution"><summary>Megoldás</summary><p>keksz 3, kávé 4, kenyér 4, tej 4 – mind gyakori, $L_1$ mind a 4 terméket tartalmazza.</p></details></li>
+  <li><p>Hány jelölt van $C_2$-ben, és mi $L_2$?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\binom{4}{2} = 6$ jelölt, metszés nincs (mind a 4 termék gyakori). Darabszámok: {kávé, keksz} 3, {kenyér, tej} 3, {kávé, tej} 2, {kávé, kenyér} 2, {keksz, tej} 1, {keksz, kenyér} 1. $L_2$ = az első négy.</p></details></li>
+  <li><p>Mely 3-elemű jelöltek keletkeznek az összekapcsoláskor, és melyek esnek ki a metszésnél?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Összekapcsolás: {kávé, keksz, tej}, {kávé, keksz, kenyér}, {kávé, kenyér, tej}. Metszés: az első kettő kiesik, mert {keksz, tej}, ill. {keksz, kenyér} ritka. Marad {kávé, kenyér, tej} – mindhárom párja gyakori.</p></details></li>
+  <li><p>Gyakori-e a {kávé, kenyér, tej}? Mikor áll le az algoritmus, és hány gyakori halmaz van összesen?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Csak K5 tartalmazza: 1 kosár &lt; 2 → <strong>ritka</strong>, pedig átjutott a metszésen. $L_3$ üres → leáll. Összesen 4 + 4 = <strong>8</strong> gyakori halmaz.</p></details></li>
+  <li><p>Ismételd meg $s_{\min} = 0{,}5$ mellett (legalább 3 kosár). Hány gyakori halmaz lesz?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$L_1$: mind a 4 (3, 4, 4, 4). $L_2$: csak {kávé, keksz} (3) és {kenyér, tej} (3). 3-elemű jelölt nincs: a két pár uniója 4 elemű. Összesen 4 + 2 = <strong>6</strong>.</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l02-lepes3"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes4">
+<h2>4. lépés – Asszociációs szabály és megbízhatóság</h2>
+
+<p>A gyakori halmaz annyit mond: „ezek gyakran vannak együtt”. A boltot inkább ez érdekli: <em>ha valaki vajat tesz a kosárba, mennyire valószínű, hogy kenyeret is vesz?</em> Ehhez irányt kell adni.</p>
+
+<h4>Kis eset</h4>
+<p>Demó: Tej 3 kosárban, ebből 2-ben Vaj is van. Vaj 2 kosárban, mindkettőben Tej is van.</p>
+<ul>
+<li>A Tejet vevők $2/3$-a vett Vajat is.</li>
+<li>A Vajat vevők $2/2 = 100\%$-a vett Tejet is.</li>
+</ul>
+<p>Ugyanaz a {Tej, Vaj} halmaz, de a két irány más számot ad.</p>
+
+<div class="box def"><span class="box-title">Definíció – Asszociációs szabály</span>
+<p>$A \to B$, ahol $A$ és $B$ nem üres, <strong>közös terméket nem tartalmazó</strong> termékhalmazok. $A$ a feltételrész (bal oldal, <em>antecedent</em>), $B$ a következményrész (jobb oldal, <em>consequent</em>).</p>
+<p>A szabály támogatottsága: $\operatorname{support}(A \to B) = \operatorname{support}(A \cup B)$ – az $A$-t és $B$-t <em>együtt</em> tartalmazó kosarak aránya.</p>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Megbízhatóság (confidence)</span>
+<p>$$\operatorname{confidence}(A \to B) = \frac{\operatorname{support}(A \cup B)}{\operatorname{support}(A)} = P(B \mid A)$$</p>
+<p>Az $A$-t tartalmazó kosarak mekkora hányada tartalmazza $B$-t is. Értéke 0 és 1 között van. <strong>Irányfüggő:</strong> $A\to B$ és $B \to A$ nevezője más.</p>
+<p><strong>Miért ez a képlet?</strong> Szűkítsük le a kosarakat azokra, amelyekben $A$ benne van ($\operatorname{support}(A)$ rész), és nézzük meg, ezek közül hányban van $B$ is ($\operatorname{support}(A\cup B)$ rész). Ez a feltételes valószínűség a statisztikából.</p>
+</div>
+
+<div class="box def"><span class="box-title">Algoritmus – Szabálygenerálás (a gyakorlat pszeudokódja szerint)</span>
+<p>Bemenet: a gyakori halmazok és támogatottságuk, minimum megbízhatóság $c_{\min}$.</p>
+<ol>
+<li>Minden legalább kételemű gyakori $I$ halmazra, minden nem üres <strong>valódi</strong> $A \subset I$ részhalmazra: $B = I \setminus A$.</li>
+<li>$\operatorname{confidence} = \operatorname{support}(I)/\operatorname{support}(A)$.</li>
+<li>Ha $\operatorname{confidence} \ge c_{\min}$: a szabályt megtartjuk, és kiszámoljuk a liftjét is (5. lépés).</li>
+</ol>
+<p>Egy $k$ elemű halmazból $2^k - 2$ szabály képezhető (minden részhalmaz, kivéve az üreset és az egészet). Kételemű halmazból 2, háromeleműből 6.</p>
+<p><strong>Miért elég a gyakori halmazokból indulni?</strong> Mert $A$, $B$ és $A\cup B$ is gyakori (Apriori-elv), így minden szükséges támogatottság már ki van számolva – nem kell újra végigolvasni a kosarakat.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Két irány a demóban</span>
+<p>Számold ki: confidence(Tej → Vaj) és confidence(Vaj → Tej).</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>$$\operatorname{conf}(\text{Tej}\to\text{Vaj}) = \frac{0{,}4}{0{,}6} = \frac{2}{3} \approx 0{,}667, \qquad \operatorname{conf}(\text{Vaj}\to\text{Tej}) = \frac{0{,}4}{0{,}4} = 1.$$</p>
+<p>A számláló közös (a szabály támogatottsága 0,4), csak a nevező más.</p>
+</details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Egy háromelemű halmaz szabályai</span>
+<p>A demóban {Kenyér, Tej, Vaj} gyakori (0,4). Sorold fel a szabályait és a megbízhatóságukat, $c_{\min} = 0{,}6$.</p>
+<details class="solution"><summary>Megoldás</summary>
+<div class="table-wrap"><table>
+<tr><th>Szabály</th><th>Számítás</th><th class="num">conf</th><th>$\ge 0{,}6$?</th></tr>
+<tr><td>Kenyér → Tej, Vaj</td><td>0,4 / 1</td><td class="num">0,4</td><td>nem</td></tr>
+<tr><td>Tej → Kenyér, Vaj</td><td>0,4 / 0,6</td><td class="num">0,667</td><td>igen</td></tr>
+<tr><td>Vaj → Kenyér, Tej</td><td>0,4 / 0,4</td><td class="num">1</td><td>igen</td></tr>
+<tr><td>Kenyér, Tej → Vaj</td><td>0,4 / 0,6</td><td class="num">0,667</td><td>igen</td></tr>
+<tr><td>Kenyér, Vaj → Tej</td><td>0,4 / 0,4</td><td class="num">1</td><td>igen</td></tr>
+<tr><td>Tej, Vaj → Kenyér</td><td>0,4 / 0,4</td><td class="num">1</td><td>igen</td></tr>
+</table></div>
+<p>$2^3 - 2 = 6$ szabály, ebből 5 marad. A demó egészében: 4 pár × 2 + 1 hármas × 6 = <strong>14 jelölt szabály</strong>, ebből <strong>11</strong> éri el a 60%-ot (ahogy az órán is kijött).</p>
+</details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – Valódi adat</span>
+<p>A gyakorlat adatán: bread 636, butter 570, {bread, butter} 420 kosárban ($N = 1151$). Megbízhatóság mindkét irányban?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>$\operatorname{conf}(\text{butter}\to\text{bread}) = 420/570 \approx 0{,}737$; $\operatorname{conf}(\text{bread}\to\text{butter}) = 420/636 \approx 0{,}660$. (Darabszámokkal is számolhatsz: az $N$ kiesik a törtből.)</p>
+</details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktatók</span>
+<ul>
+<li><strong>Nevező felcserélése:</strong> $A\to B$ megbízhatóságánál az $A$ (bal oldal) támogatottságával osztunk.</li>
+<li><strong>Irány ≠ okság.</strong> A „vaj → kenyér” azt jelenti: a vajas kosarakban gyakori a kenyér. Nem azt, hogy a vaj <em>okozza</em> a kenyérvásárlást, és nem is időbeli sorrendet. (Az órán elhangzott az „ok-okozati” kifejezés – ezt a demó kódja is pontosítja: az irány feltételes gyakoriságot jelent.)</li>
+<li>Az egyik irány átmehet a küszöbön, a másik nem. A valódi adatban tomato sauce → pasta 0,651 (megmarad), pasta → tomato sauce 0,588 (kiesik 60%-nál).</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia</span>
+<p><em>association rule</em> = asszociációs szabály · <em>antecedent(s)</em> = feltételrész, bal oldal · <em>consequent(s)</em> = következményrész, jobb oldal · <em>confidence</em> = megbízhatóság · <em>min_confidence</em> = minimum megbízhatóság · <em>antecedent_support</em>, <em>consequent_support</em> = a bal, ill. jobb oldal támogatottsága.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Megbízhatóság (5 feladat)</summary>
+<ol>
+  <li><p>K1–K6 adat: confidence(keksz → kávé) és confidence(kávé → keksz)?</p>
+    <details class="solution"><summary>Megoldás</summary><p>{kávé, keksz} 3 kosár, keksz 3, kávé 4. keksz → kávé: $3/3 = 1$. kávé → keksz: $3/4 = 0{,}75$.</p></details></li>
+  <li><p>K1–K6: confidence(kenyér → tej)?</p>
+    <details class="solution"><summary>Megoldás</summary><p>{kenyér, tej} 3, kenyér 4: $3/4 = 0{,}75$. (Itt a fordított irány is 0,75, mert kenyér és tej is 4 kosárban van – a két irány akkor egyezik, ha a két oldal támogatottsága egyenlő.)</p></details></li>
+  <li><p>$N = 20$ kosár; $A$ 8-ban, $B$ 10-ben, együtt 6-ban. confidence($A\to B$) és confidence($B\to A$)?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$A\to B$: $6/8 = 0{,}75$. $B\to A$: $6/10 = 0{,}6$.</p></details></li>
+  <li><p>K1–K6, $s_{\min} = 1/3$, $c_{\min} = 0{,}6$. A 3. lépésben kapott 4 gyakori párból mely szabályok maradnak?</p>
+    <details class="solution"><summary>Megoldás</summary><p>8 jelölt. Marad: keksz → kávé (1), kávé → keksz (0,75), kenyér → tej (0,75), tej → kenyér (0,75). Kiesik: kávé ↔ tej és kávé ↔ kenyér, mind a négy 0,5 (2/4). Tehát 4 szabály.</p></details></li>
+  <li><p>Egy 4 elemű gyakori halmazból hány szabály képezhető? És hány egy 2 eleműből?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$2^4 - 2 = 14$, illetve $2^2 - 2 = 2$.</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l02-lepes4"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes5">
+<h2>5. lépés – Lift: mikor érdekes egy szabály?</h2>
+
+<p>Eddig a magas megbízhatóságot „jónak” tekintettük. De nézd meg a demó egyik szabályát:</p>
+
+<h4>Kis eset</h4>
+<p><strong>Sajt → Kenyér</strong>: megbízhatóság $0{,}4/0{,}4 = 1$, azaz 100%. Minden sajtos kosárban van kenyér. Csakhogy a Kenyér <em>minden</em> kosárban benne van (support = 1). Sajt nélkül is 100% eséllyel vesznek kenyeret. A sajt semmit nem árul el a kenyérről – a szabály semmitmondó.</p>
+<p>A megbízhatóságot tehát azzal kell összevetni, milyen gyakori $B$ <em>egyébként</em>.</p>
+
+<div class="box def"><span class="box-title">Definíció – Lift</span>
+<p>$$\operatorname{lift}(A \to B) = \frac{\operatorname{confidence}(A \to B)}{\operatorname{support}(B)} = \frac{\operatorname{support}(A\cup B)}{\operatorname{support}(A)\cdot\operatorname{support}(B)}$$</p>
+<p><strong>Szimmetrikus:</strong> a jobb oldali alak $A$-ban és $B$-ben felcserélhető, ezért $\operatorname{lift}(A\to B) = \operatorname{lift}(B \to A)$.</p>
+<p><strong>Miért ez a képlet?</strong> Ha $A$ és $B$ vásárlása <em>független</em> lenne, az együttes előfordulás aránya $\operatorname{support}(A)\cdot\operatorname{support}(B)$ volna (független események szorzata). A lift a <strong>tényleges</strong> és a <strong>függetlenség mellett várt</strong> együttes gyakoriság hányadosa.</p>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Hüvelykujjszabály – a lift értelmezése</span>
+<div class="table-wrap"><table>
+<tr><th>Lift</th><th>Jelentés</th><th>Példa</th></tr>
+<tr><td>$&gt; 1$</td><td>pozitív kapcsolat: $A$ mellett $B$ gyakoribb, mint általában; együtt gyakrabban fordulnak elő, mint függetlenség esetén várnánk</td><td>vaj → kenyér: 1,33</td></tr>
+<tr><td>$= 1$</td><td>a függetlenségnek megfelelő gyakoriság; a szabály lehet a véletlen műve, $A$ nem mond semmit $B$-ről</td><td>Sajt → Kenyér (demó): 1</td></tr>
+<tr><td>$&lt; 1$</td><td>negatív kapcsolat: $A$ mellett $B$ <em>ritkább</em>, mint általában; a függetlenség mellett vártnál ritkábban fordulnak elő együtt</td><td>butter → apples: 0,81</td></tr>
+</table></div>
+<p>A gyakorlat tanulsága: <strong>érdekes szabály = elég nagy megbízhatóság ÉS lift &gt; 1.</strong></p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Lift a demóban</span>
+<p>lift(Tej → Vaj) és lift(Vaj → Tej)?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>$$\operatorname{lift} = \frac{0{,}4}{0{,}6\cdot 0{,}4} = \frac{0{,}4}{0{,}24} = \frac{5}{3} \approx 1{,}67$$ mindkét irányban. Ellenőrzés az első alakkal: $\frac{2/3}{0{,}4} = 1{,}67$ és $\frac{1}{0{,}6} = 1{,}67$. A megbízhatóság a két irányban más (0,667 és 1), a lift ugyanaz.</p>
+</details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Várt és tényleges darabszám</span>
+<p>Valódi adat: bread 636, butter 570, együtt 420 kosár, $N = 1151$. Hány közös kosarat várnánk függetlenség esetén? Mi a lift?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Várt: $1151 \cdot \frac{570}{1151}\cdot\frac{636}{1151} = \frac{570\cdot 636}{1151} \approx 315$. Tényleges: 420. Lift: $420/315 \approx 1{,}33$. A vaj és a kenyér kb. 33%-kal gyakrabban van együtt, mint ha függetlenek lennének.</p>
+</details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – A gyakori jobb oldal csapdája</span>
+<p>Valódi adat: coffee 540, bread 636, együtt 297 kosár. confidence(coffee → bread) és lift?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>conf $= 297/540 = 0{,}55$ – a kávét vevők több mint fele kenyeret is vesz. De a kenyér <em>minden</em> kosár 55,3%-ában ott van: lift $= 0{,}55/0{,}553 \approx 0{,}995 \approx 1$. A kávé nem növeli a kenyérvásárlás esélyét – a magas megbízhatóság csak abból jön, hogy a kenyér eleve népszerű.</p>
+</details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Miért nem elég a magas megbízhatóság?</span>
+<p>Ha $B$ önmagában is nagyon gyakori, <em>bármi</em> → $B$ megbízhatósága magas lesz, kapcsolat nélkül is. A 100%-os megbízhatóság csak annyit mond, hogy $\operatorname{support}(A\cup B) = \operatorname{support}(A)$ – vagyis minden $A$-s kosárban van $B$. Hogy ez kapcsolat-e vagy csak $B$ népszerűsége, azt a lift dönti el.</p>
+<p>A valódi adaton $s_{\min} = 0{,}10$ és $c_{\min} = 0{,}5$ mellett 21 szabály jön ki, de ebből <strong>csak 7-nek</strong> nagyobb a liftje 1-nél. A többi 14 mind „X → bread” típusú (pl. yoghurt → bread, conf 0,55), és a liftjük 1 alatt van (0,92–0,999).</p>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés (nem szerepelt a gyakorlaton) – leverage és conviction</span>
+<p>Az <code>mlxtend</code> <code>association_rules</code> függvénye két további mutatót is ad:</p>
+<ul>
+<li><strong>Leverage</strong>: $\operatorname{support}(A\cup B) - \operatorname{support}(A)\operatorname{support}(B)$. A tényleges és a várt együttes arány <em>különbsége</em> (a lift a hányadosuk). 0 = függetlenség. butter → bread: $0{,}365 - 0{,}274 \approx 0{,}091$.</li>
+<li><strong>Conviction</strong>: $\dfrac{1-\operatorname{support}(B)}{1-\operatorname{confidence}(A\to B)}$. 1 = függetlenség; minél nagyobb, annál ritkábban „téved” a szabály a függetlenséghez képest. Irányfüggő. butter → bread: $0{,}447/0{,}263 \approx 1{,}70$.</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia</span>
+<p><em>lift</em> = lift (emelés; magyarul is így használjuk) · <em>independence</em> = függetlenség · <em>expected</em> = várt (függetlenség mellett) · <em>leverage</em>, <em>conviction</em> – általában angolul hagyjuk.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Lift (5 feladat)</summary>
+<ol>
+  <li><p>K1–K6: lift(keksz → kávé) és lift(kávé → keksz)?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\frac{1/2}{(1/2)(2/3)} = 1{,}5$ mindkét irányban. (Ellenőrzés: $1/(2/3) = 1{,}5$ és $0{,}75/0{,}5 = 1{,}5$.) Pozitív kapcsolat.</p></details></li>
+  <li><p>K1–K6: lift(kávé → tej)? Értelmezd.</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\frac{1/3}{(2/3)(2/3)} = \frac{1/3}{4/9} = 0{,}75 &lt; 1$. A kávés kosarakban a tej ritkább, mint általában: negatív kapcsolat.</p></details></li>
+  <li><p>10 kosár; ásványvíz 9-ben, chips 4-ben, együtt 3-ban. confidence(chips → víz) és lift? Jó szabály?</p>
+    <details class="solution"><summary>Megoldás</summary><p>conf $= 3/4 = 0{,}75$ – magasnak tűnik. lift $= 0{,}75/0{,}9 \approx 0{,}833 &lt; 1$. A chipset vevők <em>ritkábban</em> vesznek vizet, mint az átlagvásárló. Nem jó szabály: a magas megbízhatóság a víz népszerűségéből jön.</p></details></li>
+  <li><p>200 kosár; $A$ 50-ben, $B$ 80-ban, együtt 20-ban. confidence($A\to B$), lift?</p>
+    <details class="solution"><summary>Megoldás</summary><p>conf $= 20/50 = 0{,}4$; support($B$) $= 80/200 = 0{,}4$; lift $= 0{,}4/0{,}4 = 1$. Pontosan a függetlenség szerinti gyakoriság: $A$ nem mond semmit $B$-ről.</p></details></li>
+  <li><p>support($A$) = 0,3, support($B$) = 0,25, confidence($A\to B$) = 0,5. Mennyi support($A\cup B$), lift és confidence($B\to A$)?</p>
+    <details class="solution"><summary>Megoldás</summary><p>support($A\cup B$) $= 0{,}5\cdot 0{,}3 = 0{,}15$. lift $= 0{,}5/0{,}25 = 2$. confidence($B\to A$) $= 0{,}15/0{,}25 = 0{,}6$. (A lift a fordított irányban is 2: $0{,}6/0{,}3$.)</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l02-lepes5"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes6">
+<h2>6. lépés – A küszöbök hatása a szabályok számára</h2>
+
+<p>Két paramétert mi állítunk be: $s_{\min}$-t (Apriori) és $c_{\min}$-t (szabálygenerálás). Ezekkel szabályozzuk az eredmény méretét.</p>
+
+<h4>Kis eset</h4>
+<p>A demóban $s_{\min} = 40\%$ mellett 9 gyakori halmaz és 14 jelölt szabály volt, $60\%$ mellett 3 gyakori halmaz ({Kenyér}, {Tej}, {Kenyér, Tej}), és csak 2 jelölt szabály: Kenyér → Tej (conf 0,6) és Tej → Kenyér (conf 1).</p>
+
+<div class="box thm"><span class="box-title">Szabály – Mit okoz a küszöbök emelése?</span>
+<ul>
+<li>$s_{\min}$ emelése → a gyakori halmazok száma <strong>nem nő</strong> (csökken vagy változatlan) → kevesebb jelölt szabály → az elfogadott szabályok száma sem nő.</li>
+<li>$c_{\min}$ emelése → ugyanabból a gyakori halmazkészletből kevesebb szabály marad.</li>
+<li>Túl alacsony küszöb: rengeteg, sokszor véletlen szabály. Túl magas: nem marad szabály.</li>
+</ul>
+<p><strong>Miért?</strong> A magasabb küszöböt teljesítő halmaz az alacsonyabbat is teljesíti, fordítva nem. A gyakorlati stratégia (az órán is így): kezdj alacsonyan (10%), és emeld, ha túl sok az eredmény.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa – A valódi adat ($c_{\min} = 0{,}6$, <code>max_len=2</code>)</span>
+<div class="table-wrap"><table>
+<tr><th class="num">min_support</th><th class="num">min. kosár</th><th class="num">gyakori termék</th><th class="num">gyakori pár</th><th class="num">szabály</th></tr>
+<tr><td class="num">0,05</td><td class="num">58</td><td class="num">18</td><td class="num">153</td><td class="num">5</td></tr>
+<tr><td class="num">0,10</td><td class="num">116</td><td class="num">18</td><td class="num">82</td><td class="num">5</td></tr>
+<tr><td class="num">0,15</td><td class="num">173</td><td class="num">18</td><td class="num">16</td><td class="num">5</td></tr>
+<tr><td class="num">0,20</td><td class="num">231</td><td class="num">18</td><td class="num">10</td><td class="num">5</td></tr>
+<tr><td class="num">0,25</td><td class="num">288</td><td class="num">17</td><td class="num">4</td><td class="num">5</td></tr>
+<tr><td class="num">0,30</td><td class="num">346</td><td class="num">6</td><td class="num">1</td><td class="num">2</td></tr>
+<tr><td class="num">0,40</td><td class="num">461</td><td class="num">6</td><td class="num">0</td><td class="num">0</td></tr>
+</table></div>
+<p>A párok száma gyorsan csökken (82 → 10, ahogy az órán is kijött 10% → 20%-nál). A <strong>szabályok</strong> száma viszont 25%-ig 5 marad: a 60%-os megbízhatóságot csak a három legerősebb pár (bread–butter 0,365; biscuits–coffee 0,285; pasta–tomato sauce 0,281) éri el, és ezek támogatottsága magasabb a küszöböknél. 30%-nál csak bread–butter marad (2 szabály), 40%-nál nincs gyakori pár, így szabály sem.</p>
+<p>(Az órán úgy hangzott el, hogy 20%-nál már alig vagy egyáltalán nem marad szabály. A gyakorlat adatain újraszámolva 20%-nál is ugyanaz az 5 szabály jön ki; a csökkenés 30%-tól látszik.)</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa – $c_{\min}$ változtatása ($s_{\min} = 0{,}10$)</span>
+<div class="table-wrap"><table>
+<tr><th class="num">min_confidence</th><th class="num">0,50</th><th class="num">0,55</th><th class="num">0,58</th><th class="num">0,60</th><th class="num">0,65</th><th class="num">0,70</th><th class="num">0,75</th></tr>
+<tr><td>szabályok</td><td class="num">21</td><td class="num">8</td><td class="num">6</td><td class="num">5</td><td class="num">4</td><td class="num">1</td><td class="num">0</td></tr>
+<tr><td>ebből lift &gt; 1</td><td class="num">7</td><td class="num">6</td><td class="num">6</td><td class="num">5</td><td class="num">4</td><td class="num">1</td><td class="num">0</td></tr>
+</table></div>
+<p>70%-nál csak butter → bread (0,737) marad.</p>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<p>„A küszöb emelése mindig csökkenti a szabályok számát” – <strong>nem</strong>. Nem nőhet, de változatlan maradhat (lásd 0,05–0,25). Fordítva: a küszöb csökkentése több halmazt ad, de nem feltétlenül több érdekes szabályt (0,05-nél 153 pár, mégis 5 szabály).</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Küszöbök (5 feladat)</summary>
+<ol>
+  <li><p>Ha $s_{\min}$-t 10%-ról 20%-ra emeled, nőhet-e a gyakori párok száma?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Nem. Ami 20%-nál gyakori, az 10%-nál is az volt. (Valódi adat: 82 → 10.)</p></details></li>
+  <li><p>Valódi adat, $s_{\min} = 0{,}30$, $c_{\min} = 0{,}6$: melyik két szabály marad, és miért csak ezek?</p>
+    <details class="solution"><summary>Megoldás</summary><p>butter → bread (0,737) és bread → butter (0,660). Csak a {bread, butter} pár támogatottsága (0,365) éri el a 0,30-at; a biscuits–coffee (0,285) és pasta–tomato sauce (0,281) kiesik.</p></details></li>
+  <li><p>K1–K6 adat, $c_{\min} = 0{,}6$. Hány szabály van $s_{\min} = 1/3$, illetve $0{,}5$ mellett?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$1/3$: 4 szabály (4. lépés, 4. feladat). $0{,}5$: a gyakori párok {kávé, keksz} és {kenyér, tej}, mind a 4 irány megbízhatósága ≥ 0,75 → szintén 4. A kiesett párok szabályai (0,5) amúgy sem érték el a 0,6-ot.</p></details></li>
+  <li><p>Valódi adat, $s_{\min} = 0{,}10$: $c_{\min}$-t 0,60-ról 0,58-ra csökkentve melyik új szabály jelenik meg?</p>
+    <details class="solution"><summary>Megoldás</summary><p>pasta → tomato sauce (0,588). Így 6 szabály lesz.</p></details></li>
+  <li><p>Miért jó ötlet alacsony $s_{\min}$-nel kezdeni, és miért kell mégis óvatosnak lenni?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Alacsony küszöbnél biztosan lesz gyakori halmaz és szabály, és fokozatosan emelve láthatjuk, mi marad. De túl alacsonyan sok jelölt keletkezik (lassú), és sok szabály ritka, véletlenszerű együttes előfordulásra épül – ezeket a lifttel és a józan ésszel szűrni kell.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="alkalmazas">
+<h2>Alkalmazás – a gyakorlat munkafolyamata a valódi adatokon</h2>
+<p>Adat: az 1. gyakorlat tisztított vásárlási adata (<code>retail_transactions_cleaned.csv</code>), 6945 sor, 1151 vásárlás, 18 termék. A kosarat a <code>transaction_id</code> határozza meg.</p>
+
+<h3>1. feladat – Kosarak előállítása (<code>01_itemsets.py</code>)</h3>
+<pre><code class="language-python">df = pd.read_csv("retail_transactions_cleaned.csv", sep=";", encoding="utf-8-sig")
+
+# Egy termék vásárlásonként egyszer – a quantity nem számít, csak a jelenlét
+basket_items = df[["transaction_id", "product"]].drop_duplicates()
+
+# Azonos vásárlásazonosítóhoz tartozó termékek listába gyűjtése = kosarak
+product_lists = basket_items.groupby("transaction_id")["product"].agg(list)
+# T0001 ['milk', 'tomato sauce']
+# T0002 ['biscuits', 'bread', 'butter', 'chicken'] ...</code></pre>
+<p>Az átlagos kosár 6,0 termékes (2 és 9 között). A leggyakoribb termékek:</p>
+<div class="table-wrap"><table>
+<tr><th>Termék</th><th class="num">kosár</th><th class="num">support</th></tr>
+<tr><td>bread</td><td class="num">636</td><td class="num">0,553</td></tr>
+<tr><td>butter</td><td class="num">570</td><td class="num">0,495</td></tr>
+<tr><td>pasta</td><td class="num">549</td><td class="num">0,477</td></tr>
+<tr><td>coffee</td><td class="num">540</td><td class="num">0,469</td></tr>
+<tr><td>biscuits</td><td class="num">499</td><td class="num">0,434</td></tr>
+<tr><td>tomato sauce</td><td class="num">496</td><td class="num">0,431</td></tr>
+<tr><td>a többi 12 termék</td><td class="num">284–320</td><td class="num">0,247–0,278</td></tr>
+</table></div>
+
+<h3>2. feladat – Gyakori párok Apriorival (<code>02_apriori.py</code>)</h3>
+<pre><code class="language-python">from mlxtend.preprocessing import TransactionEncoder
+from mlxtend.frequent_patterns import apriori
+
+MIN_SUPPORT = 0.10
+transactions = product_lists.tolist()          # listák listája
+
+# Kosár–termék logikai mátrix: sor = vásárlás, oszlop = termék, True = benne van
+encoder = TransactionEncoder()
+encoded = encoder.fit(transactions).transform(transactions)
+basket_matrix = pd.DataFrame(encoded, columns=encoder.columns_)
+
+# Gyakori elemhalmazok, legfeljebb 2 termékig (max_len=2)
+frequent_itemsets = apriori(basket_matrix, min_support=MIN_SUPPORT,
+                            use_colnames=True, max_len=2)
+frequent_itemsets["product_count"] = frequent_itemsets["itemsets"].str.len()
+frequent_pairs = frequent_itemsets[frequent_itemsets["product_count"] == 2]</code></pre>
+<p>A mátrix első három sora (a nem mutatott 10 oszlop mindhárom sorban False):</p>
+<div class="table-wrap"><table>
+<tr><th></th><th>biscuits</th><th>bread</th><th>butter</th><th>chicken</th><th>milk</th><th>orange juice</th><th>pasta</th><th>tomato sauce</th></tr>
+<tr><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>1</td><td>0</td><td>0</td><td>1</td></tr>
+<tr><td>1</td><td>1</td><td>1</td><td>1</td><td>1</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>2</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>1</td><td>1</td><td>0</td></tr>
+</table></div>
+<ul>
+<li><code>use_colnames=True</code>: az eredményben terméknevek álljanak, ne oszlopsorszámok.</li>
+<li><code>max_len=2</code>: legfeljebb kételemű halmazokat keres; az egyeleműeket is megvizsgálja (az Apriori első szintje), ezeket utána a <code>product_count == 2</code> szűrés dobja el a kiírásból. A mentett <code>retail_frequent_itemsets.csv</code> mindkettőt tartalmazza (18 + 82 = 100 sor), mert a szabálygeneráláshoz az egyelemű halmazok támogatottsága is kell.</li>
+</ul>
+<p>Eredmény: 1151 kosár, $s_{\min} = 10\%$, <strong>82 gyakori termékpár</strong>. Az első öt:</p>
+<div class="table-wrap"><table>
+<tr><th>product_1</th><th>product_2</th><th class="num">basket_count</th><th class="num">support</th></tr>
+<tr><td>bread</td><td>butter</td><td class="num">420</td><td class="num">0,365</td></tr>
+<tr><td>biscuits</td><td>coffee</td><td class="num">328</td><td class="num">0,285</td></tr>
+<tr><td>pasta</td><td>tomato sauce</td><td class="num">323</td><td class="num">0,281</td></tr>
+<tr><td>bread</td><td>coffee</td><td class="num">297</td><td class="num">0,258</td></tr>
+<tr><td>bread</td><td>pasta</td><td class="num">285</td><td class="num">0,248</td></tr>
+</table></div>
+
+<div class="box warn"><span class="box-title">⚠ Ha a <code>02_apriori.py</code>-t önállóan futtatod</span>
+<p>A szkript beolvassa a <code>retail_baskets.csv</code>-t, de utána az előző szkript <code>product_lists</code> változóját használja (a notebookban ez az előző cellából megvan). Önálló futtatáskor ez hiányzik, ráadásul a CSV-ben a listák szövegként (<code>"['milk', 'tomato sauce']"</code>) vannak. Javítás:</p>
+<pre><code class="language-python">import ast
+transactions = df["product"].apply(ast.literal_eval).tolist()</code></pre>
+<p>A <code>display()</code> is csak notebookban (Colab/Jupyter) működik; szkriptben <code>print()</code> kell.</p>
+</div>
+
+<h3>3. feladat – Szabálygenerálás (<code>03_associationrules.py</code>)</h3>
+<p>A szabálygenerálás itt saját függvény, a pszeudokód (4. lépés) közvetlen megvalósítása:</p>
+<pre><code class="language-python">MIN_CONFIDENCE = 0.60
+
+for itemset, support in supports.items():        # {frozenset: support}
+    if len(itemset) &lt; 2:
+        continue
+    for size in range(1, len(itemset)):          # minden nem üres valódi részhalmaz
+        for values in combinations(sorted(itemset), size):
+            antecedent = frozenset(values)
+            consequent = itemset - antecedent
+            confidence = support / supports[antecedent]
+            lift = confidence / supports[consequent]
+            if confidence &gt;= min_confidence:
+                results.append({...})            # antecedents, consequents, support, confidence, lift
+# a végén lift, majd confidence szerint csökkenő sorrend</code></pre>
+<p>A 82 gyakori párból 164 jelölt szabály keletkezik, ebből <strong>5</strong> éri el a 60%-ot (<code>retail_association_rules.csv</code>):</p>
+<div class="table-wrap"><table>
+<tr><th>Szabály</th><th class="num">support(A)</th><th class="num">support(B)</th><th class="num">support</th><th class="num">confidence</th><th class="num">lift</th></tr>
+<tr><td>biscuits → coffee</td><td class="num">0,434</td><td class="num">0,469</td><td class="num">0,285</td><td class="num">0,657</td><td class="num">1,401</td></tr>
+<tr><td>coffee → biscuits</td><td class="num">0,469</td><td class="num">0,434</td><td class="num">0,285</td><td class="num">0,607</td><td class="num">1,401</td></tr>
+<tr><td>tomato sauce → pasta</td><td class="num">0,431</td><td class="num">0,477</td><td class="num">0,281</td><td class="num">0,651</td><td class="num">1,365</td></tr>
+<tr><td>butter → bread</td><td class="num">0,495</td><td class="num">0,553</td><td class="num">0,365</td><td class="num">0,737</td><td class="num">1,333</td></tr>
+<tr><td>bread → butter</td><td class="num">0,553</td><td class="num">0,495</td><td class="num">0,365</td><td class="num">0,660</td><td class="num">1,333</td></tr>
+</table></div>
+
+<div class="box warn"><span class="box-title">⚠ A kód confidence alapján szűr, lift alapján csak rendez</span>
+<p>Az órán úgy hangzott el, hogy a táblázat „már szűrve van lift &gt; 1-re”. A kód valójában csak a megbízhatóságot szűri; az 5 szabály liftje <em>itt véletlenül</em> mind nagyobb 1-nél. Más adaton vagy alacsonyabb $c_{\min}$-nél (pl. 0,5-nél 21 szabályból 14 liftje &lt; 1) a lift szerinti szűrést külön el kell végezni, pl. <code>rules[rules["lift"] &gt; 1]</code>.</p>
+</div>
+
+<h3>4–5. feladat – Küszöbök és két szabály értelmezése</h3>
+<p>A küszöbök hatását a <a href="#lepes6">6. lépés</a> táblázata mutatja. Két szabály értelmezése:</p>
+
+<div class="two-col">
+<div class="box example"><span class="box-title">butter → bread</span>
+<ul>
+<li><strong>support 0,365:</strong> a kosarak 36,5%-ában (420 kosár) van vaj és kenyér együtt.</li>
+<li><strong>confidence 0,737:</strong> a vajat vevők 73,7%-a kenyeret is vett.</li>
+<li><strong>lift 1,33:</strong> a vajas kosarakban a kenyér 1,33-szor gyakoribb, mint általában (73,7% vs. 55,3%). Függetlenség mellett kb. 315 közös kosár lenne, ténylegesen 420 van.</li>
+<li>A fordított irány (bread → butter) megbízhatósága kisebb (0,660), mert a kenyér gyakoribb, mint a vaj – a lift ugyanaz.</li>
+</ul></div>
+<div class="box example"><span class="box-title">biscuits → coffee</span>
+<ul>
+<li><strong>support 0,285:</strong> a kosarak 28,5%-ában (328 kosár) van keksz és kávé együtt.</li>
+<li><strong>confidence 0,657:</strong> a kekszet vevők 65,7%-a kávét is vett.</li>
+<li><strong>lift 1,40:</strong> a legerősebb kapcsolat: a kekszes kosarakban a kávé 1,4-szer gyakoribb, mint az összes kosár átlagában (65,7% vs. 46,9%).</li>
+<li>Üzleti ötlet: közös akció, egymás mellé polcozás.</li>
+</ul></div>
+</div>
+
+<p><strong>Válasz a motivációs kérdésre.</strong> A vaj → kenyér (conf 0,74, lift 1,33) valódi kapcsolat: a vaj megemeli a kenyér esélyét. A kávé → kenyér (conf 0,55, lift 0,995) megbízhatósága csak azért magas, mert a kenyér a kosarak 55%-ában amúgy is benne van; a kávé semmit nem tesz hozzá.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="osszefoglalas">
+<h2>Összefoglalás</h2>
+<div class="box tip"><span class="box-title">💡 A lecke lényege</span>
+<ul>
+<li>Kosár = egy vásárlás termékeinek <strong>halmaza</strong> (jelenlét, nem mennyiség).</li>
+<li>$\operatorname{support}(X)$ = az $X$-et tartalmazó kosarak aránya; gyakori, ha $\ge s_{\min}$.</li>
+<li><strong>Apriori-elv:</strong> ritka halmaz minden bővítése ritka. Az algoritmus szintenként: jelöltgenerálás → metszés → számlálás → szűrés, amíg van új jelölt.</li>
+<li>Szabály $A\to B$: $\operatorname{conf} = \operatorname{support}(A\cup B)/\operatorname{support}(A)$ – <strong>irányfüggő</strong>.</li>
+<li>$\operatorname{lift} = \operatorname{conf}/\operatorname{support}(B)$ – <strong>szimmetrikus</strong>; $&gt;1$ pozitív, $=1$ független, $&lt;1$ negatív kapcsolat.</li>
+<li>Magas megbízhatóság + lift &gt; 1 = érdekes szabály. Gyakori $B$ esetén a magas megbízhatóság félrevezet.</li>
+</ul>
+</div>
+
+<div class="table-wrap"><table>
+<tr><th>Ha a feladatban ez áll…</th><th>…ezt használd</th></tr>
+<tr><td>„hány / mekkora hányad kosárban van X”</td><td>$\sigma(X)$ (darab), $\operatorname{support}(X) = \sigma(X)/N$</td></tr>
+<tr><td>„a küszöb legalább hány kosár”</td><td>$\lceil s_{\min}\cdot N\rceil$, felfelé kerekítve</td></tr>
+<tr><td>„gyakori-e X”</td><td>$\operatorname{support}(X) \ge s_{\min}$</td></tr>
+<tr><td>„meg kell-e számolni ezt a jelöltet”</td><td>Apriori-metszés: van-e ritka $(k-1)$-elemű részhalmaza? Ha igen, nem.</td></tr>
+<tr><td>„melyek a $k$-elemű jelöltek”</td><td>$L_{k-1}$ párjainak uniói, ha $k$ eleműek, majd metszés</td></tr>
+<tr><td>„az A-t vevők mekkora része vesz B-t”</td><td>$\operatorname{confidence}(A\to B) = \operatorname{support}(A\cup B)/\operatorname{support}(A)$</td></tr>
+<tr><td>„gyakoribb-e B, ha A is van”, „függetlenek-e”</td><td>lift; összevetés 1-gyel</td></tr>
+<tr><td>„hány szabály képezhető egy $k$ elemű halmazból”</td><td>$2^k - 2$</td></tr>
+<tr><td>„túl sok / túl kevés az eredmény”</td><td>$s_{\min}$ vagy $c_{\min}$ emelése / csökkentése</td></tr>
+<tr><td>„magas a confidence, jó-e a szabály”</td><td>nézd meg a liftet és support($B$)-t</td></tr>
+</table></div>
+</section>
+
+<section id="kviz">
+<h2>Ellenőrző kvíz</h2>
+<div class="quiz" data-quiz="l02-vegso"></div>
+</section>
+
+<nav class="pager">
+  <a href="01-adattisztitas.html">← 1. Adattisztítás</a>
+  <a href="03-kmeans.html">3. K-means →</a>
+</nav>
+</main>
+</body>
+</html>

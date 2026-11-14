@@ -1,0 +1,881 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Neurális háló és MLP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script defer src="assets/quiz.js"></script>
+<script defer src="quiz/06.js"></script>          <!-- a lecke kvízei -->
+<script defer src="assets/common.js"></script>    <!-- MINDIG az utolsó -->
+</head>
+<body>
+<nav class="topnav"><div class="inner">
+  <a href="index.html">← Tartalom</a>
+  <span>6. lecke · Neurális háló</span>
+  <span class="spacer"></span>
+  <button id="theme-toggle" type="button" title="Világos/sötét téma">◐</button>
+</div></nav>
+<main>
+<p class="kicker">6. lecke · 6. gyakorlat</p>
+<h1>Neurális háló: perceptron, MLP és a tanítás minősége</h1>
+<p class="lead">Egyetlen mesterséges neurontól eljutunk a többrétegű hálóig. Megnézzük, hogyan számol, hogyan tanul, és hogyan veszed észre, ha csak bemagolja a tanítóhalmazt. A végén összevetjük a döntési fával.</p>
+
+<section id="motivacio">
+<h2>Motiváció</h2>
+<p>Az 5. gyakorlat döntési fája a hallgatói teszthalmazon <strong>72,4%</strong> pontosságot ért el. Ugyanennyit ér el a „mindenki átmegy” alapmodell is (a 29 teszthallgatóból 21 ment át). Két kérdés:</p>
+<ol>
+  <li>Tud-e egy neurális háló (MLP) ugyanazokon az adatokon jobbat?</li>
+  <li>Ha a nagyobb háló tanítási vesztesége 0,06-ra, a kisebbé „csak” 0,19-re csökken, akkor a nagyobb háló a jobb?</li>
+</ol>
+<p>A lecke végén mindkettőre valódi számokkal válaszolunk. Spoiler a második kérdéshez: <em>nem feltétlenül</em> – és meg fogod tudni mondani, miért.</p>
+</section>
+
+<section id="utiterv">
+<h2>Útiterv</h2>
+<ol class="roadmap">
+  <li><a href="#lepes1">1. lépés – A perceptron: súlyozott összeg, eltolás, lépcsős döntés</a></li>
+  <li><a href="#lepes2">2. lépés – Lineáris döntési határ, és miért nem megy az XOR</a></li>
+  <li><a href="#lepes3">3. lépés – Az MLP rétegei és az aktivációs függvények</a></li>
+  <li><a href="#lepes4">4. lépés – Előreterjesztés kézzel</a></li>
+  <li><a href="#lepes5">5. lépés – A veszteségfüggvény: log-loss</a></li>
+  <li><a href="#lepes6">6. lépés – Hogyan tanul a háló: hibavisszaterjesztés, tanulási ráta, epoch, batch</a></li>
+  <li><a href="#lepes7">7. lépés – Standardizálás a tanítóhalmaz paramétereivel</a></li>
+  <li><a href="#lepes8">8. lépés – Az <code>MLPClassifier</code> paraméterei és a leállás</a></li>
+  <li><a href="#lepes9">9. lépés – Túltanulás: felismerés és ellenszerek</a></li>
+  <li><a href="#alkalmazas">Alkalmazás – a 6. gyakorlat: két háló és a döntési fa</a></li>
+  <li><a href="#osszefoglalas">Összefoglalás és döntési táblázat</a></li>
+  <li><a href="#kviz">Ellenőrző kvíz</a></li>
+</ol>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes1">
+<h2>1. lépés – A perceptron: súlyozott összeg, eltolás, lépcsős döntés</h2>
+
+<h4>Kis eset</h4>
+<p>Két adatod van egy hallgatóról: $x_1$ = heti tanulási óra, $x_2$ = korábbi tanulmányi átlag. Szeretnél egy egyszerű szabályt: „átmegy” (1) vagy „nem megy át” (0). Az ötlet: adj mindkét adatnak egy <strong>súlyt</strong> (mennyire számít), add össze, vonj le egy küszöböt, és nézd meg az előjelet.</p>
+<p>Legyen $w_1 = 0{,}3$, $w_2 = 1$ és az eltolás $b = -6$. Három hallgató:</p>
+<div class="table-wrap"><table>
+<tr><th>Hallgató</th><th class="num">$x_1$ (óra)</th><th class="num">$x_2$ (átlag)</th><th class="num">$z = 0{,}3x_1 + 1\cdot x_2 - 6$</th><th>Döntés</th></tr>
+<tr><td>A</td><td class="num">10</td><td class="num">3,5</td><td class="num">$3 + 3{,}5 - 6 = 0{,}5$</td><td>$z \ge 0$ → <strong>1</strong> (átmegy)</td></tr>
+<tr><td>B</td><td class="num">5</td><td class="num">2,5</td><td class="num">$1{,}5 + 2{,}5 - 6 = -2$</td><td>$z &lt; 0$ → <strong>0</strong></td></tr>
+<tr><td>C</td><td class="num">12</td><td class="num">2,0</td><td class="num">$3{,}6 + 2 - 6 = -0{,}4$</td><td>$z &lt; 0$ → <strong>0</strong></td></tr>
+</table></div>
+<p>Ennyi a perceptron: <em>súlyozott összeg + eltolás, aztán egy lépcső</em>.</p>
+
+<figure>
+<svg viewBox="0 0 520 170" width="520" role="img" aria-label="Perceptron vázlata: két bemenet súlyokkal egy összegző csomópontba fut, majd lépcsőfüggvény adja a kimenetet">
+  <g font-size="14" fill="currentColor" font-family="Inter, sans-serif">
+    <circle cx="50" cy="45" r="22" fill="none" stroke="currentColor"/><text x="50" y="50" text-anchor="middle">x₁</text>
+    <circle cx="50" cy="125" r="22" fill="none" stroke="currentColor"/><text x="50" y="130" text-anchor="middle">x₂</text>
+    <line x1="72" y1="50" x2="218" y2="80" stroke="var(--accent)" stroke-width="2"/>
+    <line x1="72" y1="120" x2="218" y2="92" stroke="var(--accent)" stroke-width="2"/>
+    <text x="135" y="52" fill="var(--accent)">w₁</text><text x="135" y="130" fill="var(--accent)">w₂</text>
+    <line x1="240" y1="20" x2="240" y2="62" stroke="var(--muted)" stroke-dasharray="4 3"/>
+    <text x="248" y="30" fill="var(--muted)">+ b (eltolás)</text>
+    <circle cx="240" cy="86" r="24" fill="none" stroke="currentColor" stroke-width="2"/><text x="240" y="92" text-anchor="middle" font-size="20">Σ</text>
+    <line x1="264" y1="86" x2="330" y2="86" stroke="currentColor"/><text x="297" y="78" text-anchor="middle">z</text>
+    <rect x="330" y="60" width="70" height="52" rx="6" fill="none" stroke="currentColor"/>
+    <polyline points="340,100 365,100 365,72 390,72" fill="none" stroke="var(--warn)" stroke-width="2.5"/>
+    <line x1="400" y1="86" x2="460" y2="86" stroke="currentColor"/>
+    <text x="470" y="91">ŷ ∈ {0, 1}</text>
+    <text x="365" y="132" text-anchor="middle" font-size="12" fill="var(--muted)">lépcsőfüggvény</text>
+  </g>
+</svg>
+<figcaption>A perceptron: bemenetek × súlyok, összegzés, eltolás, majd lépcsős döntés.</figcaption>
+</figure>
+
+<div class="box def"><span class="box-title">Definíció – Perceptron</span>
+<p>A perceptron $p$ bemenetből ($x_1,\dots,x_p$) súlyozott összeget számol, hozzáadja az eltolást (bias), majd egy lépcsőfüggvénnyel dönt:</p>
+<p>$$z=\sum_{i=1}^{p} w_i x_i + b, \qquad \hat y=\begin{cases}1, &amp; \text{ha } z\ge 0\\ 0, &amp; \text{ha } z&lt;0\end{cases}$$</p>
+<p>$w_i$ a súly, $b$ az eltolás. A paraméterek száma $p+1$ ($p$ súly + 1 eltolás).</p>
+<p><strong>Miért így?</strong> A súly előjele megmondja, hogy a változó a „1” vagy a „0” felé tol, a nagysága pedig, hogy mennyire. Az eltolás a küszöb: $b=-6$ azt jelenti, hogy a súlyozott összegnek legalább 6-ot kell elérnie az „átmegy” döntéshez.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – egy döntés</span>
+<p>Ugyanazokkal a súlyokkal ($w=(0{,}3;\ 1)$, $b=-6$): mit mond a perceptron a $(14;\ 1{,}9)$ hallgatóra?</p>
+<details class="solution"><summary>Megoldás</summary><p>$z = 0{,}3\cdot 14 + 1{,}9 - 6 = 4{,}2 + 1{,}9 - 6 = 0{,}1 \ge 0$, tehát $\hat y = 1$. Sok óra kompenzálja a gyenge átlagot – de épp csak.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – az eltolás szerepe</span>
+<p>A C hallgatónál ($z=-0{,}4$) mekkora eltolás kellene, hogy épp a határon legyen?</p>
+<details class="solution"><summary>Megoldás</summary><p>$0{,}3\cdot 12 + 2 + b = 0 \Rightarrow b = -5{,}6$. Kisebb abszolút értékű (enyhébb) küszöb → több hallgatót sorol az „átmegy” osztályba.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – egy tanulási lépés</span>
+<p>A C hallgató valójában <em>átment</em> ($y=1$), a perceptron 0-t mondott. Tanítás közben a perceptron a hibás előrejelzés alapján módosítja a súlyokat. A klasszikus szabály ($\eta$ a tanulási ráta):</p>
+<p>$$w_i \leftarrow w_i + \eta\,(y-\hat y)\,x_i,\qquad b \leftarrow b + \eta\,(y-\hat y)$$</p>
+<p>Számold ki $\eta = 0{,}01$ mellett!</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>$y-\hat y = 1$. $w_1 = 0{,}3 + 0{,}01\cdot 12 = 0{,}42$; $w_2 = 1 + 0{,}01\cdot 2 = 1{,}02$; $b = -6 + 0{,}01 = -5{,}99$.</p>
+<p>Új $z = 0{,}42\cdot 12 + 1{,}02\cdot 2 - 5{,}99 = 1{,}09 \ge 0$ → most már 1. Ha a döntés helyes ($y-\hat y=0$), semmi sem változik.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+<li>Az eltolást (<em>b</em>) nem szabad elfelejteni: nélküle a döntési határ mindig átmenne az origón.</li>
+<li>A $z=0$ eset a megállapodás szerint az 1-es osztályba kerül ($z \ge 0$). Vizsgán nézd meg, melyik konvenciót adták meg.</li>
+<li>A perceptron <em>nem</em> valószínűséget ad, csak 0/1 döntést. Valószínűség a szigmoid kimenetből lesz (3. lépés).</li>
+</ul></div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia</span>
+<p><em>weight</em> = súly · <em>bias</em> / <em>intercept</em> = eltolás (a scikit-learnben <code>intercepts_</code>) · <em>weighted sum</em> = súlyozott összeg · <em>step function</em> = lépcsőfüggvény · <em>learning rate</em> = tanulási ráta ($\eta$).</p></div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Perceptron kézzel (5 feladat)</summary>
+<p>Ahol mást nem mondunk: $w_1=0{,}3$, $w_2=1$, $b=-6$, és $\hat y=1$, ha $z\ge 0$.</p>
+<ol>
+  <li><p>Mit dönt a perceptron a $(6;\ 4{,}0)$ hallgatóra?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$z=1{,}8+4-6=-0{,}2&lt;0$ → $\hat y=0$. A kiváló átlag sem elég ennyi tanulással.</p></details></li>
+  <li><p>És a $(8;\ 3{,}6)$ hallgatóra?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$z=2{,}4+3{,}6-6=0$. A konvenció szerint $z\ge 0$ → $\hat y=1$. Ő pont a döntési határon áll.</p></details></li>
+  <li><p>Mekkora $b$ mellett lenne a $(10;\ 2{,}5)$ hallgató pontosan a határon?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$3+2{,}5+b=0 \Rightarrow b=-5{,}5$.</p></details></li>
+  <li><p>Hány paramétere van egy perceptronnak, amely a gyakorlat 7 bemeneti változóját kapja?</p>
+    <details class="solution"><summary>Megoldás</summary><p>7 súly + 1 eltolás = <strong>8</strong>.</p></details></li>
+  <li><p>A $(6;\ 4{,}0)$ hallgató valójában átment. Végezz egy tanulási lépést $\eta=0{,}01$-gyel! Mit dönt utána?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$y-\hat y=1-0=1$. $w_1=0{,}3+0{,}06=0{,}36$, $w_2=1+0{,}04=1{,}04$, $b=-5{,}99$.<br>Új $z=0{,}36\cdot 6+1{,}04\cdot 4-5{,}99=2{,}16+4{,}16-5{,}99=0{,}33\ge 0$ → $\hat y=1$, a hiba eltűnt.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes2">
+<h2>2. lépés – Lineáris döntési határ, és miért nem megy az XOR</h2>
+
+<h4>Kis eset</h4>
+<p>Hol vált a perceptron 0-ról 1-re? Ott, ahol $z=0$: $0{,}3x_1 + x_2 - 6 = 0$, azaz $x_2 = 6 - 0{,}3x_1$. Ez egy <strong>egyenes</strong>. Fölötte $z&gt;0$ (átmegy), alatta $z&lt;0$. A $(8;\ 3{,}6)$ hallgató épp rajta van: $6-0{,}3\cdot 8 = 3{,}6$.</p>
+
+<div class="box def"><span class="box-title">Definíció – Lineáris döntési határ</span>
+<p>A perceptron döntési határa a $\sum w_i x_i + b = 0$ halmaz: két bemenetnél <strong>egyenes</strong>, háromnál sík, többnél <strong>hipersík</strong>. Egy adathalmaz <em>lineárisan szeparálható</em>, ha létezik ilyen határ, amely a két osztályt hibátlanul elválasztja.</p>
+<p><strong>Miért?</strong> $z$ a bemenetek lineáris függvénye, a lépcső csak az előjelét nézi. Ezért a perceptron bármit tanul, a határ mindig „egyenes vonalú” marad.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – ÉS (AND) perceptronnal</span>
+<p>Bemenetek 0/1 értékek. Legyen $w_1=w_2=1$, $b=-1{,}5$.</p>
+<div class="table-wrap"><table>
+<tr><th>$x_1$</th><th>$x_2$</th><th class="num">$z$</th><th>$\hat y$</th><th>AND</th></tr>
+<tr><td>0</td><td>0</td><td class="num">−1,5</td><td>0</td><td>0</td></tr>
+<tr><td>0</td><td>1</td><td class="num">−0,5</td><td>0</td><td>0</td></tr>
+<tr><td>1</td><td>0</td><td class="num">−0,5</td><td>0</td><td>0</td></tr>
+<tr><td>1</td><td>1</td><td class="num">0,5</td><td>1</td><td>1</td></tr>
+</table></div>
+<p>Hibátlan. Ugyanezekkel a súlyokkal $b=-0{,}5$ a VAGY (OR) műveletet adja.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – kizáró vagy (XOR): nincs jó egyenes</span>
+<p>Az XOR akkor 1, ha <em>pontosan egy</em> bemenet 1: $(0,0)\to 0$, $(0,1)\to 1$, $(1,0)\to 1$, $(1,1)\to 0$. Keressünk $w_1,w_2,b$ értéket!</p>
+<details class="solution" open><summary>Levezetés</summary>
+<p>A négy pontból négy feltétel:</p>
+<p>$$\begin{aligned} (0,0)\to 0:&amp;\quad b&lt;0\\ (1,0)\to 1:&amp;\quad w_1+b\ge 0\\ (0,1)\to 1:&amp;\quad w_2+b\ge 0\\ (1,1)\to 0:&amp;\quad w_1+w_2+b&lt;0 \end{aligned}$$</p>
+<p>Add össze a 2. és 3. sort: $w_1+w_2+2b\ge 0$, vagyis $w_1+w_2+b \ge -b$. Az 1. sor szerint $-b&gt;0$, tehát $w_1+w_2+b&gt;0$. Ez ellentmond a 4. sornak. <strong>Nincs ilyen perceptron.</strong></p>
+</details>
+</div>
+
+<figure>
+<svg viewBox="0 0 480 210" width="480" role="img" aria-label="Bal oldalon az ÉS művelet négy pontja egy elválasztó egyenessel, jobb oldalon az XOR négy pontja, amelyeket egyetlen egyenes sem választ el">
+  <g font-family="Inter, sans-serif" font-size="12" fill="currentColor">
+    <text x="110" y="16" text-anchor="middle" font-weight="600">ÉS (AND) – szeparálható</text>
+    <line x1="40" y1="170" x2="190" y2="170" stroke="currentColor" stroke-opacity=".4"/><line x1="50" y1="180" x2="50" y2="30" stroke="currentColor" stroke-opacity=".4"/>
+    <circle cx="60" cy="160" r="8" fill="none" stroke="var(--warn)" stroke-width="2"/>
+    <circle cx="160" cy="160" r="8" fill="none" stroke="var(--warn)" stroke-width="2"/>
+    <circle cx="60" cy="60" r="8" fill="none" stroke="var(--warn)" stroke-width="2"/>
+    <circle cx="160" cy="60" r="8" fill="var(--accent)"/>
+    <line x1="85" y1="30" x2="195" y2="140" stroke="var(--ex)" stroke-width="2.5" stroke-dasharray="6 4"/>
+    <text x="60" y="190" text-anchor="middle">0</text><text x="160" y="190" text-anchor="middle">1</text><text x="36" y="164">0</text><text x="36" y="64">1</text>
+    <text x="355" y="16" text-anchor="middle" font-weight="600">XOR – nem szeparálható</text>
+    <line x1="285" y1="170" x2="435" y2="170" stroke="currentColor" stroke-opacity=".4"/><line x1="295" y1="180" x2="295" y2="30" stroke="currentColor" stroke-opacity=".4"/>
+    <circle cx="305" cy="160" r="8" fill="none" stroke="var(--warn)" stroke-width="2"/>
+    <circle cx="405" cy="60" r="8" fill="none" stroke="var(--warn)" stroke-width="2"/>
+    <circle cx="405" cy="160" r="8" fill="var(--accent)"/>
+    <circle cx="305" cy="60" r="8" fill="var(--accent)"/>
+    <text x="355" y="115" text-anchor="middle" fill="var(--muted)">egy egyenes kevés</text>
+    <text x="305" y="190" text-anchor="middle">0</text><text x="405" y="190" text-anchor="middle">1</text><text x="281" y="164">0</text><text x="281" y="64">1</text>
+  </g>
+</svg>
+<figcaption>Teli kör: 1-es osztály, üres kör: 0-s osztály. Az XOR két „1”-ese átlósan áll, egyetlen egyenes nem választja le őket.</figcaption>
+</figure>
+
+<div class="box tip"><span class="box-title">💡 Hüvelykujjszabály</span>
+<p>Egy perceptron = egy egyenes (hipersík). Ha az osztályokat csak görbe vagy több darabból álló határ választja el, egyetlen perceptron kevés – ezért kell a <strong>többrétegű</strong> háló (MLP). Az órán is ez volt a hangsúly: „azért nem jó a sima perceptron, hogy nemlineáris kapcsolatokat is meg tudjunk tanulni”.</p></div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<p>A perceptron tanítása lineárisan szeparálható adaton véges sok lépésben hibátlan határt talál. Ha az adat <em>nem</em> szeparálható (pl. XOR), a súlyok a végtelenségig ide-oda ugrálnak – a tanítás nem „rossz”, hanem a modell eleve képtelen a feladatra.</p></div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Döntési határ és logikai műveletek (5 feladat)</summary>
+<ol>
+  <li><p>Írd fel a $w=(0{,}3;\ 1)$, $b=-6$ perceptron döntési határát $x_2=\dots$ alakban! Mennyi $x_2$ a határon, ha $x_1=10$?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$x_2 = 6 - 0{,}3x_1$. $x_1=10$ esetén $x_2=3$: 10 órával 3,0-s átlag a „belépő”.</p></details></li>
+  <li><p>$w=(2;\ -1)$, $b=0$. Melyik oldalon van az $(1;\ 3)$ pont?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$z=2-3+0=-1&lt;0$ → 0-s osztály. (A negatív súly miatt a nagy $x_2$ a 0 felé tol.)</p></details></li>
+  <li><p>$w_1=w_2=1$ mellett milyen $b$ értékek adják a VAGY (OR) műveletet?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$(0,0)\to0$: $b&lt;0$. $(1,0)\to 1$: $1+b\ge 0$, azaz $b\ge -1$. A $(1,1)$ pont ekkor automatikusan 1. Tehát $-1\le b&lt;0$, pl. $b=-0{,}5$.</p></details></li>
+  <li><p>Ellenőrizd, hogy $w=(-1;\ -1)$, $b=1{,}5$ a NEM-ÉS (NAND) műveletet adja ($(1,1)\to 0$, a többi 1)!</p>
+    <details class="solution"><summary>Megoldás</summary><p>$z$: $(0,0)$: 1,5 → 1; $(0,1)$ és $(1,0)$: 0,5 → 1; $(1,1)$: −0,5 → 0. ✓ Ez az AND „tükörképe”: minden előjel megfordult.</p></details></li>
+  <li><p>Röviden: miért nem segít az XOR-on, ha a perceptront tovább tanítjuk vagy más tanulási rátát adunk?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Mert a 2. kidolgozott példa szerint <em>semmilyen</em> $w_1,w_2,b$ nem jó. A tanítás csak a súlyokat keresi; ha nincs megfelelő súly, nincs mit megtalálni. Szerkezeti változás kell: rejtett réteg.</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l06-lepes2"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes3">
+<h2>3. lépés – Az MLP rétegei és az aktivációs függvények</h2>
+
+<h4>Kis eset: mi van, ha egymás után kötünk két lineáris lépést?</h4>
+<p>Legyen egy „rejtett” neuron $h = 2x+1$, a kimenet pedig $o = 3h - 2$. Behelyettesítve: $o = 3(2x+1)-2 = 6x+1$. Ez megint egy egyenes! Akárhány lineáris réteget kötsz egymás után, az eredmény lineáris marad. Kell valami „hajlítás” a rétegek közé: ez az <strong>aktivációs függvény</strong>.</p>
+
+<div class="box def"><span class="box-title">Definíció – MLP (többrétegű perceptron)</span>
+<ul>
+<li><strong>Bemeneti réteg:</strong> fogadja a magyarázó változókat (itt 7 oszlop). Nem számol, csak továbbad.</li>
+<li><strong>Rejtett rétegek:</strong> a bemenetekből új jellemzőket számolnak. A gyakorlatban <code>hidden_layer_sizes=(8, 4)</code>: két rejtett réteg 8 és 4 neuronnal.</li>
+<li><strong>Kimeneti réteg:</strong> az osztályhoz tartozás becslése. Bináris osztályozásnál 1 neuron szigmoiddal: $P(\text{yes})$.</li>
+</ul>
+<p>Minden neuron ugyanazt csinálja: súlyozott összeg + eltolás, majd aktivációs függvény:</p>
+<p>$$a = f\Big(\sum_i w_i x_i + b\Big)$$</p>
+<p>A szomszédos rétegek minden neuronja össze van kötve (teljesen összekötött réteg). Egy $m$ neuronos réteg $k$ bemenettel $k\cdot m$ súlyt és $m$ eltolást tartalmaz.</p>
+<p><strong>Miért?</strong> A nemlineáris $f$ miatt a rétegek nem olvadnak össze egyetlen egyenessé, így az MLP görbe, összetett döntési határt is meg tud tanulni.</p>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Aktivációs függvények (<code>activation=</code>)</span>
+<div class="table-wrap"><table>
+<tr><th>Név a kódban</th><th>Képlet</th><th>Értékkészlet</th><th>Megjegyzés</th></tr>
+<tr><td><code>identity</code></td><td>$f(z)=z$</td><td>$(-\infty,\infty)$</td><td>nincs hajlítás → lineáris modell</td></tr>
+<tr><td><code>logistic</code> (szigmoid)</td><td>$\sigma(z)=\dfrac{1}{1+e^{-z}}$</td><td>$(0,1)$</td><td>valószínűségként olvasható; $\sigma(0)=0{,}5$</td></tr>
+<tr><td><code>tanh</code></td><td>$\tanh z=\dfrac{e^{z}-e^{-z}}{e^{z}+e^{-z}}$</td><td>$(-1,1)$</td><td>0 körül szimmetrikus</td></tr>
+<tr><td><code>relu</code></td><td>$\max(0,z)$</td><td>$[0,\infty)$</td><td>negatívból 0, pozitív marad; gyors, ez az alapértelmezés</td></tr>
+</table></div>
+</div>
+
+<figure>
+<svg viewBox="0 0 600 120" width="600" font-family="Inter, sans-serif" role="img" aria-label="Négy kis grafikon: identity egyenes, logistic S-görbe 0 és 1 között, tanh S-görbe -1 és 1 között, ReLU nulla a negatív tartományon és egyenes a pozitívon">
+<g><line x1="10.0" y1="65.0" x2="130.0" y2="65.0" stroke="currentColor" stroke-opacity=".35"/><line x1="70.0" y1="20.0" x2="70.0" y2="110.0" stroke="currentColor" stroke-opacity=".35"/><path d="M10.0,110.0 L12.0,108.5 L14.0,107.0 L16.0,105.5 L18.0,104.0 L20.0,102.5 L22.0,101.0 L24.0,99.5 L26.0,98.0 L28.0,96.5 L30.0,95.0 L32.0,93.5 L34.0,92.0 L36.0,90.5 L38.0,89.0 L40.0,87.5 L42.0,86.0 L44.0,84.5 L46.0,83.0 L48.0,81.5 L50.0,80.0 L52.0,78.5 L54.0,77.0 L56.0,75.5 L58.0,74.0 L60.0,72.5 L62.0,71.0 L64.0,69.5 L66.0,68.0 L68.0,66.5 L70.0,65.0 L72.0,63.5 L74.0,62.0 L76.0,60.5 L78.0,59.0 L80.0,57.5 L82.0,56.0 L84.0,54.5 L86.0,53.0 L88.0,51.5 L90.0,50.0 L92.0,48.5 L94.0,47.0 L96.0,45.5 L98.0,44.0 L100.0,42.5 L102.0,41.0 L104.0,39.5 L106.0,38.0 L108.0,36.5 L110.0,35.0 L112.0,33.5 L114.0,32.0 L116.0,30.5 L118.0,29.0 L120.0,27.5 L122.0,26.0 L124.0,24.5 L126.0,23.0 L128.0,21.5 L130.0,20.0" fill="none" stroke="var(--accent)" stroke-width="2.2"/><text x="70" y="14" text-anchor="middle" font-size="12" fill="currentColor">identity</text><text x="74.0" y="30.0" font-size="10" fill="currentColor" fill-opacity=".7">3</text><text x="74.0" y="108.0" font-size="10" fill="currentColor" fill-opacity=".7">-3</text></g>
+<g><line x1="160.0" y1="65.0" x2="280.0" y2="65.0" stroke="currentColor" stroke-opacity=".35"/><line x1="220.0" y1="20.0" x2="220.0" y2="110.0" stroke="currentColor" stroke-opacity=".35"/><path d="M160.0,62.9 L162.0,62.7 L164.0,62.4 L166.0,62.2 L168.0,61.9 L170.0,61.6 L172.0,61.3 L174.0,60.9 L176.0,60.5 L178.0,60.1 L180.0,59.6 L182.0,59.1 L184.0,58.6 L186.0,58.0 L188.0,57.4 L190.0,56.8 L192.0,56.1 L194.0,55.4 L196.0,54.6 L198.0,53.8 L200.0,52.9 L202.0,52.0 L204.0,51.0 L206.0,50.1 L208.0,49.1 L210.0,48.0 L212.0,46.9 L214.0,45.8 L216.0,44.7 L218.0,43.6 L220.0,42.5 L222.0,41.4 L224.0,40.3 L226.0,39.2 L228.0,38.1 L230.0,37.0 L232.0,35.9 L234.0,34.9 L236.0,34.0 L238.0,33.0 L240.0,32.1 L242.0,31.2 L244.0,30.4 L246.0,29.6 L248.0,28.9 L250.0,28.2 L252.0,27.6 L254.0,27.0 L256.0,26.4 L258.0,25.9 L260.0,25.4 L262.0,24.9 L264.0,24.5 L266.0,24.1 L268.0,23.7 L270.0,23.4 L272.0,23.1 L274.0,22.8 L276.0,22.6 L278.0,22.3 L280.0,22.1" fill="none" stroke="var(--accent)" stroke-width="2.2"/><text x="220" y="14" text-anchor="middle" font-size="12" fill="currentColor">logistic (szigmoid)</text><text x="224.0" y="30.0" font-size="10" fill="currentColor" fill-opacity=".7">1</text><text x="224.0" y="108.0" font-size="10" fill="currentColor" fill-opacity=".7">-1</text></g>
+<g><line x1="310.0" y1="65.0" x2="430.0" y2="65.0" stroke="currentColor" stroke-opacity=".35"/><line x1="370.0" y1="20.0" x2="370.0" y2="110.0" stroke="currentColor" stroke-opacity=".35"/><path d="M310.0,109.8 L312.0,109.7 L314.0,109.7 L316.0,109.6 L318.0,109.5 L320.0,109.4 L322.0,109.3 L324.0,109.1 L326.0,108.9 L328.0,108.7 L330.0,108.4 L332.0,108.0 L334.0,107.6 L336.0,107.1 L338.0,106.5 L340.0,105.7 L342.0,104.8 L344.0,103.8 L346.0,102.5 L348.0,101.0 L350.0,99.3 L352.0,97.2 L354.0,94.9 L356.0,92.2 L358.0,89.2 L360.0,85.8 L362.0,82.1 L364.0,78.1 L366.0,73.9 L368.0,69.5 L370.0,65.0 L372.0,60.5 L374.0,56.1 L376.0,51.9 L378.0,47.9 L380.0,44.2 L382.0,40.8 L384.0,37.8 L386.0,35.1 L388.0,32.8 L390.0,30.7 L392.0,29.0 L394.0,27.5 L396.0,26.2 L398.0,25.2 L400.0,24.3 L402.0,23.5 L404.0,22.9 L406.0,22.4 L408.0,22.0 L410.0,21.6 L412.0,21.3 L414.0,21.1 L416.0,20.9 L418.0,20.7 L420.0,20.6 L422.0,20.5 L424.0,20.4 L426.0,20.3 L428.0,20.3 L430.0,20.2" fill="none" stroke="var(--accent)" stroke-width="2.2"/><text x="370" y="14" text-anchor="middle" font-size="12" fill="currentColor">tanh</text><text x="374.0" y="30.0" font-size="10" fill="currentColor" fill-opacity=".7">1</text><text x="374.0" y="108.0" font-size="10" fill="currentColor" fill-opacity=".7">-1</text></g>
+<g><line x1="460.0" y1="65.0" x2="580.0" y2="65.0" stroke="currentColor" stroke-opacity=".35"/><line x1="520.0" y1="20.0" x2="520.0" y2="110.0" stroke="currentColor" stroke-opacity=".35"/><path d="M460.0,65.0 L462.0,65.0 L464.0,65.0 L466.0,65.0 L468.0,65.0 L470.0,65.0 L472.0,65.0 L474.0,65.0 L476.0,65.0 L478.0,65.0 L480.0,65.0 L482.0,65.0 L484.0,65.0 L486.0,65.0 L488.0,65.0 L490.0,65.0 L492.0,65.0 L494.0,65.0 L496.0,65.0 L498.0,65.0 L500.0,65.0 L502.0,65.0 L504.0,65.0 L506.0,65.0 L508.0,65.0 L510.0,65.0 L512.0,65.0 L514.0,65.0 L516.0,65.0 L518.0,65.0 L520.0,65.0 L522.0,63.5 L524.0,62.0 L526.0,60.5 L528.0,59.0 L530.0,57.5 L532.0,56.0 L534.0,54.5 L536.0,53.0 L538.0,51.5 L540.0,50.0 L542.0,48.5 L544.0,47.0 L546.0,45.5 L548.0,44.0 L550.0,42.5 L552.0,41.0 L554.0,39.5 L556.0,38.0 L558.0,36.5 L560.0,35.0 L562.0,33.5 L564.0,32.0 L566.0,30.5 L568.0,29.0 L570.0,27.5 L572.0,26.0 L574.0,24.5 L576.0,23.0 L578.0,21.5 L580.0,20.0" fill="none" stroke="var(--accent)" stroke-width="2.2"/><text x="520" y="14" text-anchor="middle" font-size="12" fill="currentColor">ReLU</text><text x="524.0" y="30.0" font-size="10" fill="currentColor" fill-opacity=".7">3</text><text x="524.0" y="108.0" font-size="10" fill="currentColor" fill-opacity=".7">-3</text></g>
+</svg>
+<figcaption>A négy aktivációs függvény $z\in[-3;\,3]$ tartományon. A szigmoid és a tanh „összenyomja” a nagy értékeket, a ReLU levágja a negatívakat.</figcaption>
+</figure>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – értéktáblázat</span>
+<div class="table-wrap"><table>
+<tr><th class="num">$z$</th><th class="num">identity</th><th class="num">logistic $\sigma(z)$</th><th class="num">tanh</th><th class="num">ReLU</th></tr>
+<tr><td class="num">−2</td><td class="num">−2</td><td class="num">0,1192</td><td class="num">−0,9640</td><td class="num">0</td></tr>
+<tr><td class="num">−0,5</td><td class="num">−0,5</td><td class="num">0,3775</td><td class="num">−0,4621</td><td class="num">0</td></tr>
+<tr><td class="num">0</td><td class="num">0</td><td class="num">0,5</td><td class="num">0</td><td class="num">0</td></tr>
+<tr><td class="num">1</td><td class="num">1</td><td class="num">0,7311</td><td class="num">0,7616</td><td class="num">1</td></tr>
+<tr><td class="num">2</td><td class="num">2</td><td class="num">0,8808</td><td class="num">0,9640</td><td class="num">2</td></tr>
+</table></div>
+<p>Számolás pl. $z=1$-nél: $\sigma(1)=1/(1+e^{-1})=1/1{,}3679=0{,}7311$. Figyeld meg: $\sigma(-z)=1-\sigma(z)$, a tanh pedig páratlan: $\tanh(-z)=-\tanh z$.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – a gyakorlat hálójának paraméterszáma</span>
+<p>Bemenet 7, rejtett rétegek 8 és 4, kimenet 1. Hány súly és eltolás van?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>$7\cdot 8 + 8 = 64$ (1. rejtett) $\;+\; 8\cdot 4 + 4 = 36$ (2. rejtett) $\;+\; 4\cdot 1 + 1 = 5$ (kimenet) $= \mathbf{105}$.</p>
+<p>Ellenőrzés a betanított modellen: <code>model.coefs_</code> alakjai $(7,8)$, $(8,4)$, $(4,1)$, összesen 105 paraméter. A 85 tanítósorhoz képest ez már sok szabadsági fok – ennek még lesz jelentősége (9. lépés).</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – ReLU ≠ szigmoid</span>
+<p>Az órán elhangzott, hogy a <code>relu</code> „egyébként szigmoid függvény, mert 0 és 1 értékekre alakítja a kimenetet”. Ez pontatlan. A ReLU $\max(0,z)$: tetszőlegesen nagy pozitív értéket átenged. A gyakorlat beállításában a <code>relu</code> a <em>rejtett</em> rétegek aktivációja; a 0 és 1 közötti valószínűséget a <em>kimeneti</em> neuron szigmoidja adja (a scikit-learn ezt bináris esetben magától így állítja be: <code>model.out_activation_ == "logistic"</code>).</p></div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia</span>
+<p><em>multilayer perceptron (MLP)</em> = többrétegű perceptron · <em>hidden layer</em> = rejtett réteg · <em>activation function</em> = aktivációs függvény · <em>logistic / sigmoid</em> = logisztikus / szigmoid · <em>ReLU (rectified linear unit)</em> · <em>fully connected</em> = teljesen összekötött · <code>coefs_</code> = súlymátrixok, <code>intercepts_</code> = eltolások.</p></div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Aktiváció és rétegek (5 feladat)</summary>
+<ol>
+  <li><p>Számold ki $\sigma(-1)$ értékét a $\sigma(1)=0{,}7311$ ismeretében, számológép nélkül!</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\sigma(-z)=1-\sigma(z)$, tehát $\sigma(-1)=1-0{,}7311=0{,}2689$.</p></details></li>
+  <li><p>Melyik aktivációs függvény adhat negatív kimenetet: identity, logistic, tanh, ReLU?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Az <strong>identity</strong> és a <strong>tanh</strong>. A logistic mindig $(0,1)$-ben van, a ReLU legalább 0.</p></details></li>
+  <li><p>Hány paramétere van a gyakorlat második hálójának: 7 bemenet, <code>(16, 8)</code> rejtett, 1 kimenet?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$7\cdot16+16=128$; $16\cdot 8+8=136$; $8\cdot1+1=9$. Összesen <strong>273</strong> – több mint két és félszer annyi, mint a (8, 4)-es hálóé.</p></details></li>
+  <li><p>Egyetlen rejtett réteg 10 neuronnal, 7 bemenet, 1 kimenet: hány paraméter?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$7\cdot10+10=80$, plusz $10\cdot1+1=11$: <strong>91</strong>.</p></details></li>
+  <li><p>Ha minden rejtett réteg <code>activation="identity"</code>, mit tud a háló a perceptronhoz (logisztikus kimenettel) képest?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Ugyanazt. A lineáris rétegek összevonhatók egyetlen lineáris függvénnyé (lásd $o=6x+1$), így a döntési határ továbbra is hipersík. Az XOR-t így sem tanulja meg.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes4">
+<h2>4. lépés – Előreterjesztés kézzel</h2>
+
+<h4>Kis eset: az XOR megoldása két rejtett neuronnal</h4>
+<p>Az előreterjesztés (forward propagation) azt jelenti: a bemenetet rétegről rétegre átvezetjük a hálón, minden neuronnál súlyozott összeg → aktiváció, amíg a kimenethez nem érünk. Nézzük az XOR-t egy 2–2–1 hálón!</p>
+
+<figure>
+<svg viewBox="0 0 520 200" width="520" role="img" aria-label="2-2-1 neurális háló: x1 és x2 bemenet mindkét rejtett ReLU neuronhoz 1-es súllyal kapcsolódik, h1 eltolása 0, h2 eltolása -1; a kimeneti neuron h1-et 2-es, h2-t -4-es súllyal kapja, eltolása -1, szigmoid aktivációval">
+  <g font-family="Inter, sans-serif" font-size="13" fill="currentColor">
+    <g stroke="var(--accent)" stroke-width="1.8">
+      <line x1="82" y1="50" x2="218" y2="50"/><line x1="82" y1="50" x2="218" y2="150"/>
+      <line x1="82" y1="150" x2="218" y2="50"/><line x1="82" y1="150" x2="218" y2="150"/>
+      <line x1="282" y1="50" x2="418" y2="100"/><line x1="282" y1="150" x2="418" y2="100"/>
+    </g>
+    <circle cx="60" cy="50" r="22" fill="var(--surface)" stroke="currentColor"/><text x="60" y="55" text-anchor="middle">x₁</text>
+    <circle cx="60" cy="150" r="22" fill="var(--surface)" stroke="currentColor"/><text x="60" y="155" text-anchor="middle">x₂</text>
+    <circle cx="250" cy="50" r="30" fill="var(--surface)" stroke="currentColor" stroke-width="2"/><text x="250" y="47" text-anchor="middle">h₁</text><text x="250" y="63" text-anchor="middle" font-size="10">ReLU</text>
+    <circle cx="250" cy="150" r="30" fill="var(--surface)" stroke="currentColor" stroke-width="2"/><text x="250" y="147" text-anchor="middle">h₂</text><text x="250" y="163" text-anchor="middle" font-size="10">ReLU</text>
+    <circle cx="450" cy="100" r="30" fill="var(--surface)" stroke="currentColor" stroke-width="2"/><text x="450" y="97" text-anchor="middle">o</text><text x="450" y="113" text-anchor="middle" font-size="10">szigmoid</text>
+    <text x="150" y="42" text-anchor="middle" fill="var(--accent)">1</text><text x="150" y="168" text-anchor="middle" fill="var(--accent)">1</text>
+    <text x="112" y="66" fill="var(--accent)">1</text><text x="112" y="144" fill="var(--accent)">1</text>
+    <text x="350" y="65" fill="var(--accent)">2</text><text x="345" y="145" fill="var(--accent)">−4</text>
+    <text x="250" y="12" text-anchor="middle" fill="var(--muted)">b = 0</text>
+    <text x="250" y="197" text-anchor="middle" fill="var(--muted)">b = −1</text>
+    <text x="450" y="150" text-anchor="middle" fill="var(--muted)">b = −1</text>
+  </g>
+</svg>
+<figcaption>$h_1=\mathrm{ReLU}(x_1+x_2)$, $h_2=\mathrm{ReLU}(x_1+x_2-1)$, $o=\sigma(2h_1-4h_2-1)$.</figcaption>
+</figure>
+
+<div class="table-wrap"><table>
+<tr><th>$x_1$</th><th>$x_2$</th><th class="num">$h_1$</th><th class="num">$h_2$</th><th class="num">$z_o=2h_1-4h_2-1$</th><th class="num">$o=\sigma(z_o)$</th><th>Döntés (0,5-ös küszöb)</th></tr>
+<tr><td>0</td><td>0</td><td class="num">0</td><td class="num">0</td><td class="num">−1</td><td class="num">0,2689</td><td>0 ✓</td></tr>
+<tr><td>0</td><td>1</td><td class="num">1</td><td class="num">0</td><td class="num">1</td><td class="num">0,7311</td><td>1 ✓</td></tr>
+<tr><td>1</td><td>0</td><td class="num">1</td><td class="num">0</td><td class="num">1</td><td class="num">0,7311</td><td>1 ✓</td></tr>
+<tr><td>1</td><td>1</td><td class="num">2</td><td class="num">1</td><td class="num">−1</td><td class="num">0,2689</td><td>0 ✓</td></tr>
+</table></div>
+<p>A rejtett réteg új jellemzőket gyártott: $h_1$ „hány bemenet 1-es”, $h_2$ „mindkettő 1-es-e”. Ezekből a kimenet már egyetlen lineáris lépéssel dönt. Ez a rejtett rétegek lényege.</p>
+
+<div class="box def"><span class="box-title">Definíció – Előreterjesztés (forward propagation)</span>
+<p>Rétegenként, a bemenettől a kimenet felé:</p>
+<ol>
+<li>minden neuronra $z = \sum_i w_i\,a_i + b$, ahol $a_i$ az előző réteg kimenetei (az első rejtett rétegnél maguk a bemenetek);</li>
+<li>$a = f(z)$ a réteg aktivációs függvényével;</li>
+<li>a kimeneti neuron $\hat p = \sigma(z_o)$ valószínűséget ad; a <code>predict</code> akkor mondja a második osztályt (<code>classes_[1]</code>, itt <code>"yes"</code>), ha $\hat p \gt 0{,}5$ (pontosan 0,5-nél a scikit-learn az első osztályt adja).</li>
+</ol>
+<p><strong>Miért?</strong> Az előrejelzés kiszámítása mindig ez; a tanítás (5–6. lépés) csak azt dönti el, milyen súlyokkal számoljunk.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa – egy standardizált hallgató</span>
+<p>Két standardizált bemenet: $x=(0{,}5;\ -1)$. Rejtett réteg (ReLU): $h_1$ súlyai $(1;\ -0{,}5)$, eltolás 0; $h_2$ súlyai $(0{,}5;\ 1)$, eltolás 0,5. Kimenet: súlyok $(1{,}5;\ -1)$, eltolás $-0{,}2$, szigmoid. Mennyi $\hat p$?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>$z_1 = 1\cdot 0{,}5 + (-0{,}5)(-1) + 0 = 1$ → $h_1 = 1$.</p>
+<p>$z_2 = 0{,}5\cdot 0{,}5 + 1\cdot(-1) + 0{,}5 = -0{,}25$ → $h_2 = \mathrm{ReLU}(-0{,}25)=0$.</p>
+<p>$z_o = 1{,}5\cdot 1 + (-1)\cdot 0 - 0{,}2 = 1{,}3$ → $\hat p=\sigma(1{,}3)=0{,}7858$ → „yes”.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul><li>Az aktivációt <em>minden</em> rejtett neuronnál alkalmazni kell, mielőtt továbbadod – gyakori hiba a $z$-t továbbvinni.</li>
+<li>Az eltolást neuronként egyszer adod hozzá, nem bemenetenként.</li>
+<li>A $\hat p$ a <code>"yes"</code> osztály valószínűsége, mert a scikit-learn ábécérendbe teszi az osztályokat: <code>classes_ = ['no', 'yes']</code>.</li></ul></div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Előreterjesztés (5 feladat)</summary>
+<p>Az 1–4. feladatban a kidolgozott példa hálóját használd.</p>
+<ol>
+  <li><p>Mennyi $\hat p$, ha $x=(1;\ 1)$?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$z_1=1-0{,}5=0{,}5$ → $h_1=0{,}5$; $z_2=0{,}5+1+0{,}5=2$ → $h_2=2$. $z_o=1{,}5\cdot0{,}5-2-0{,}2=-1{,}45$ → $\hat p=\sigma(-1{,}45)=0{,}19$.</p></details></li>
+  <li><p>Mit jósol a háló az előző hallgatóra?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$0{,}19&lt;0{,}5$ → <code>"no"</code> (nem megy át).</p></details></li>
+  <li><p>Mennyi $\hat p$, ha $x=(0;\ 0)$ (átlagos hallgató minden változóban)?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$z_1=0$ → $h_1=0$; $z_2=0{,}5$ → $h_2=0{,}5$. $z_o=0-0{,}5-0{,}2=-0{,}7$ → $\hat p=0{,}3318$.</p></details></li>
+  <li><p>Cseréld a rejtett aktivációt <code>tanh</code>-ra! Mennyi $\hat p$ az $x=(0{,}5;\ -1)$ hallgatóra?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$z_1=1$, $z_2=-0{,}25$ (mint előbb). $h_1=\tanh 1=0{,}7616$, $h_2=\tanh(-0{,}25)=-0{,}2449$. $z_o=1{,}5\cdot0{,}7616+(-1)(-0{,}2449)-0{,}2=1{,}1873$ → $\hat p=0{,}7663$. A tanh a negatív $z_2$-t nem nullázza, így $h_2$ most <em>növeli</em> $z_o$-t.</p></details></li>
+  <li><p>Hány paramétere van az XOR-hálónak (2–2–1)?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$2\cdot2+2=6$ és $2\cdot1+1=3$: összesen <strong>9</strong>.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes5">
+<h2>5. lépés – A veszteségfüggvény: log-loss</h2>
+
+<h4>Kis eset</h4>
+<p>Két háló ugyanazt a három hallgatót jósolja. Mindkettő mindhármat jól sorolja be (0,5-ös küszöbbel). Melyik a jobb?</p>
+<div class="table-wrap"><table>
+<tr><th>Hallgató</th><th>Valódi $y$</th><th class="num">A háló $\hat p$</th><th class="num">B háló $\hat p$</th></tr>
+<tr><td>1</td><td>1 (átment)</td><td class="num">0,9</td><td class="num">0,55</td></tr>
+<tr><td>2</td><td>0</td><td class="num">0,2</td><td class="num">0,45</td></tr>
+<tr><td>3</td><td>1</td><td class="num">0,6</td><td class="num">0,55</td></tr>
+</table></div>
+<p>A pontosság mindkettőnél 100%, mégis az A „magabiztosabban jó”. A tanításhoz olyan mérték kell, amely ezt a különbséget is látja, és finoman változik a súlyokkal: ez a <strong>veszteségfüggvény</strong>.</p>
+
+<div class="box def"><span class="box-title">Definíció – Log-loss (bináris keresztentrópia)</span>
+<p>$n$ példára, $y_k\in\{0,1\}$ valódi címkével és $\hat p_k$ becsült valószínűséggel:</p>
+<p>$$L=-\frac{1}{n}\sum_{k=1}^{n}\Big[y_k\ln \hat p_k+(1-y_k)\ln(1-\hat p_k)\Big]$$</p>
+<p>Egy példára: ha $y=1$, a büntetés $-\ln\hat p$; ha $y=0$, akkor $-\ln(1-\hat p)$.</p>
+<p><strong>Miért?</strong> Ha a valódi osztályra nagy valószínűséget adsz, a büntetés közel 0 ($-\ln 0{,}99=0{,}01$). Ha magabiztosan tévedsz, a büntetés hatalmas ($-\ln 0{,}01=4{,}61$). A log-loss tehát nemcsak a hibát, hanem a <em>magabiztosság</em> helyességét is méri.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – az A háló log-lossa</span>
+<details class="solution" open><summary>Megoldás</summary>
+<p>1. hallgató ($y=1$): $-\ln 0{,}9 = 0{,}1054$. 2. ($y=0$): $-\ln(1-0{,}2)=-\ln 0{,}8=0{,}2231$. 3. ($y=1$): $-\ln 0{,}6=0{,}5108$.</p>
+<p>$L_A=(0{,}1054+0{,}2231+0{,}5108)/3=\mathbf{0{,}2798}$. (A B hálóé $-\ln 0{,}55 = 0{,}5978$ mindhárom sorra, tehát $L_B=0{,}5978$ – rosszabb.)</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – egy példa vesztesége a $\hat p$ függvényében ($y=1$)</span>
+<div class="table-wrap"><table>
+<tr><th class="num">$\hat p$</th><td class="num">0,99</td><td class="num">0,7</td><td class="num">0,5</td><td class="num">0,3</td><td class="num">0,1</td><td class="num">0,01</td></tr>
+<tr><th class="num">$-\ln\hat p$</th><td class="num">0,0101</td><td class="num">0,3567</td><td class="num">0,6931</td><td class="num">1,2040</td><td class="num">2,3026</td><td class="num">4,6052</td></tr>
+</table></div>
+<p>A „tippelek 50%-ot” mindig $\ln 2 = 0{,}6931$. Hasznos viszonyítás: a gyakorlat (16, 8)-as hálójának veszteség-görbéje 0,708-ról indul – az elején a háló lényegében találgat.</p>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – A scikit-learn által minimalizált veszteség</span>
+<p>Az <code>MLPClassifier</code> a log-losshoz hozzáad egy <strong>L2-regularizációs</strong> tagot, amely a nagy súlyokat bünteti ($\alpha$ = <code>alpha</code>):</p>
+<p>$$\text{veszteség} = L_{\text{log}} + \frac{\alpha}{2n}\sum_{\text{összes súly}} w^2$$</p>
+<p>Ezt mutatja a <code>model.loss_</code> és a <code>model.loss_curve_</code>. (Az eltolásokat nem bünteti.)</p>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul><li>Az $\ln$ a természetes logaritmus. 10-es alapú logaritmussal más számot kapsz.</li>
+<li>$y=0$ esetén $1-\hat p$ kerül a logaritmusba, nem $\hat p$.</li>
+<li>Kis log-loss a <em>tanítóhalmazon</em> nem jelent jó modellt – ezt a 9. lépésben látjuk majd számokkal.</li></ul></div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia</span>
+<p><em>loss function</em> = veszteségfüggvény · <em>log-loss / cross-entropy</em> = log-veszteség / keresztentrópia · <em>L2 regularization / weight decay</em> = L2-regularizáció · <code>loss_curve_</code> = epochonkénti tanítási veszteség.</p></div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Log-loss (5 feladat)</summary>
+<ol>
+  <li><p>$y=1$, $\hat p=0{,}7$. Mennyi a veszteség? És ha $y=0$?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$y=1$: $-\ln 0{,}7=0{,}3567$. $y=0$: $-\ln(1-0{,}7)=-\ln 0{,}3=1{,}2040$.</p></details></li>
+  <li><p>Átlagos log-loss: $y=(1,\,1,\,0)$, $\hat p=(0{,}8;\ 0{,}4;\ 0{,}1)$.</p>
+    <details class="solution"><summary>Megoldás</summary><p>$-\ln 0{,}8=0{,}2231$; $-\ln 0{,}4=0{,}9163$; $-\ln 0{,}9=0{,}1054$. Átlag: $1{,}2448/3=\mathbf{0{,}4149}$. A második (tévesen „no”-nak sorolt) hallgató adja a veszteség zömét.</p></details></li>
+  <li><p>Két modell, $y=(1,\,0)$. A: $\hat p=(0{,}6;\ 0{,}4)$, B: $\hat p=(0{,}95;\ 0{,}05)$. Pontosság és log-loss?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Mindkettő 100% pontos. $L_A=-\ln 0{,}6=0{,}5108$ (mindkét sor ugyanennyi), $L_B=-\ln 0{,}95=0{,}0513$. B a jobb, a pontosság ezt nem látja.</p></details></li>
+  <li><p>Egy modell minden hallgatóra 0,5-öt mond. Mennyi a log-lossa, és miért nem függ az adattól?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\ln 2=0{,}6931$. Akár $y=1$ ($-\ln 0{,}5$), akár $y=0$ ($-\ln(1-0{,}5)$), ugyanannyi.</p></details></li>
+  <li><p>A gyakorlat (8, 4)-es hálójánál $\sum w^2 \approx 48{,}68$, $\alpha=0{,}0001$, $n=85$. Mekkora a regularizációs tag a 0,185-ös végső veszteségben?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\dfrac{0{,}0001}{2\cdot 85}\cdot 48{,}68\approx 0{,}0000286$. Elhanyagolható: ilyen kis $\alpha$ mellett a veszteség gyakorlatilag a log-loss.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes6">
+<h2>6. lépés – Hogyan tanul a háló: hibavisszaterjesztés, tanulási ráta, epoch, batch</h2>
+
+<h4>Kis eset: lefelé a lejtőn</h4>
+<p>Tegyük fel, hogy a veszteség egyetlen súlytól függ: $L(w)=(w-3)^2$. A minimum $w=3$-nál van, de a háló ezt nem „látja”, csak a meredekséget ott, ahol áll: $L'(w)=2(w-3)$. A szabály: lépj a meredekséggel <em>ellentétes</em> irányba, $\eta$-val arányos lépéssel.</p>
+<p>$w=0$-ból, $\eta=0{,}1$: $L'(0)=-6$ → $w=0-0{,}1\cdot(-6)=0{,}6$ → $w=1{,}08$ → $w=1{,}464$ … lassan, de biztosan közelít a 3-hoz.</p>
+
+<div class="box def"><span class="box-title">Definíció – A tanítás négy lépése (a gyakorlati anyag szerint)</span>
+<ol>
+<li><strong>Előreterjesztés:</strong> a háló kiszámolja az előrejelzéseket (4. lépés).</li>
+<li><strong>Veszteség:</strong> a veszteségfüggvény méri az eltérést a valódi címkéktől (5. lépés).</li>
+<li><strong>Hibavisszaterjesztés</strong> (backpropagation): a kimenettől visszafelé, rétegről rétegre kiszámolja, hogy az egyes súlyok kicsiny változása mennyivel változtatná a veszteséget (a <em>gradienst</em>).</li>
+<li><strong>Optimalizáló</strong> (<code>solver</code>): a gradiens alapján módosítja a súlyokat: $w \leftarrow w - \eta\cdot\dfrac{\partial L}{\partial w}$.</li>
+</ol>
+<p>Ez ismétlődik. <strong>Epoch</strong> = a teljes tanítóhalmaz egyszeri feldolgozása. <strong>Batch</strong> (köteg) = az egy súlyfrissítéshez felhasznált példák csoportja. $\eta$ = <strong>tanulási ráta</strong> (<code>learning_rate_init</code>).</p>
+<p><strong>Miért?</strong> A veszteség a súlyok függvénye; a gradiens megmutatja, merre nő a leggyorsabban, így az ellentétes irányba lépve csökken.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – a tanulási ráta hatása</span>
+<p>Ugyanaz a $L(w)=(w-3)^2$, $w=0$-ból, három lépés:</p>
+<div class="table-wrap"><table>
+<tr><th>$\eta$</th><th class="num">1. lépés</th><th class="num">2. lépés</th><th class="num">3. lépés</th><th>Viselkedés</th></tr>
+<tr><td>0,1</td><td class="num">0,6</td><td class="num">1,08</td><td class="num">1,464</td><td>lassú, biztos közeledés</td></tr>
+<tr><td>0,5</td><td class="num">3</td><td class="num">3</td><td class="num">3</td><td>ennél a parabolánál épp egy lépés</td></tr>
+<tr><td>1,1</td><td class="num">6,6</td><td class="num">−1,32</td><td class="num">8,184</td><td>túllő, egyre messzebb – széttart</td></tr>
+</table></div>
+<p>Túl kicsi ráta: sok epoch kell. Túl nagy: a tanítás nem konvergál. Az órán elhangzott: a <code>learning_rate_init=0.001</code> alapértéket „nem kell módosítani” – az Adam optimalizáló ezzel jellemzően jól működik.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – egy valódi gradiens-lépés egy szigmoid neuronon</span>
+<p>Szigmoid kimenet + log-loss esetén a gradiens meglepően egyszerű (levezetés nélkül): $\dfrac{\partial L}{\partial w_i}=(\hat p-y)\,x_i$, $\dfrac{\partial L}{\partial b}=\hat p-y$.</p>
+<p>$x=(1;\ 2)$, $w=(0{,}5;\ -0{,}5)$, $b=0$, $y=1$, $\eta=0{,}1$.</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Előre: $z=0{,}5-1=-0{,}5$, $\hat p=\sigma(-0{,}5)=0{,}3775$, veszteség $-\ln 0{,}3775=0{,}9741$.</p>
+<p>Gradiens: $\hat p-y=-0{,}6225$. Frissítés: $w_1=0{,}5-0{,}1\cdot(-0{,}6225)\cdot 1=0{,}5622$; $w_2=-0{,}5-0{,}1\cdot(-0{,}6225)\cdot 2=-0{,}3755$; $b=0{,}0622$.</p>
+<p>Újra előre: $z=0{,}5622-0{,}7510+0{,}0622=-0{,}1265$, $\hat p=0{,}4684$, veszteség $0{,}7584$. Csökkent. Egy MLP-ben a hibavisszaterjesztés ugyanezt csinálja minden súlyra, a rejtett rétegeken át visszafelé haladva.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – epoch, batch, frissítés</span>
+<p>A scikit-learnben <code>batch_size="auto"</code> jelentése: $\min(200,\ n)$.</p>
+<ul>
+<li>Gyakorlat: $n=85$ → batch = 85 → <strong>1 frissítés / epoch</strong>, 1000 epoch = 1000 frissítés.</li>
+<li>Ha $n=10\,000$, batch = 200 → $10\,000/200=50$ frissítés / epoch. Minden epochban <em>mind</em> a 10 000 példa sorra kerül, csak 50 kis csomagban.</li>
+</ul>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – mit jelent a batch?</span>
+<p>Az órán úgy hangzott el, hogy nagy adatnál „egy epokban csak … random kiválaszt kétszázat, és csak annyit figyel”. Pontosabban: egy epochban <strong>az összes</strong> tanítópélda feldolgozásra kerül; a batch csak azt adja meg, hány példa után frissülnek a súlyok. A <code>shuffle=True</code> minden epoch elején megkeveri a sorrendet, így a csomagok összetétele epochról epochra más.</p></div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés (nem szerepelt a gyakorlaton) – az optimalizálók</span>
+<p><code>sgd</code>: sima (sztochasztikus) gradiens-lépés, a fenti szabály. <code>adam</code>: minden súlynak saját, adaptív lépésközt számol a korábbi gradiensek átlagából – általában gyorsabb és kevésbé érzékeny a rátára, ezért alapértelmezett. <code>lbfgs</code>: nem batch-ekben dolgozik, hanem az egész adaton egy kvázi-Newton módszerrel; kis adathalmazon gyakran jó. Nála a <code>max_iter</code> nem epochot, hanem optimalizálási iterációt jelent.</p></div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Gradiens, ráta, epoch (5 feladat)</summary>
+<ol>
+  <li><p>$L(w)=(w-3)^2$, $w=0$, $\eta=0{,}1$: mennyi $w$ két lépés után?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$w_1=0-0{,}1\cdot2(0-3)=0{,}6$; $w_2=0{,}6-0{,}1\cdot2(0{,}6-3)=0{,}6+0{,}48=1{,}08$.</p></details></li>
+  <li><p>Ugyanez $\eta=1{,}1$-gyel. Mit tapasztalsz?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$w_1=0+1{,}1\cdot6=6{,}6$; $w_2=6{,}6-1{,}1\cdot2\cdot3{,}6=-1{,}32$. A minimum (3) körül egyre nagyobb kilengés: széttart.</p></details></li>
+  <li><p>$n=85$, <code>batch_size="auto"</code>, <code>max_iter=1000</code> (Adam). Legfeljebb hány súlyfrissítés történik?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Batch = $\min(200, 85)=85$ → 1 frissítés/epoch → legfeljebb <strong>1000</strong>.</p></details></li>
+  <li><p>$n=1000$, <code>batch_size="auto"</code>. Hány frissítés jut egy epochra?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Batch = 200 → $1000/200=$ <strong>5</strong> frissítés/epoch.</p></details></li>
+  <li><p>Szigmoid neuron: $x=(2;\ 1)$, $w=(0;\ 0)$, $b=0$, $y=0$, $\eta=0{,}5$. Végezz egy lépést! Hogyan változik a veszteség?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$z=0$, $\hat p=0{,}5$, $\hat p-y=0{,}5$. $w_1=0-0{,}5\cdot0{,}5\cdot2=-0{,}5$; $w_2=-0{,}25$; $b=-0{,}25$.<br>Új $z=-1-0{,}25-0{,}25=-1{,}5$, $\hat p=0{,}1824$. Veszteség: $-\ln(1-0{,}5)=0{,}6931$ → $-\ln(1-0{,}1824)=0{,}2014$.</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l06-lepes6"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes7">
+<h2>7. lépés – Standardizálás a tanítóhalmaz paramétereivel</h2>
+
+<h4>Kis eset</h4>
+<p>A gyakorlat változói nagyon különböző skálán mozognak: <code>attendance</code> 0–100 (%), <code>previous_gpa</code> 1–5. Egy neuron $z$-jében a 100-as nagyságrendű jelenlét elnyomná az átlagot, a gradiens-lépések pedig egyik irányban túl nagyok, a másikban túl kicsik lennének. Ezért – mint a K-meansnél – standardizálunk.</p>
+<p>Tanítóhalmaz: tanulási óra $4,\ 8,\ 12$. Átlag $\mu=8$, szórás $\sigma=\sqrt{(16+0+16)/3}=3{,}2660$. Egy <em>teszt</em>hallgató 10 órával: $(10-8)/3{,}2660=0{,}6124$.</p>
+
+<div class="box def"><span class="box-title">Definíció – Standardizálás tanító-paraméterekkel</span>
+<p>$$x' = \frac{x-\mu_{\text{tanító}}}{\sigma_{\text{tanító}}}$$</p>
+<ol><li>$\mu$ és $\sigma$ <strong>csak a tanítóhalmazból</strong>: <code>scaler.fit_transform(X_train)</code>.</li>
+<li>A tesztre (és minden új adatra) <strong>ugyanezek</strong> a paraméterek: <code>scaler.transform(X_test)</code>.</li>
+<li>A célváltozót (<code>passed</code>) nem standardizáljuk.</li>
+<li>Az előrejelzéshez a modell mellé a scalert is el kell menteni (a gyakorlat <code>joblib</code>-bal menti).</li></ol>
+<p>A <code>StandardScaler</code> szórása a populációs szórás ($n$-nel osztva, nem $n-1$-gyel).</p>
+<p><strong>Miért?</strong> A teszthalmaz a „jövőbeli, ismeretlen” adatot játssza. Ha belőle számolnál $\mu$-t és $\sigma$-t, a tesztadat információja beszivárogna a modell előkészítésébe (<em>adatszivárgás</em>), és ugyanaz a nyers érték a két halmazban mást jelentene.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – a gyakorlat valódi paraméterei</span>
+<p>A szkript kiírja a tanítóhalmaz (85 sor) paramétereit:</p>
+<div class="table-wrap"><table>
+<tr><th>Változó</th><th class="num">training_mean</th><th class="num">training_scale</th></tr>
+<tr><td>study_hours</td><td class="num">11,2524</td><td class="num">4,6019</td></tr>
+<tr><td>attendance</td><td class="num">77,5371</td><td class="num">13,9739</td></tr>
+<tr><td>previous_gpa</td><td class="num">3,3379</td><td class="num">0,7198</td></tr>
+<tr><td>assignments_completed</td><td class="num">7,1176</td><td class="num">1,7109</td></tr>
+<tr><td>programme_Business Informatics</td><td class="num">0,2941</td><td class="num">0,4556</td></tr>
+<tr><td>programme_Computer Science</td><td class="num">0,5059</td><td class="num">0,5000</td></tr>
+<tr><td>programme_Mechanical Engineering</td><td class="num">0,2000</td><td class="num">0,4000</td></tr>
+</table></div>
+<p>A tanítóhalmaz első hallgatója 6,3 órát tanul: $(6{,}3-11{,}2524)/4{,}6019=-1{,}0762$ – kb. egy szórással az átlag alatt. Figyeld meg: a szkript a 0/1 dummy (szak) oszlopokat is standardizálja, mert az egész $X$-re hívja a scalert.</p>
+</div>
+
+<div class="two-col">
+  <div class="box example"><span class="box-title">Helyes: tanító-paraméterek</span>
+  <p>Tanító: 2, 4, 6, 8 óra → $\mu=5$, $\sigma=\sqrt5=2{,}2361$.<br>Teszt: 10 és 12 óra → $2{,}2361$ és $3{,}1305$.<br>Jelentés: „sokkal többet tanulnak, mint a tanítóhalmaz hallgatói”.</p></div>
+  <div class="box warn"><span class="box-title">Hibás: újraillesztés a teszten</span>
+  <p>Teszt: 10 és 12 óra, saját $\mu=11$, $\sigma=1$ → $-1$ és $+1$.<br>A háló a 10 órás hallgatót „keveset tanulónak” látja, holott a tanítóadatokhoz mérve kiemelkedő. Ráadásul a teszt eredménye így függ a teszthalmaz összetételétől.</p></div>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – a sorrend</span>
+<p>Az órai szóbeli összefoglalóban az hangzott el, hogy „standardizálom a numerikus adatokat, utána szétválasztom a tanító- és teszthalmazt”. A kód (és a gyakorlati anyag) a helyes sorrendet követi: <strong>előbb a felosztás</strong> (itt: a döntési fánál készült <code>student_train.csv</code> / <code>student_test.csv</code>), <strong>aztán</strong> a scaler illesztése csak a tanítórészen. Ha a felosztás előtt standardizálsz a teljes adaton, az már adatszivárgás.</p></div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Standardizálás (5 feladat)</summary>
+<ol>
+  <li><p>Tanító: 2, 4, 6, 8 óra. Mennyi $\mu$, $\sigma$ (populációs), és a 8 órás hallgató standardizált értéke?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\mu=5$; $\sigma=\sqrt{(9+1+1+9)/4}=\sqrt5=2{,}2361$; $(8-5)/2{,}2361=1{,}3416$.</p></details></li>
+  <li><p>A 4, 8, 12 tanítóadatra valaki $\sigma=4$-et számolt. Mit rontott el?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$n-1$-gyel osztott (mintabeli szórás: $\sqrt{32/2}=4$). A <code>StandardScaler</code> $n$-nel oszt: $\sqrt{32/3}=3{,}2660$.</p></details></li>
+  <li><p>A teszthalmaz második hallgatója 13,2 órát tanul. Mennyi a standardizált értéke a gyakorlat paramétereivel? És egy 100%-os jelenlét?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$(13{,}2-11{,}2524)/4{,}6019=0{,}4232$. Jelenlét: $(100-77{,}5371)/13{,}9739=1{,}6075$.</p></details></li>
+  <li><p>Mivé alakul a <code>programme_Computer Science</code> dummy 1-es és 0-s értéke?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$(1-0{,}5059)/0{,}5=0{,}9882$, illetve $(0-0{,}5059)/0{,}5=-1{,}0118$.</p></details></li>
+  <li><p>Melyik sor hibás, és miért?<br><code>scaler.fit_transform(X_train)</code> · <code>scaler.fit_transform(X_test)</code> · <code>scaler.transform(X_new)</code></p>
+    <details class="solution"><summary>Megoldás</summary><p>A középső. A tesztre csak <code>transform</code> kell; a <code>fit_transform</code> újraszámolná $\mu$-t és $\sigma$-t a tesztből (adatszivárgás, eltérő skála). Az értékelő szkript ezért írja: „Nem illesztjük újra a standardizálót.”</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes8">
+<h2>8. lépés – Az <code>MLPClassifier</code> paraméterei és a leállás</h2>
+
+<h4>Kis eset: mikor álljon le a tanítás?</h4>
+<p>A veszteség epochról epochra csökken, de egyre lassabban: 0,50 → 0,45 → 0,445 → 0,441 → 0,438 → 0,430. Érdemes folytatni? Kell egy szabály, hogy mekkora javulás számít „érdeminek” (<code>tol</code>), és hányszor tűrjük el, hogy nincs érdemi javulás (<code>n_iter_no_change</code>). Plusz egy felső korlát (<code>max_iter</code>).</p>
+
+<div class="box def"><span class="box-title">Definíció – A gyakorlat paraméterei</span>
+<div class="table-wrap"><table>
+<tr><th>Paraméter (gyakorlat)</th><th>Mit csinál</th></tr>
+<tr><td><code>hidden_layer_sizes=(8, 4)</code></td><td>Rejtett rétegek száma és mérete: 2 réteg, 8 és 4 neuron. A kimeneti réteget nem kell megadni.</td></tr>
+<tr><td><code>activation="relu"</code></td><td>A <em>rejtett</em> neuronok aktivációja: <code>identity</code>, <code>logistic</code>, <code>tanh</code>, <code>relu</code>.</td></tr>
+<tr><td><code>solver="adam"</code></td><td>Optimalizáló; további: <code>sgd</code>, <code>lbfgs</code>.</td></tr>
+<tr><td><code>learning_rate_init=0.001</code></td><td>Kezdeti tanulási ráta ($\eta$): a súlymódosítások mérete.</td></tr>
+<tr><td><code>alpha=0.0001</code></td><td>L2-regularizáció erőssége: a nagy súlyokat bünteti (5. lépés képlete).</td></tr>
+<tr><td><code>max_iter=1000</code></td><td>Adam és SGD esetén az epochok maximális száma.</td></tr>
+<tr><td><code>tol=0.0001</code></td><td>Az érdeminek tekintett javulás küszöbe.</td></tr>
+<tr><td><code>n_iter_no_change=20</code></td><td>Hány egymást követő, kellő javulás nélküli epochot engedünk meg.</td></tr>
+<tr><td><code>early_stopping=False</code></td><td><code>False</code>: a <em>tanítási veszteséget</em> figyeli. <code>True</code>: leválaszt egy validációs részt (<code>validation_fraction</code>, alapból 10%), és a <em>validációs pontosságot</em> figyeli.</td></tr>
+<tr><td><code>batch_size="auto"</code></td><td>Egy frissítéshez használt példák száma; auto = $\min(200, n)$.</td></tr>
+<tr><td><code>shuffle=True</code></td><td>Minden epoch elején keveri a tanítópéldák sorrendjét.</td></tr>
+<tr><td><code>random_state=42</code></td><td>A kezdeti véletlen súlyok és a keverés rögzítése → megismételhető eredmény.</td></tr>
+</table></div>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – A leállási szabály</span>
+<p>Egy epoch <strong>javulás nélküli</strong>, ha a figyelt mérték nem javult legalább <code>tol</code>-lal <em>az addigi legjobb értékhez</em> képest. <code>early_stopping=False</code> esetén: ha $L_{\text{most}} &gt; L_{\text{legjobb}} - \text{tol}$. Ha ilyen epochok sorozata eléri az <code>n_iter_no_change</code> határt, a tanítás leáll. (Pontosan: a scikit-learn akkor áll meg, amikor a számláló <em>meghaladja</em> az <code>n_iter_no_change</code> értéket.) Különben legfeljebb <code>max_iter</code> epoch fut, és ekkor <code>ConvergenceWarning</code> figyelmeztetést kapsz.</p>
+<p><strong>Miért?</strong> A <code>tol</code> egyedül túl szigorú lenne: egy-egy zajos epoch miatt megállna. A „türelem” (<code>n_iter_no_change</code>) kivárja, hogy a javulás tartósan elmaradjon.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa – a leállási számláló</span>
+<p><code>tol=0.01</code>, <code>n_iter_no_change=3</code>, veszteség: 0,50 · 0,45 · 0,445 · 0,441 · 0,438 · 0,430.</p>
+<details class="solution"><summary>Megoldás</summary>
+<div class="table-wrap"><table>
+<tr><th>Epoch</th><th class="num">Veszteség</th><th class="num">Legjobb − tol</th><th>Érdemi javulás?</th><th class="num">Számláló</th></tr>
+<tr><td>1</td><td class="num">0,500</td><td class="num">—</td><td>első epoch</td><td class="num">0</td></tr>
+<tr><td>2</td><td class="num">0,450</td><td class="num">0,490</td><td>igen</td><td class="num">0</td></tr>
+<tr><td>3</td><td class="num">0,445</td><td class="num">0,440</td><td>nem</td><td class="num">1</td></tr>
+<tr><td>4</td><td class="num">0,441</td><td class="num">0,435</td><td>nem</td><td class="num">2</td></tr>
+<tr><td>5</td><td class="num">0,438</td><td class="num">0,431</td><td>nem</td><td class="num">3</td></tr>
+<tr><td>6</td><td class="num">0,430</td><td class="num">0,428</td><td>nem</td><td class="num">4 → leáll</td></tr>
+</table></div>
+<p>A veszteség közben végig <em>csökken</em>, csak nem elég gyorsan. A 6. epochban a számláló (4) meghaladja a 3-at, a tanítás leáll.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – amit a leállás nem garantál</span>
+<ul>
+<li>Az órán az hangzott el, hogy a <code>n_iter_no_change</code> azért kell, hogy a tanítás ne egy lokális optimumban álljon meg, hanem „globális optimumot tanuljon”. Ezt egyik paraméter sem garantálja. A türelem csak azt akadályozza meg, hogy egy átmeneti megtorpanás miatt túl korán álljon le.</li>
+<li>A gyakorlaton mindkét háló <code>n_iter_ = 1000</code>-rel futott le: <strong>a max_iter állította meg, nem a tol</strong>. Ez az oktató helyes következtetése szerint azt jelzi, hogy a tanítási veszteség még csökkent volna – de hogy ettől jobb lesz-e a modell, az más kérdés (9. lépés).</li>
+<li>A gyakorlati anyag szerint <code>batch_size="auto"</code> esetén „a teljes tanítóhalmaz egyetlen adatcsomag”. Ez csak azért igaz itt, mert $n=85&lt;200$.</li>
+</ul></div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Paraméterek és leállás (5 feladat)</summary>
+<ol>
+  <li><p>Melyik paramétert állítod, ha (a) nagyobb hálót akarsz, (b) erősebben akarod büntetni a nagy súlyokat, (c) validációs pontosság alapján akarsz megállni?</p>
+    <details class="solution"><summary>Megoldás</summary><p>(a) <code>hidden_layer_sizes</code>, (b) <code>alpha</code> növelése, (c) <code>early_stopping=True</code>.</p></details></li>
+  <li><p>A modell kiírja: „Tényleges iterációszám: 1000”, <code>max_iter=1000</code>. Miért állt le?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Elérte az epoch-korlátot; a tol/türelem feltétel nem teljesült. A tanítási veszteség még csökkent (a scikit-learn ilyenkor <code>ConvergenceWarning</code>-ot ad).</p></details></li>
+  <li><p><code>tol=0.01</code>, veszteség: 0,60 → 0,58 → 0,575. Javulás nélküli-e a 3. epoch?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Legjobb a 2. után 0,58, küszöb $0{,}58-0{,}01=0{,}57$. $0{,}575&gt;0{,}57$ → igen, javulás nélküli (bár csökkent).</p></details></li>
+  <li><p><code>early_stopping=True</code>, <code>validation_fraction=0.1</code>, 85 tanítósor. Hány sor lesz validációs, és egy hallgató mennyit mozdít a validációs pontosságon?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\lceil 0{,}1\cdot85\rceil=9$ sor (a tanításra 76 marad). Egy hallgató $1/9\approx 11{,}1$ százalékpont – nagyon zajos jelzés.</p></details></li>
+  <li><p>Igaz-e, hogy <code>activation="relu"</code> mellett a háló kimenete is ReLU, tehát nem valószínűség?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Nem. Az <code>activation</code> csak a rejtett rétegekre vonatkozik. Bináris osztályozásnál a kimenet logisztikus (szigmoid), ezért ad a <code>predict_proba</code> 0 és 1 közötti értéket.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes9">
+<h2>9. lépés – Túltanulás: felismerés és ellenszerek</h2>
+
+<h4>Kis eset: a valódi görbék</h4>
+<p>A (8, 4)-es hálót újra lefuttattuk ugyanazokkal a beállításokkal, és minden epoch után a teszthalmazon is kiszámoltuk a log-losst (csak szemléltetésre – a valódi munkában erre validációs halmaz való). 1500 epochig vittük, hogy lássuk, mi történt volna, ha a <code>max_iter</code> nagyobb.</p>
+
+<figure>
+<svg viewBox="0 0 600 300" width="600" role="img" aria-label="Veszteséggörbék: a tanítási veszteség 0,61-ről folyamatosan csökken 0,08-ig; a teszt log-loss 153. epochnál 0,50-os minimumot ér el, majd emelkedik, 1000 epochnál 0,61, 1500-nál 1,04">
+  <g font-family="Inter, sans-serif" font-size="11" fill="currentColor">
+    <g stroke="currentColor" stroke-opacity=".12">
+      <line x1="50" y1="200" x2="580" y2="200"/><line x1="50" y1="160" x2="580" y2="160"/><line x1="50" y1="120" x2="580" y2="120"/><line x1="50" y1="80" x2="580" y2="80"/><line x1="50" y1="40" x2="580" y2="40"/>
+    </g>
+    <line x1="50" y1="240" x2="580" y2="240" stroke="currentColor" stroke-opacity=".5"/>
+    <line x1="50" y1="20" x2="50" y2="240" stroke="currentColor" stroke-opacity=".5"/>
+    <g text-anchor="end"><text x="44" y="244">0</text><text x="44" y="204">0,2</text><text x="44" y="164">0,4</text><text x="44" y="124">0,6</text><text x="44" y="84">0,8</text><text x="44" y="44">1,0</text></g>
+    <g text-anchor="middle"><text x="50" y="256">0</text><text x="138.3" y="256">250</text><text x="226.7" y="256">500</text><text x="315" y="256">750</text><text x="403.3" y="256">1000</text><text x="491.7" y="256">1250</text><text x="580" y="256">1500</text></g>
+    <text x="315" y="274" text-anchor="middle">epoch</text>
+    <line x1="50" y1="122" x2="580" y2="122" stroke="var(--muted)" stroke-dasharray="2 3"/>
+    <text x="575" y="138" text-anchor="end" fill="var(--muted)">konstans alapmodell a teszten (0,590)</text>
+    <line x1="403.3" y1="20" x2="403.3" y2="240" stroke="currentColor" stroke-opacity=".55" stroke-dasharray="5 4"/>
+    <text x="398" y="232" text-anchor="end">a gyakorlat itt állt le (max_iter)</text>
+    <path d="M50.4,117.7 L53.9,120.6 L57.4,123.2 L61.0,125.6 L64.5,127.8 L68.0,130.0 L71.6,132.3 L75.1,134.5 L78.6,136.6 L82.2,138.7 L85.7,140.7 L89.2,142.7 L92.8,144.7 L96.3,146.6 L99.8,148.4 L103.4,150.1 L106.9,151.6 L110.4,153.0 L114.0,154.4 L117.5,155.7 L121.0,157.0 L124.6,158.1 L128.1,159.2 L131.6,160.4 L135.2,161.4 L138.7,162.4 L142.2,163.4 L145.8,164.3 L149.3,165.2 L152.8,166.0 L156.4,166.9 L159.9,167.6 L163.4,168.3 L167.0,168.9 L170.5,169.5 L174.0,170.0 L177.6,170.5 L181.1,171.0 L184.6,171.6 L188.2,172.1 L191.7,172.6 L195.2,173.2 L198.8,173.9 L202.3,174.6 L205.8,175.1 L209.4,175.7 L212.9,176.1 L216.4,176.6 L220.0,177.0 L223.5,177.5 L227.0,177.9 L230.6,178.3 L234.1,178.6 L237.6,179.0 L241.2,179.5 L244.7,180.0 L248.2,180.6 L251.8,181.2 L255.3,181.8 L258.8,182.4 L262.4,183.0 L265.9,183.6 L269.4,184.3 L273.0,185.1 L276.5,185.8 L280.0,186.5 L283.6,187.1 L287.1,187.6 L290.6,188.2 L294.2,188.7 L297.7,189.3 L301.2,189.9 L304.8,190.5 L308.3,191.0 L311.8,191.6 L315.4,192.1 L318.9,192.7 L322.4,193.2 L326.0,193.8 L329.5,194.3 L333.0,194.8 L336.6,195.2 L340.1,195.7 L343.6,196.1 L347.2,196.6 L350.7,197.0 L354.2,197.4 L357.8,197.8 L361.3,198.2 L364.8,198.6 L368.4,199.0 L371.9,199.4 L375.4,199.8 L379.0,200.2 L382.5,200.5 L386.0,200.9 L389.6,201.3 L393.1,201.7 L396.6,202.2 L400.2,202.6 L403.7,203.0 L407.2,203.4 L410.8,203.8 L414.3,204.2 L417.8,204.6 L421.4,205.0 L424.9,205.4 L428.4,205.8 L432.0,206.2 L435.5,206.6 L439.0,206.9 L442.6,207.3 L446.1,207.7 L449.6,208.1 L453.2,208.6 L456.7,209.1 L460.2,209.5 L463.8,209.9 L467.3,210.3 L470.8,210.7 L474.4,211.1 L477.9,211.4 L481.4,211.8 L485.0,212.2 L488.5,212.6 L492.0,213.0 L495.6,213.4 L499.1,213.7 L502.6,214.1 L506.2,214.5 L509.7,215.0 L513.2,215.7 L516.8,216.3 L520.3,216.9 L523.8,217.5 L527.4,218.1 L530.9,218.6 L534.4,219.1 L538.0,219.6 L541.5,220.0 L545.0,220.5 L548.6,220.9 L552.1,221.3 L555.6,221.7 L559.2,222.0 L562.7,222.3 L566.2,222.7 L569.8,223.1 L573.3,223.5 L576.8,223.8 L580.0,224.1" fill="none" stroke="var(--accent)" stroke-width="2.4"/>
+    <path d="M50.4,111.0 L53.9,114.7 L57.4,117.9 L61.0,120.6 L64.5,123.1 L68.0,125.5 L71.6,127.8 L75.1,129.7 L78.6,131.4 L82.2,133.0 L85.7,134.4 L89.2,135.7 L92.8,136.7 L96.3,137.7 L99.8,138.6 L103.4,139.0 L106.9,138.9 L110.4,138.3 L114.0,137.8 L117.5,137.4 L121.0,136.9 L124.6,136.3 L128.1,136.0 L131.6,135.7 L135.2,135.4 L138.7,134.8 L142.2,134.1 L145.8,132.9 L149.3,131.6 L152.8,130.6 L156.4,129.0 L159.9,127.6 L163.4,126.5 L167.0,125.7 L170.5,124.8 L174.0,124.0 L177.6,123.2 L181.1,122.3 L184.6,121.7 L188.2,121.1 L191.7,120.0 L195.2,119.7 L198.8,118.9 L202.3,118.1 L205.8,117.1 L209.4,116.4 L212.9,115.5 L216.4,114.6 L220.0,113.8 L223.5,113.2 L227.0,112.8 L230.6,112.6 L234.1,112.5 L237.6,112.4 L241.2,111.8 L244.7,111.9 L248.2,112.7 L251.8,113.5 L255.3,113.8 L258.8,114.1 L262.4,114.7 L265.9,115.2 L269.4,114.9 L273.0,113.6 L276.5,113.7 L280.0,113.8 L283.6,115.3 L287.1,116.5 L290.6,117.4 L294.2,118.4 L297.7,119.3 L301.2,120.0 L304.8,120.1 L308.3,120.5 L311.8,120.6 L315.4,120.5 L318.9,120.3 L322.4,120.6 L326.0,120.5 L329.5,120.1 L333.0,120.2 L336.6,119.9 L340.1,119.7 L343.6,119.5 L347.2,119.9 L350.7,120.1 L354.2,120.3 L357.8,120.4 L361.3,120.6 L364.8,120.9 L368.4,120.8 L371.9,120.6 L375.4,120.6 L379.0,120.7 L382.5,120.2 L386.0,120.2 L389.6,119.9 L393.1,119.2 L396.6,118.7 L400.2,118.7 L403.7,117.9 L407.2,118.5 L410.8,118.3 L414.3,118.4 L417.8,117.9 L421.4,117.8 L424.9,117.6 L428.4,117.1 L432.0,116.5 L435.5,115.7 L439.0,114.8 L442.6,114.0 L446.1,112.1 L449.6,111.7 L453.2,112.0 L456.7,111.1 L460.2,107.3 L463.8,105.0 L467.3,103.4 L470.8,101.6 L474.4,99.0 L477.9,96.4 L481.4,94.3 L485.0,92.1 L488.5,89.4 L492.0,86.6 L495.6,83.5 L499.1,80.2 L502.6,76.9 L506.2,73.4 L509.7,69.8 L513.2,67.2 L516.8,66.6 L520.3,66.2 L523.8,65.0 L527.4,62.2 L530.9,60.0 L534.4,57.7 L538.0,55.0 L541.5,52.5 L545.0,50.2 L548.6,47.6 L552.1,45.0 L555.6,42.5 L559.2,41.4 L562.7,39.8 L566.2,38.7 L569.8,37.3 L573.3,34.9 L576.8,33.4 L580.0,31.8" fill="none" stroke="var(--warn)" stroke-width="2.4"/>
+    <circle cx="104.1" cy="139.0" r="4.5" fill="var(--warn)"/>
+    <text x="110" y="152" fill="var(--warn)">teszt-minimum: 153. epoch, 0,505</text>
+    <text x="470" y="205" fill="var(--accent)" font-weight="600">tanítási veszteség</text>
+    <text x="470" y="44" fill="var(--warn)" font-weight="600">teszt log-loss</text>
+  </g>
+</svg>
+<figcaption>A (8, 4)-es háló (a gyakorlat beállításaival, <code>random_state=42</code>). A tanítási görbe végig csökken, a teszt-görbe a 153. epoch után emelkedni kezd: ez a túltanulás képe.</figcaption>
+</figure>
+
+<div class="table-wrap"><table>
+<tr><th>Háló</th><th class="num">Tanítási veszteség (1000. ep.)</th><th class="num">Teszt log-loss minimuma</th><th class="num">Teszt log-loss (1000. ep.)</th><th class="num">Tanító pontosság</th><th class="num">Teszt pontosság</th></tr>
+<tr><td>MLP-1 (8, 4)</td><td class="num">0,185</td><td class="num">0,505 (153. ep.)</td><td class="num">0,610</td><td class="num">94,1%</td><td class="num">79,3%</td></tr>
+<tr><td>MLP-2 (16, 8)</td><td class="num">0,061</td><td class="num">0,392 (400. ep.)</td><td class="num">0,643</td><td class="num">98,8%</td><td class="num">79,3%</td></tr>
+</table></div>
+<p>Ez a válasz a motiváció második kérdésére: a nagyobb háló tanítási vesztesége harmadakkora, a teszt-pontossága <em>ugyanannyi</em>, a teszt log-lossa pedig rosszabb. Mindkét háló teszt log-lossa az 1000. epochnál rosszabb, mint az „mindenkinek 70,6% esélyt adok” konstans modellé (0,590): a hálók magabiztosan tévednek néhány hallgatónál.</p>
+
+<div class="box def"><span class="box-title">Definíció – Túltanulás és alultanulás</span>
+<p><strong>Túltanulás</strong> (overfitting): a modell a tanítóhalmaz zaját is megtanulja; a tanító-eredmény javul, miközben a validációs/teszt-eredmény romlik. Jele: nagy rés a tanító és a teszt teljesítmény között, emelkedő validációs veszteség.</p>
+<p><strong>Alultanulás</strong> (underfitting): a modell még a tanítóhalmazon is gyenge – nagy a tanítási veszteség (pl. kevés epoch, túl kicsi háló, túl erős regularizáció).</p>
+<p><strong>Miért?</strong> A tanítás csak a tanítási veszteséget minimalizálja. Az új adaton nyújtott teljesítményről semmit sem „tud” – azt csak külön adaton lehet mérni.</p>
+</div>
+
+<div class="box def"><span class="box-title">Ellenszerek (a gyakorlati anyag összegzése)</span>
+<ul>
+<li><strong>Regularizáció</strong> (<code>alpha</code>↑): <em>mérsékli</em> a túltanulást, mert kis súlyokra kényszerít → simább döntési határ.</li>
+<li><strong>Validációs értékelés</strong>: <em>felismerhetővé teszi</em> – a tanítóhalmazból félretett, a tanításban nem használt részen mérünk.</li>
+<li><strong>Korai leállítás</strong> (<code>early_stopping=True</code>): <em>segít megállítani</em> – ott áll meg, ahol a validációs pontosság már nem javul, és a legjobb validációs súlyokat tartja meg.</li>
+<li>Ezen felül: kisebb háló (kevesebb neuron/réteg), kevesebb epoch, több adat.</li>
+</ul>
+<p>Mindez a több neuront vagy réteget tartalmazó hálónál különösen fontos.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa – rés a tanító és a teszt között</span>
+<p>Az MLP-2: tanító 98,8%, teszt 79,3%. Az MLP-1: 94,1% és 79,3%. Mit mond a rés?</p>
+<details class="solution"><summary>Megoldás</summary><p>MLP-2: 19,5 százalékpont, MLP-1: 14,8 százalékpont. A nagyobb háló jobban „bemagolta” a 85 tanítóhallgatót, de az új hallgatókon semmit sem nyert vele. Ugyanaz a teszt-eredmény mellett a kisebb, egyszerűbb modellt érdemes választani.</p></details>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés (nem szerepelt a gyakorlaton) – mi magunk kipróbáltuk</span>
+<p>Az oktató azt javasolta, hogy otthon próbáljuk ki a változtatásokat. Néhány eredmény ugyanerre a felosztásra (<code>random_state=42</code>):</p>
+<div class="table-wrap"><table>
+<tr><th>Beállítás</th><th class="num">Leállás (epoch)</th><th class="num">Tanító pontosság</th><th class="num">Teszt pontosság</th><th class="num">Teszt kiegy. pontosság</th></tr>
+<tr><td>(8, 4), <code>max_iter=5000</code></td><td class="num">1867 (tol)</td><td class="num">100%</td><td class="num">75,9%</td><td class="num">0,756</td></tr>
+<tr><td>(8, 4), <code>early_stopping=True</code></td><td class="num">22</td><td class="num">67,1%</td><td class="num">62,1%</td><td class="num">0,467</td></tr>
+<tr><td>(16, 8), <code>early_stopping=True</code></td><td class="num">22</td><td class="num">70,6%</td><td class="num">72,4%</td><td class="num">0,500</td></tr>
+<tr><td>(16, 8), <code>alpha=3</code></td><td class="num">621 (tol)</td><td class="num">87,1%</td><td class="num">75,9%</td><td class="num">0,717</td></tr>
+</table></div>
+<ul>
+<li>Több epoch: a tanító-pontosság 100%-ra ment, a teszt <em>romlott</em>. A „növeljük az epochok számát” tehát itt nem segít.</li>
+<li>Korai leállítás 85 sornál: a 9 soros validációs rész túl zajos, a tanítás 22 epoch után megállt – a háló alultanult (a (16, 8)-as mindenkire „yes”-t mond). Korai leállításhoz elég nagy validációs halmaz kell.</li>
+<li>Túl erős regularizáció ($\alpha=3$): a tanító-pontosság is visszaesik – ez már az alultanulás felé tol.</li>
+<li>Vigyázat: ha a <em>teszt</em>halmazon válogatjuk ki a legjobb beállítást, a teszt már nem független mérés. Erre validáció (vagy keresztvalidáció) való.</li>
+</ul></div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia</span>
+<p><em>overfitting / underfitting</em> = túltanulás / alultanulás · <em>validation set</em> = validációs halmaz · <em>early stopping</em> = korai leállítás · <em>generalization</em> = általánosítás · <em>regularization</em> = regularizáció · <em>convergence</em> = konvergencia.</p></div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Túltanulás (5 feladat)</summary>
+<ol>
+  <li><p>Egy modell tanítóhalmazon 99%, teszten 70%. Egy másik 82% és 80%. Melyiket választod, és miért?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A másodikat: jobb a teszten, és kicsi a rés. Az első túltanul.</p></details></li>
+  <li><p>Mit jelent, ha a tanítási veszteség is magas (pl. 0,6 körül marad) és a teszt-eredmény is gyenge?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Alultanulás: a modell még a tanítóadatot sem tanulta meg. Több epoch, nagyobb háló vagy gyengébb regularizáció segíthet.</p></details></li>
+  <li><p>A grafikon alapján melyik epoch környékén lett volna érdemes megállítani az MLP-1-et, ha a teszt helyett validációs görbe lett volna ugyanilyen?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A validációs veszteség minimuma körül, kb. a 150. epochnál. Utána a tanítási veszteség még csökken, a validációs nő.</p></details></li>
+  <li><p>Melyik <em>nem</em> ellenszere a túltanulásnak: <code>alpha</code> növelése, kevesebb neuron, <code>max_iter</code> növelése, korai leállítás?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A <code>max_iter</code> növelése: több epoch → még jobban rátanul a tanítóadatra (lásd a kiegészítés: 5000 epochnál 100% tanító, 75,9% teszt).</p></details></li>
+  <li><p>Miért nem bizonyítja a jó modellt, hogy a <code>loss_curve_</code> szépen, végig csökken?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Mert a <code>loss_curve_</code> a <em>tanítóhalmazon</em> mért veszteség; az optimalizáló épp ezt csökkenti. Az új adaton nyújtott teljesítményt külön (validációs/teszt) adaton kell mérni. A gyakorlat szkriptje ki is írja: „A csökkenő tanítási veszteség önmagában nem bizonyít jó általánosítást.”</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l06-lepes9"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="alkalmazas">
+<h2>Alkalmazás – a 6. gyakorlat: két háló és a döntési fa</h2>
+
+<p><strong>Adat:</strong> a tisztított hallgatói teljesítményadat, <em>ugyanaz</em> a tanító–teszt felosztás, mint a döntési fánál (85 tanító, 29 teszt sor). Az órán ezt külön hangsúlyozták: csak így vethető össze tisztességesen a háló és a fa. Bemenet: <code>study_hours</code>, <code>attendance</code>, <code>previous_gpa</code>, <code>assignments_completed</code> és a szak három dummy oszlopa. Cél: <code>passed</code> (yes/no). Osztályarány: tanító 60 yes / 25 no, teszt 21 yes / 8 no.</p>
+
+<h3>1–3. feladat: standardizálás, tanítás, veszteséggörbe (<code>01_mlp-1.py</code>)</h3>
+<pre><code class="language-python">train_data = pd.read_csv("student_train.csv", sep=";", encoding="utf-8-sig")
+test_data  = pd.read_csv("student_test.csv",  sep=";", encoding="utf-8-sig")
+X_train, y_train = train_data.drop(columns=["passed"]), train_data["passed"]
+X_test,  y_test  = test_data.drop(columns=["passed"]),  test_data["passed"]
+
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)   # μ, σ csak a tanítóból
+X_test_scaled  = scaler.transform(X_test)        # ugyanazokkal a paraméterekkel
+
+model = MLPClassifier(hidden_layer_sizes=(8, 4), activation="relu", solver="adam",
+                      learning_rate_init=0.001, alpha=0.0001, max_iter=1000,
+                      random_state=42, early_stopping=False, tol=0.0001,
+                      n_iter_no_change=20)
+model.fit(X_train_scaled, y_train)
+print(model.n_iter_, model.loss_)          # 1000  0.185051
+plt.plot(model.loss_curve_)                # tanítási veszteség epochonként</code></pre>
+<p>A <code>01_mlp-2.py</code> ugyanez <code>HIDDEN_LAYERS = (16, 8)</code>-cal. A szkript a modellt <em>és</em> a scalert is elmenti (<code>joblib.dump</code>), mert új adat előrejelzéséhez mindkettő kell.</p>
+
+<div class="table-wrap"><table>
+<tr><th>Háló</th><th class="num">Paraméterek</th><th class="num">n_iter_</th><th class="num">Veszteség az 1. epochban</th><th class="num">Utolsó veszteség (<code>loss_</code>)</th></tr>
+<tr><td>MLP-1 (8, 4)</td><td class="num">105</td><td class="num">1000</td><td class="num">0,612</td><td class="num">0,185</td></tr>
+<tr><td>MLP-2 (16, 8)</td><td class="num">273</td><td class="num">1000</td><td class="num">0,708</td><td class="num">0,061</td></tr>
+</table></div>
+<p>A görbe jellege mindkettőnél: lassan induló, majd egyenletesen csökkenő, az 1000. epochnál még mindig lejt (ezért nem a <code>tol</code>, hanem a <code>max_iter</code> állította meg). A nagyobb háló gyorsabban és mélyebbre viszi le a tanítási veszteséget.</p>
+
+<h3>4. feladat: értékelés a teszthalmazon (<code>02_mlp-1_evaluation.py</code>)</h3>
+<pre><code class="language-python">model  = joblib.load("student_mlp-1.joblib")
+scaler = joblib.load("student_mlp-1_scaler.joblib")
+X_test_scaled = scaler.transform(X_test)      # NEM illesztjük újra
+y_pred = model.predict(X_test_scaled)
+print(accuracy_score(y_test, y_pred), balanced_accuracy_score(y_test, y_pred))
+print(classification_report(y_test, y_pred, labels=model.classes_, zero_division=0))</code></pre>
+
+<div class="two-col">
+<div class="box example"><span class="box-title">MLP-1 (8, 4) – tévesztési mátrix</span>
+<div class="table-wrap"><table>
+<tr><th>valódi \ jósolt</th><th class="num">no</th><th class="num">yes</th></tr>
+<tr><td>no</td><td class="num">6</td><td class="num">2</td></tr>
+<tr><td>yes</td><td class="num">4</td><td class="num">17</td></tr>
+</table></div>
+<p>Pontosság $23/29=0{,}793$; kiegyensúlyozott $(6/8+17/21)/2=0{,}780$.</p></div>
+<div class="box example"><span class="box-title">MLP-2 (16, 8) – tévesztési mátrix</span>
+<div class="table-wrap"><table>
+<tr><th>valódi \ jósolt</th><th class="num">no</th><th class="num">yes</th></tr>
+<tr><td>no</td><td class="num">5</td><td class="num">3</td></tr>
+<tr><td>yes</td><td class="num">3</td><td class="num">18</td></tr>
+</table></div>
+<p>Pontosság $23/29=0{,}793$; kiegyensúlyozott $(5/8+18/21)/2=0{,}741$.</p></div>
+</div>
+
+<h3>5–6. feladat: két architektúra és a döntési fa</h3>
+<div class="table-wrap"><table>
+<tr><th>Modell</th><th class="num">Accuracy</th><th class="num">Balanced acc.</th><th class="num">Precision (yes)</th><th class="num">Recall (yes)</th><th class="num">F1 (yes)</th></tr>
+<tr><td>Többségi alapmodell</td><td class="num">0,724</td><td class="num">0,500</td><td class="num">0,724</td><td class="num">1,000</td><td class="num">0,840</td></tr>
+<tr><td>Döntési fa (5. gyak., mélység 3)</td><td class="num">0,724</td><td class="num">0,655</td><td class="num">0,810</td><td class="num">0,810</td><td class="num">0,810</td></tr>
+<tr><td><strong>MLP-1 (8, 4)</strong></td><td class="num"><strong>0,793</strong></td><td class="num"><strong>0,780</strong></td><td class="num"><strong>0,895</strong></td><td class="num">0,810</td><td class="num">0,850</td></tr>
+<tr><td>MLP-2 (16, 8)</td><td class="num">0,793</td><td class="num">0,741</td><td class="num">0,857</td><td class="num"><strong>0,857</strong></td><td class="num"><strong>0,857</strong></td></tr>
+</table></div>
+<p>A döntési fa sorai az 5. gyakorlat <code>student_model_comparison.csv</code> fájljából valók; a fa tévesztési mátrixa ebből visszaszámolva: no-sor $(4,\ 4)$, yes-sor $(4,\ 17)$.</p>
+
+<div class="box tip"><span class="box-title">💡 Értelmezés (ahogy az órán)</span>
+<ul>
+<li>Az MLP pontossága 79%, „valamivel jobb, mint a döntési fáé” (72%).</li>
+<li>A <strong>recall</strong> (yes) ugyanannyi: mindkét modell a 21 átment hallgatóból 17-et talál meg.</li>
+<li>A különbség a <strong>precisionban</strong> van: a fa 4 bukott hallgatóról mondta, hogy átmegy, az MLP-1 csak 2-ről. A háló tehát jobban felismerte a bukókat (8-ból 6 vs. 4) – ez látszik a kiegyensúlyozott pontosságon is (0,780 vs. 0,655).</li>
+<li>Óvatosan: 29 teszthallgatónál egy hallgató $1/29\approx 3{,}4$ százalékpont. A 0,724 → 0,793 különbség két hallgató. Ilyen kis teszthalmazon a sorrend könnyen megfordulhat (pl. más <code>random_state</code>, mélyebb fa – az oktató is jelezte, hogy a fa mélységét növelve lehet, hogy az is elérné a 79%-ot).</li>
+<li>A két architektúra közül a kisebb, (8, 4)-es a jobb választás: ugyanaz a pontosság, jobb kiegyensúlyozott pontosság, kisebb túltanulási rés.</li>
+</ul></div>
+
+<div class="two-col">
+<div class="box example"><span class="box-title">Döntési fa – értelmezhetőség</span>
+<p>Lerajzolható, a szabályok kiírhatók: pl. „ha <code>previous_gpa</code> ≤ 2,895 és nem Computer Science szakos és a jelenlét &gt; 69,7%, akkor no”. Egy oktató vagy döntéshozó ellenőrizni tudja, miért született a döntés.</p></div>
+<div class="box example"><span class="box-title">MLP – értelmezhetőség</span>
+<p>105 súly, nemlineáris aktivációk: nem lehet egyszerűen kiolvasni, miért lett „no” egy hallgató. Az órán: a neurális hálók belső működésének láthatóvá tétele „jelenleg kutatási terület”.</p></div>
+</div>
+<p><strong>Döntés:</strong> ha a magyarázhatóság fontos (pl. egy hallgatónak meg kell indokolni a figyelmeztetést), a fa; ha a nyers előrejelzési teljesítmény számít, és elég az adat, az MLP – de csak validációval és a túltanulás figyelésével.</p>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés (nem szerepelt a gyakorlaton)</span>
+<p>A tárgy ütemterve az Altair AI Studiót (a korábbi RapidMiner) is említi: ott ugyanez a munkafolyamat grafikus operátorokkal építhető fel (normalizálás, neurális háló, teljesítménymérés), a gyakorlaton azonban Pythonnal dolgoztunk.</p></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="osszefoglalas">
+<h2>Összefoglalás</h2>
+<ul>
+<li><strong>Perceptron:</strong> $z=\sum w_ix_i+b$, lépcsős döntés; lineáris határ (egyenes / hipersík) → az XOR-t nem tudja.</li>
+<li><strong>MLP:</strong> bemeneti, rejtett, kimeneti réteg; minden neuron $a=f(\sum w_ix_i+b)$. A nemlineáris aktiváció (logistic, tanh, ReLU) teszi lehetővé a nemlineáris határt. Bináris kimenet: szigmoid → valószínűség.</li>
+<li><strong>Tanítás:</strong> előreterjesztés → veszteség (log-loss + L2) → hibavisszaterjesztés (gradiens) → optimalizáló lépés ($\eta$). Epoch = a teljes tanítóhalmaz egyszer; batch = egy frissítés példái.</li>
+<li><strong>Előkészítés:</strong> standardizálás a tanítóhalmaz $\mu$-jével és $\sigma$-jával (<code>fit_transform</code> a tanítón, <code>transform</code> a többin).</li>
+<li><strong>Minőség:</strong> a kis tanítási veszteség kevés; az új adaton mért teljesítmény számít. Túltanulás: tanító javul, validáció romlik. Ellenszer: regularizáció, validáció, korai leállítás, kisebb háló.</li>
+<li><strong>A gyakorlat eredménye:</strong> MLP 79,3% vs. döntési fa 72,4% a teszten (azonos recall, jobb precision); a nagyobb háló nem lett jobb, csak jobban túltanult. Értelmezhetőségben a fa nyer.</li>
+</ul>
+
+<div class="table-wrap"><table>
+<tr><th>Ha a feladatban ez áll…</th><th>…ezt használd / így gondolkodj</th></tr>
+<tr><td>„Számold ki, mit dönt a perceptron”</td><td>$z=\sum w_ix_i+b$, majd $z\ge0$ → 1</td></tr>
+<tr><td>„Meg tudja-e oldani egy perceptron?”</td><td>Lineárisan szeparálható-e? (AND, OR, NAND igen; XOR nem)</td></tr>
+<tr><td>„Számold ki a háló kimenetét”</td><td>Előreterjesztés rétegenként: $z$ → aktiváció → következő réteg; a végén $\sigma$, 0,5-ös küszöb</td></tr>
+<tr><td>„Hány paramétere van a hálónak?”</td><td>Rétegenként $k\cdot m+m$ (bemenet × neuron + eltolás), összeadva</td></tr>
+<tr><td>Aktivációs függvény értéke</td><td>identity $z$; logistic $1/(1+e^{-z})$; tanh; ReLU $\max(0,z)$</td></tr>
+<tr><td>„Mennyi a log-loss?”</td><td>$y=1$: $-\ln\hat p$; $y=0$: $-\ln(1-\hat p)$; átlagolj</td></tr>
+<tr><td>Tanulási ráta túl nagy / túl kicsi</td><td>Széttart / lassú; Adam + 0,001 jó kiindulás</td></tr>
+<tr><td>Hány frissítés egy epochban?</td><td>$n/\text{batch}$; <code>auto</code> = $\min(200,n)$</td></tr>
+<tr><td>Új adat / teszt előkészítése</td><td><code>scaler.transform</code> a <em>tanító</em> paramétereivel, sosem újraillesztés</td></tr>
+<tr><td><code>n_iter_ == max_iter</code></td><td>Nem konvergált, a korlát állította meg; nem feltétlenül kell több epoch</td></tr>
+<tr><td>Tanító ≫ teszt teljesítmény</td><td>Túltanulás → <code>alpha</code>↑, kisebb háló, <code>early_stopping=True</code>, validáció</td></tr>
+<tr><td>Tanító és teszt is gyenge</td><td>Alultanulás → több epoch, nagyobb háló, kisebb <code>alpha</code></td></tr>
+<tr><td>„Melyik az értelmezhetőbb?”</td><td>Döntési fa (szabályok, ábra); MLP: „fekete doboz”</td></tr>
+</table></div>
+</section>
+
+<section id="kviz">
+<h2>Ellenőrző kvíz</h2>
+<div class="quiz" data-quiz="l06-vegso"></div>
+</section>
+
+<nav class="pager">
+  <a href="05-dontesi-fa.html">← 5. Döntési fa</a>
+  <a href="07-sql-ablakfuggvenyek.html">7. SQL ablakfüggvények →</a>
+</nav>
+</main>
+</body>
+</html>

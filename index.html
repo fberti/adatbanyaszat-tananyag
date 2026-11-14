@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Adatbányászat tananyag</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/quiz.js"></script>
+<script defer src="assets/common.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const e = document.getElementById("bank-progress");
+  if (!e) return;
+  let h = [], st = {};
+  try { h = JSON.parse(localStorage.getItem("adatb-bank-history")) || []; st = JSON.parse(localStorage.getItem("adatb-bank-stats")) || {}; } catch (x) {}
+  const seen = Object.keys(st).length;
+  if (!h.length) { e.textContent = "Még nem gyakoroltál"; return; }
+  const last = h[h.length - 1];
+  e.textContent = `${h.length} gyakorlás · legutóbb ${last.ok}/${last.n} · ${seen} különböző kérdés`;
+});
+</script>
+</head>
+<body>
+<nav class="topnav"><div class="inner">
+  <strong>Adatbányászat</strong>
+  <span class="spacer"></span>
+  <button id="theme-toggle" type="button" title="Világos/sötét téma">◐</button>
+</div></nav>
+<main>
+<p class="kicker">Miskolci Egyetem · GTK · levelező · 2026/27 ősz</p>
+<h1>Adatbányászat – tananyag</h1>
+<p class="lead">Lépésről lépésre feldolgozott jegyzet a gyakorlati anyagokból és az órai hangfelvételből, megértéshez és vizsgafelkészüléshez. Minden lecke kis, kézzel végigszámolható példával indul, és a gyakorlat valódi adatain és kódján ér véget.</p>
+
+<div class="box tip"><span class="box-title">💡 Hogyan használd?</span>
+<ul>
+<li>A leckéket sorrendben érdemes olvasni: a 3–6. lecke a korábbiakra épít (aggregálás, standardizálás, tanító/teszt felosztás).</li>
+<li>A <strong>✏️ Gyakorlás</strong> blokkok és a <strong>🎯 Kvízek</strong> alapból csukva vannak. Előbb próbáld megoldani a feladatot, csak utána nyisd ki a megoldást.</li>
+<li>A kvízeknél a <em>💡 Tipp</em> gomb elindít, de nem árulja el a választ. Az eredményedet a böngésző megjegyzi, és itt, a kártyákon látod.</li>
+<li>A <span style="border-left:3px dashed var(--muted);padding-left:4px">➕ Kiegészítés</span> dobozok olyan anyagot tartalmaznak, ami nem hangzott el a gyakorlaton, de a témához hozzátartozik.</li>
+</ul></div>
+
+<h2>Leckék</h2>
+<div class="cards">
+  <a class="card" href="01-adattisztitas.html"><span class="num">1. lecke · 1. gyakorlat</span><h3>Adattisztítás és feltáró elemzés</h3><p>Változótípusok, tisztítási sorrend, IQR, középértékek, boxplot.</p><div class="progress" data-progress="l01-lepes2 l01-lepes5 l01-lepes7 l01-vegso"></div></a>
+  <a class="card" href="02-kosarelemzes.html"><span class="num">2. lecke · 2. gyakorlat</span><h3>Kosárelemzés: Apriori</h3><p>Támogatottság, megbízhatóság, lift, asszociációs szabályok.</p><div class="progress" data-progress="l02-lepes2 l02-lepes3 l02-lepes4 l02-lepes5 l02-vegso"></div></a>
+  <a class="card" href="03-kmeans.html"><span class="num">3. lecke · 3. gyakorlat</span><h3>K-means szegmentáció</h3><p>Standardizálás, K-means lépései, könyökmódszer, silhouette.</p><div class="progress" data-progress="l03-lepes4 l03-lepes7 l03-lepes9 l03-vegso"></div></a>
+  <a class="card" href="04-hierarchikus-klaszterezes.html"><span class="num">4. lecke · 4. gyakorlat</span><h3>Hierarchikus klaszterezés</h3><p>Kapcsolási módok, dendrogram, klaszterszám, K-means vs. HAC.</p><div class="progress" data-progress="l04-lepes1 l04-lepes2 l04-lepes4 l04-lepes5 l04-vegso"></div></a>
+  <a class="card" href="05-dontesi-fa.html"><span class="num">5. lecke · 5. gyakorlat</span><h3>Döntési fa és mérőszámok</h3><p>Gini, entrópia, konfúziós mátrix, precizitás, érzékenység, túltanulás.</p><div class="progress" data-progress="l05-lepes1 l05-lepes3 l05-lepes6 l05-lepes8 l05-vegso"></div></a>
+  <a class="card" href="06-neuralis-halo.html"><span class="num">6. lecke · 6. gyakorlat</span><h3>Neurális háló (MLP)</h3><p>Perceptron, aktiváció, tanítás, veszteség, túltanulás elleni eszközök.</p><div class="progress" data-progress="l06-lepes2 l06-lepes6 l06-lepes9 l06-vegso"></div></a>
+  <a class="card" href="07-sql-ablakfuggvenyek.html"><span class="num">7. lecke · előadás</span><h3>SQL ablakfüggvények</h3><p>OVER, PARTITION BY, ablakkeret, RANK, LAG/LEAD, mozgóátlag.</p><div class="progress" data-progress="l07-lepes2 l07-lepes4 l07-lepes5 l07-vegso"></div></a>
+  <a class="card" href="08-osszefoglalas.html"><span class="num">8. · ismétlés</span><h3>Összefoglalás</h3><p>Döntési táblázat, képletgyűjtemény, fogalompárok, féléves feladat.</p></a>
+  <a class="card" href="09-vizsgagyakorlo.html" style="border-color:var(--quiz)"><span class="num" style="color:var(--quiz)">9. · gyakorló fejezet</span><h3>Vizsgagyakorló</h3><p>Kérdésbank a teljes anyagból: témakör- és nehézségszűrés, gyakorló és vizsga mód, gyenge pontok.</p><div class="progress" id="bank-progress"></div></a>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Féléves feladat – határidő: 2026. november 20.</span>
+<p>Az aláíráshoz le kell adni a féléves feladatot (Python-kód + CSV + PDF-jelentés) a Teams-ben. Az ellenőrzőlistát és az oktató tanácsait az <a href="08-osszefoglalas.html#feleves">összefoglaló leckében</a> találod.</p></div>
+
+<h2>Források</h2>
+<ul>
+<li>Gyakorlati anyagok: <code>../resources/Gyak1 … Gyak6</code> (PDF, Python-szkriptek, adathalmazok)</li>
+<li>Előadás: <code>../resources/ea/SQL_Window_Functions_Slideshow.pptx.pdf</code></li>
+<li>Féléves feladat: <code>../resources/FelevesFeladat_2026_levelezo.pdf</code>; ütemterv: <code>../Ütemterv_DMLEV_2025.pdf</code></li>
+<li>A 2026. október 16-i gyakorlat hangfelvételének átirata (4 rész)</li>
+<li>Ajánlott irodalom: M. J. Zaki, W. Meira Jr.: <em>Data Mining and Analysis</em> – <a href="https://dataminingbook.info/">dataminingbook.info</a></li>
+</ul>
+<p style="color:var(--muted);font-size:.9rem">A képletek (KaTeX) és a kódkiemelés internetkapcsolatot igényel (CDN). Offline a szöveg olvasható, de a képletek nyers formában jelennek meg.</p>
+</main>
+</body>
+</html>

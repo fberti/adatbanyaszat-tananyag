@@ -1,0 +1,965 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Adattisztítás és feltáró elemzés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script defer src="assets/quiz.js"></script>
+<script defer src="quiz/01.js"></script>          <!-- a lecke kvízei -->
+<script defer src="assets/common.js"></script>    <!-- MINDIG az utolsó -->
+</head>
+<body>
+<nav class="topnav"><div class="inner">
+  <a href="index.html">← Tartalom</a>
+  <span>1. lecke · Adattisztítás</span>
+  <span class="spacer"></span>
+  <button id="theme-toggle" type="button" title="Világos/sötét téma">◐</button>
+</div></nav>
+<main>
+<p class="kicker">1. lecke · 1. gyakorlat</p>
+<h1>Az adatbányászati folyamat, adattisztítás és feltáró adatelemzés</h1>
+<p class="lead">Mielőtt bármilyen gépi tanuló módszert futtatnál, meg kell bízhatnod az adatban. Ez a lecke végigvezet az ellenőrzésen, a tisztításon és az első leíró statisztikákon, a gyakorlat vásárlási adathalmazán.</p>
+
+<section id="motivacio">
+<h2>Motiváció</h2>
+<p>Kapsz egy 6957 soros CSV-fájlt egy bolt három hónapos vásárlásairól. A vezető egyetlen kérdést tesz fel: <strong>melyik termék hozza a legtöbb árbevételt?</strong></p>
+<p>Első ránézésre ez egy szorzás meg egy összeadás. Csakhogy a fájlban 18 termék helyett 26 különböző terméknév szerepel. Az egyik mennyiség „unknown”. Néhány egységár üres. Hat sor kétszer szerepel. Ha ezeket nem veszed észre, a válaszod rossz lesz – és senki sem fogja tudni, miért.</p>
+<p>A lecke végére tudni fogod:</p>
+<ul>
+  <li>hogyan veted össze az adatot az elvárásokkal;</li>
+  <li>milyen sorrendben, milyen döntésekkel tisztítod meg;</li>
+  <li>hogyan írod le egy változó eloszlását (átlag, medián, módusz, szórás, kvartilisek, boxplot);</li>
+  <li>és hogyan válaszolsz végül a vezető kérdésére (a kávé, 1&nbsp;793&nbsp;000&nbsp;Ft-tal).</li>
+</ul>
+</section>
+
+<section id="utiterv">
+<h2>Útiterv</h2>
+<ol class="roadmap">
+  <li><a href="#lepes1">1. lépés – Alapfogalmak: üzleti intelligencia, adatbányászat, gépi tanulás</a></li>
+  <li><a href="#lepes2">2. lépés – Az adathalmaz leírása: változótípusok, mérési skálák, tárolási típusok</a></li>
+  <li><a href="#lepes3">3. lépés – Első vizsgálat: elvárás kontra valóság</a></li>
+  <li><a href="#lepes4">4. lépés – Tisztítás I.: duplikátumok és szövegegységesítés</a></li>
+  <li><a href="#lepes5">5. lépés – Tisztítás II.: típuskonverzió és hiányzó értékek</a></li>
+  <li><a href="#lepes6">6. lépés – Középértékek és szóródás</a></li>
+  <li><a href="#lepes7">7. lépés – Kvartilisek, IQR, boxplot és kiugró értékek</a></li>
+  <li><a href="#lepes8">8. lépés – Új változó és csoportosítás: tételérték, termékenkénti árbevétel</a></li>
+  <li><a href="#lepes9">9. lépés – Kétváltozós elemzés alapjai: kovariancia, korreláció, csoportos összehasonlítás</a></li>
+  <li><a href="#alkalmazas">Alkalmazás – a gyakorlat teljes munkafolyamata</a></li>
+  <li><a href="#osszefoglalas">Összefoglalás és döntési táblázat</a></li>
+  <li><a href="#kviz">Ellenőrző kvíz</a></li>
+</ol>
+</section>
+
+<!-- ===================================================== 1 -->
+<section id="lepes1">
+<h2>1. lépés – Alapfogalmak: üzleti intelligencia, adatbányászat, gépi tanulás</h2>
+
+<h4>Kis eset</h4>
+<p>Egy bolt két kérdést tesz fel ugyanarról a vásárlási adatról:</p>
+<ol>
+  <li>„Milyen vásárlói csoportjaink vannak?” – Senki sem mondja meg előre, hány csoport van és melyik vásárló hova tartozik. Az algoritmusnak kell megtalálnia a szerkezetet.</li>
+  <li>„Lemorzsolódik-e ez a vásárló?” – Itt vannak régi példáink, ahol <em>tudjuk</em> a választ (elment / maradt). Ezekből tanul a modell, és új vásárlóra jósol.</li>
+</ol>
+<p>A két kérdés a gépi tanulás két fő ágát mutatja. A gyakorlaton is pont ezt a kettőt nézzük: az első adathalmaz <strong>szegmentációra</strong> (klaszterezés, kosárelemzés), a második <strong>osztályozásra</strong> (döntési fa, neurális háló) való.</p>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés (az ütemterv 1. témaköre, a gyakorlaton nem részletezve)</span>
+<p><strong>Üzleti intelligencia (BI):</strong> azoknak a módszereknek és eszközöknek az összessége, amelyek a vállalat adataiból döntéstámogató információt állítanak elő (adattárház, riportok, OLAP-kockák, irányítópultok). A BI főleg azt mutatja meg, <em>mi történt</em>.</p>
+<p><strong>Adatbányászat (data mining):</strong> nagy adathalmazokban rejtett, nem triviális, hasznos mintázatok (szabályok, csoportok, összefüggések) automatikus vagy félautomatikus feltárása. Más néven a KDD (Knowledge Discovery in Databases) folyamat elemzési lépése. Az adatbányászat már azt is keresi, <em>miért</em> és <em>mi várható</em>.</p>
+<p><strong>Gépi tanulás (machine learning):</strong> olyan algoritmusok, amelyek példákból (adatból) tanulnak, és a tanult összefüggést új adatra alkalmazzák, anélkül hogy a szabályokat kézzel programoznánk.</p>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Felügyelt és felügyelet nélküli tanulás</span>
+<p><strong>Felügyelt tanulás</strong> (supervised): a tanítóadatban minden példához ismert a <em>célváltozó</em> (címke) értéke. A modell a bemenetek → célváltozó leképezést tanulja meg. Pl. osztályozás (döntési fa, neurális háló), regresszió.</p>
+<p><strong>Felügyelet nélküli tanulás</strong> (unsupervised): nincs célváltozó. Az algoritmus az adatok belső szerkezetét keresi. Pl. klaszterezés (K-means, hierarchikus), asszociációs szabályok (Apriori).</p>
+<p><strong>Miért fontos a különbség?</strong> Ez dönti el, hogyan értékeled a modellt. Felügyelt esetben összevetheted a jóslatot a valós címkével (pontosság, tévesztési mátrix). Felügyelet nélkül nincs „helyes válasz”, ezért belső mutatókkal (pl. sziluett, inertia) és szakmai értelmezéssel dolgozol.</p>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Az adatbányászati folyamat lépései</span>
+<ol>
+  <li><strong>Üzleti cél és adatmegértés:</strong> mi a kérdés, mi volt az adatgyűjtés célja, milyen szerkezetet és típusokat várunk?</li>
+  <li><strong>Adatgyűjtés, beolvasás.</strong></li>
+  <li><strong>Adatelőkészítés (tisztítás):</strong> hibák felismerése és javítása – duplikátumok, írásmód, típusok, hiányok, kiugró értékek.</li>
+  <li><strong>Feltáró adatelemzés:</strong> egyváltozós (eloszlások) és kétváltozós (kapcsolatok) elemzés, ábrák.</li>
+  <li><strong>Modellezés:</strong> klaszterezés, asszociációs szabályok, osztályozás.</li>
+  <li><strong>Értékelés és alkalmazás:</strong> a modell minősége, értelmezése, használata új adaton.</li>
+</ol>
+<p><strong>Miért ez a sorrend?</strong> A gépi tanuló eljárások (klaszterező, osztályozó módszerek) nem tudnak mit kezdeni a hiányos adattal, és a kiugró értékek torzítják a számításaikat. Ezért a tisztítás mindig a modellezés előtt van. A folyamat <strong>iteratív</strong>: ha a modell furcsa eredményt ad, visszalépsz a tisztításhoz.</p>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Az oktató hangsúlyai</span>
+<ul>
+  <li>Egy valódi projektben az adatelőkészítés a teljes munka és idő <strong>nagyjából egyharmadát</strong> viszi el.</li>
+  <li>Nincs „tuti recept”: mindig az adathalmaztól függ, mit kell vizsgálni. Bele kell ásnod magad, meg kell értened az adatgyűjtés célját.</li>
+  <li>Mindent <strong>dokumentálj</strong>: hány sort töröltél, mivel pótoltál, mit korrigáltál. Később ezért tudod megmondani, mennyire befolyásolta a tisztítás az eredményt.</li>
+  <li>A Colab beépített AI-segédje jó egy-egy sor elmagyarázására. Teljes feladatot viszont óvatosan adj neki: minél hosszabb a leírás, annál könnyebben érti félre, és ha te nem érted a kódot, a hibát sem veszed észre.</li>
+</ul>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés – CRISP-DM</span>
+<p>A szakirodalom legismertebb folyamatmodellje a <strong>CRISP-DM</strong> (Cross-Industry Standard Process for Data Mining) hat fázissal: üzleti megértés → adatmegértés → adat-előkészítés → modellezés → kiértékelés → bevezetés (deployment). A fenti lépéslista ennek egyszerűsített változata. Vizsgán elég, ha a fázisokat és az iteratív jelleget ismered.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Felügyelt vagy felügyelet nélküli? (5 feladat)</summary>
+<ol>
+  <li><p>Egy bank múltbeli hiteleiből (visszafizette / nem fizette vissza) modellt épít, ami új kérelmezőről eldönti, kockázatos-e. Melyik típus?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Felügyelt (osztályozás). Van célváltozó: „visszafizette-e”, és a múltbeli példákban ismert az értéke.</p></details></li>
+  <li><p>Egy webáruház a vásárlóit a vásárlási szokásaik alapján csoportokba szeretné rendezni, de nem tudja előre, milyen csoportok lesznek. Melyik típus?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Felügyelet nélküli (klaszterezés). Nincs előre adott címke, az algoritmus maga találja meg a csoportokat.</p></details></li>
+  <li><p>„Aki tésztát vesz, gyakran paradicsomszószt is vesz.” Milyen módszer talál ilyen szabályt, és melyik típusba tartozik?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Asszociációs szabálykeresés (kosárelemzés, pl. Apriori). Felügyelet nélküli: nincs kijelölt célváltozó, az együttes előfordulásokat keressük. (2. lecke.)</p></details></li>
+  <li><p>Egy kolléga azt mondja: „Az adattisztítást a modell után csináljuk, ha rossz lett az eredmény.” Mi a gond ezzel?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A tisztítás a modellezés <em>előfeltétele</em>: a hiányzó értékeket sok algoritmus nem kezeli, a kiugrók torzítanak. Az igaz, hogy a folyamat iteratív (rossz eredmény után visszaléphetsz), de az első tisztítás a modell <em>előtt</em> van.</p></details></li>
+  <li><p>Miben különbözik a BI-riport („a kávéból adtunk el a legtöbbet forintban”) egy adatbányászati eredménytől („a kávét vevők 60%-a kekszet is vesz”)?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A riport egy előre feltett kérdésre ad összesítést (mi történt). Az adatbányászat előre nem ismert mintázatot tár fel (együttes vásárlás), amelyből döntés építhető (pl. közös akció, polcelrendezés).</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ===================================================== 2 -->
+<section id="lepes2">
+<h2>2. lépés – Az adathalmaz leírása: változótípusok, mérési skálák, tárolási típusok</h2>
+
+<h4>Kis eset</h4>
+<p>Nézd ezt a négy sort a gyakorlat adatából:</p>
+<div class="table-wrap"><table>
+<tr><th>transaction_id</th><th>customer_id</th><th>date</th><th>product</th><th class="num">quantity</th><th class="num">unit_price</th><th>region</th></tr>
+<tr><td>T0026</td><td>C009</td><td>2026-01-01</td><td>Biscuits</td><td class="num">1</td><td class="num">650</td><td>West</td></tr>
+<tr><td>T0026</td><td>C009</td><td>2026-01-01</td><td>Coffee</td><td class="num">2</td><td class="num">2200</td><td>West</td></tr>
+<tr><td>T0038</td><td>C012</td><td>2026-01-01</td><td>Bread</td><td class="num">1</td><td class="num">550</td><td>West</td></tr>
+<tr><td>T0083</td><td>C024</td><td>2026-01-01</td><td>Pasta</td><td class="num">unknown</td><td class="num">700</td><td>South</td></tr>
+</table></div>
+<p>Kérdezd meg minden oszlopról: <em>mit szabad vele csinálni?</em></p>
+<ul>
+  <li>A <code>region</code> értékeit csak össze tudod hasonlítani: egyezik vagy nem. Sorrendje nincs (West nem „több”, mint South).</li>
+  <li>A <code>date</code> esetén van sorrend, és van értelme a különbségnek („10 nappal később”). De a „2026-01-01 kétszer annyi, mint…” értelmetlen: a nulla pont önkényes.</li>
+  <li>A <code>quantity</code> esetén a hányados is értelmes: 2 darab kétszer annyi, mint 1. Van valódi nulla (nem vett semmit).</li>
+</ul>
+<p>Fontos: <strong>egy sor egy kosár egy terméke</strong> (egy vásárlási tétel), nem egy teljes kosár. A T0026 kosárban két tétel van, ezért két sor.</p>
+
+<div class="box def"><span class="box-title">Definíció – Mérési skálák (Stevens-féle)</span>
+<div class="table-wrap"><table>
+<tr><th>Skála</th><th>Mit tud?</th><th>Megengedett középérték</th><th>Példa a gyakorlatból</th></tr>
+<tr><td><strong>Nominális</strong></td><td>$=,\ \neq$ (csak azonosság)</td><td>módusz</td><td>product, region, customer_id</td></tr>
+<tr><td><strong>Ordinális</strong></td><td>+ sorrend: $&lt;,\ &gt;$</td><td>módusz, medián</td><td>elégedettség 1–5, iskolai végzettség</td></tr>
+<tr><td><strong>Intervallum</strong></td><td>+ különbség: $+,\ -$ (önkényes nullpont)</td><td>módusz, medián, átlag</td><td>date, hőmérséklet °C-ban</td></tr>
+<tr><td><strong>Arány</strong></td><td>+ hányados: $\times,\ \div$ (valódi nullpont)</td><td>mind (+ mértani átlag)</td><td>quantity, unit_price</td></tr>
+</table></div>
+<p><strong>Miért?</strong> A skála mondja meg, milyen művelet és statisztika értelmes. A régiók „átlaga” értelmetlen, a mennyiségeké nem. Az első kettőt összefoglalóan <strong>kategorikus</strong> (minőségi), az utóbbi kettőt <strong>numerikus</strong> (mennyiségi) változónak hívjuk.</p>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Diszkrét és folytonos; tartalmi és tárolási típus</span>
+<p><strong>Diszkrét</strong> numerikus változó: megszámlálható, elkülönülő értékeket vesz fel (pl. darabszám, forintösszeg egész számként). <strong>Folytonos:</strong> egy intervallum bármely értékét felveheti (pl. testsúly, idő). Az oktató megfogalmazásában: ha a <code>unit_price</code> nem egész (int), hanem lebegőpontos (float) lenne, mondhatnánk folytonosnak.</p>
+<p><strong>Tárolási típus</strong> (dtype): ahogy a pandas a memóriában tárolja az oszlopot – <code>int64</code>, <code>float64</code>, <code>object</code>/<code>str</code> (szöveg), <code>datetime64</code>, <code>bool</code>. A tartalmi típus és a skála a <em>jelentésről</em> szól, a tárolási típus a <em>technikáról</em>. A kettő eltérhet.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – A gyakorlat változói</span>
+<div class="table-wrap"><table>
+<tr><th>Változó</th><th>Tartalmi típus</th><th>Skála</th><th>Elvárt tárolási típus</th></tr>
+<tr><td>transaction_id, customer_id</td><td>kategorikus, azonosító</td><td>nominális</td><td>object (szöveg)</td></tr>
+<tr><td>date</td><td>időbeli</td><td>intervallum</td><td>dátum, YYYY-MM-DD</td></tr>
+<tr><td>product</td><td>kategorikus (18 érték)</td><td>nominális</td><td>object (szöveg)</td></tr>
+<tr><td>quantity</td><td>numerikus, diszkrét</td><td>arány</td><td>int, pozitív egész</td></tr>
+<tr><td>unit_price</td><td>numerikus, diszkrét (HUF, termékenként állandó)</td><td>arány</td><td>int, pozitív egész</td></tr>
+<tr><td>region</td><td>kategorikus (North, South, East, West)</td><td>nominális</td><td>object (szöveg)</td></tr>
+</table></div>
+<p>Összesen: 2 azonosító, 1 dátum, 2 kategorikus és 2 numerikus változó. Az azonosítókat az elemzéshez nem használjuk, de kellenek a kosarak összerakásához (2. lecke).</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Ordinális vagy intervallum?</span>
+<p>Egy kérdőívben: „Mennyire elégedett? 1 – nagyon elégedetlen … 5 – nagyon elégedett”. Számokkal van kódolva, tárolása <code>int64</code>.</p>
+<details class="solution"><summary>Megoldás</summary><p>Ordinális. A sorrend értelmes (4 jobb, mint 3), de nem tudjuk, hogy 1→2 ugyanakkora „lépés”-e, mint 4→5. Ezért szigorúan a medián a megfelelő középérték. (A gyakorlatban sokan átlagolják – ez közelítés, amit érdemes megjegyezni a jelentésben.)</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+  <li><strong>Számnak látszó azonosító is nominális.</strong> Irányítószám, vásárlószám („1023”) – átlaguk értelmetlen, akkor is, ha a pandas <code>int64</code>-ként olvassa be.</li>
+  <li><strong>A dátum nem arányskála.</strong> Két dátum különbsége (napok száma) viszont már arányskálájú.</li>
+  <li><strong>A tárolási típusból nem következik a skála.</strong> Az ordinális elégedettség is lehet <code>int64</code>; egy hibás numerikus oszlop pedig <code>object</code>.</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia</span>
+<p><em>nominal / ordinal / interval / ratio scale</em> = nominális / ordinális / intervallum- / arányskála · <em>categorical</em> = kategorikus · <em>numerical, discrete, continuous</em> = numerikus, diszkrét, folytonos · <em>dtype</em> = tárolási típus · <em>DataFrame</em> = a pandas kétdimenziós táblázata (sorok és oszlopok) · <em>CSV</em> = Comma-Separated Values (itt pontosvesszővel elválasztva).</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Skálák és típusok (5 feladat)</summary>
+<ol>
+  <li><p>Milyen skálán mért a <code>region</code> (North, South, East, West)? Mi az egyetlen értelmes középérték?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Nominális. Csak a módusz (a leggyakoribb régió) értelmes. A cleaned adatban ez a West (2013 tétel).</p></details></li>
+  <li><p>Milyen skálán mért a hőmérséklet Celsius-fokban? Igaz-e, hogy 20 °C „kétszer olyan meleg”, mint 10 °C?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Intervallumskála. A 0 °C önkényes nullpont, ezért a hányados nem értelmes. A különbség (10 fokkal melegebb) viszont igen.</p></details></li>
+  <li><p>A <code>unit_price</code> forintban, egész számként adott. Diszkrét vagy folytonos? Milyen skála?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Diszkrét (egész forintok), arányskála (valódi nulla, 2200 Ft kétszer annyi, mint 1100 Ft).</p></details></li>
+  <li><p>Egy oszlopban irányítószámok vannak (3515, 1111 …), a pandas <code>int64</code>-nek olvassa be. Számolhatsz átlagot?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Nem. Tartalmilag nominális azonosító; a tárolási típus félrevezet. Érdemes szövegként (<code>dtype=str</code>) beolvasni.</p></details></li>
+  <li><p>Iskolai végzettség: alapfokú, középfokú, felsőfokú. Skála? Melyik középértéket adnád meg?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Ordinális: van sorrend, de a „távolság” nem értelmezett. Módusz és medián adható meg, átlag nem.</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l01-lepes2"></div>
+</section>
+
+<!-- ===================================================== 3 -->
+<section id="lepes3">
+<h2>3. lépés – Első vizsgálat: elvárás kontra valóság</h2>
+
+<h4>Kis eset</h4>
+<p>Az adatgazda azt mondta: 120 vásárló, 1151 vásárlás, 18 termék, 6957 sor, 7 oszlop, a mennyiség és az egységár egész szám. Beolvasod a fájlt, és megkérdezed a pandast. Ezt kapod:</p>
+<div class="table-wrap"><table>
+<tr><th>Ellenőrzés</th><th>Elvárt</th><th>Kapott</th><th>Gond?</th></tr>
+<tr><td>sorok, oszlopok (<code>shape</code>)</td><td class="num">6957, 7</td><td class="num">6957, 7</td><td>–</td></tr>
+<tr><td>különböző <code>transaction_id</code></td><td class="num">1151</td><td class="num">1151</td><td>–</td></tr>
+<tr><td>különböző <code>customer_id</code></td><td class="num">120</td><td class="num">120</td><td>–</td></tr>
+<tr><td>különböző <code>product</code></td><td class="num">18</td><td class="num">26</td><td><strong>írásmód-eltérés?</strong></td></tr>
+<tr><td><code>unit_price</code> nem hiányzó</td><td class="num">6957</td><td class="num">6951</td><td><strong>6 hiány</strong></td></tr>
+<tr><td><code>region</code> nem hiányzó</td><td class="num">6957</td><td class="num">6953</td><td><strong>4 hiány</strong></td></tr>
+<tr><td><code>quantity</code> típusa</td><td>int</td><td>object</td><td><strong>szöveg van benne</strong></td></tr>
+<tr><td><code>unit_price</code> típusa</td><td>int</td><td>float64</td><td><strong>a hiányok miatt</strong></td></tr>
+<tr><td><code>date</code> típusa</td><td>dátum</td><td>object</td><td>még szöveg, konvertálni kell</td></tr>
+</table></div>
+<p>A módszer: <strong>minden eltérést felírsz egy listára</strong>. Ez lesz a tisztítás munkaterve.</p>
+
+<div class="box def"><span class="box-title">Definíció – Az első vizsgálat eszközei (pandas)</span>
+<div class="table-wrap"><table>
+<tr><th>Hívás</th><th>Mit ad?</th><th>Mire jó?</th></tr>
+<tr><td><code>pd.read_csv(f, sep=";", encoding="utf-8-sig")</code></td><td>DataFrame</td><td>beolvasás; az elválasztó és a kódolás kötelezően egyezzen a fájléval</td></tr>
+<tr><td><code>df.head()</code>, <code>df.tail()</code></td><td>első / utolsó 5 sor</td><td>sikerült-e a beolvasás</td></tr>
+<tr><td><code>df.shape</code></td><td>(sorok, oszlopok)</td><td>méret ellenőrzése; <code>shape[0]</code> a sorok, <code>shape[1]</code> az oszlopok száma</td></tr>
+<tr><td><code>df.columns.tolist()</code></td><td>oszlopnevek</td><td>pontos írásmód (kis-/nagybetű, szóköz!) a későbbi hivatkozásokhoz</td></tr>
+<tr><td><code>df.info()</code></td><td>oszloponként a nem hiányzó értékek száma és a típus</td><td>hiányok és típushibák</td></tr>
+<tr><td><code>df.dtypes</code></td><td>tárolási típusok</td><td>típushibák</td></tr>
+<tr><td><code>df[col].nunique()</code></td><td>különböző értékek száma</td><td>kategóriák száma, írásmód-eltérések</td></tr>
+</table></div>
+<p><strong>Miért?</strong> A hibát csak akkor veszed észre, ha van mihez hasonlítani. Az elvárást az adatgyűjtőtől kell megtudni (szerkezet, típusok, tartományok).</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Miért float64 a unit_price?</span>
+<p>Az egységár minden kitöltött cellában egész szám, mégis <code>float64</code>.</p>
+<details class="solution"><summary>Megoldás</summary><p>Mert 6 cella üres. A hiányzó értéket a pandas <code>NaN</code>-nal jelöli, ami lebegőpontos érték. Egy hagyományos <code>int64</code> oszlop nem tárolhat <code>NaN</code>-t, ezért az egész oszlop <code>float64</code> lesz. Ha a hiányokat pótoltuk, visszakonvertálhatjuk egészre.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Miért object a quantity?</span>
+<p>A <code>quantity</code> oszlopban nincs hiány (6957 nem üres), mégis <code>object</code>.</p>
+<details class="solution"><summary>Megoldás</summary><p>Mert legalább egy cella nem értelmezhető számként. Elég egyetlen szöveges érték, és a pandas az egész oszlopot szövegként tárolja. Itt az értékek: <code>'1'</code>, <code>'2'</code>, <code>'3'</code> és <code>'unknown'</code> (6-szor).</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+  <li><strong>Rossz elválasztó:</strong> ha <code>sep=";"</code> helyett az alapértelmezett vesszővel olvasod be, egyetlen oszlopot kapsz. Mindig nézd meg a <code>head()</code>-et és a <code>shape</code>-et.</li>
+  <li><strong>A pandas verziója:</strong> az órán (Colab) a szöveges oszlopok <code>object</code>-ként látszottak. Az újabb pandas (3.x) ugyanezt <code>str</code>-ként írja ki. A jelentés ugyanaz: szöveg.</li>
+  <li><strong>A dátum még nem hiba:</strong> a CSV-ben minden szöveg, a <code>read_csv</code> magától nem alakít dátummá. Az <code>object</code> itt csak azt jelenti: konvertálni kell.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – info() és dtypes értelmezése (5 feladat)</summary>
+<ol>
+  <li><p>Egy 500 soros táblában az <code>info()</code> szerint az <code>age</code> oszlopban 488 nem hiányzó érték van, típusa <code>float64</code>. Mit jegyzel fel?</p>
+    <details class="solution"><summary>Megoldás</summary><p>12 hiányzó érték (500 − 488). A <code>float64</code> valószínűleg a hiányok miatt van; pótlás vagy törlés után egészre konvertálható.</p></details></li>
+  <li><p>Az <code>income</code> oszlop 500 nem hiányzó értéket tartalmaz, de <code>object</code> típusú. Mi lehet az oka?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Van benne nem szám szöveg (pl. „n/a”, „ismeretlen”, „12 000 Ft”, tizedesvessző tizedespont helyett). Típuskonverzió kell <code>errors="coerce"</code>-szal, ami ezekből hiányzó értéket csinál (5. lépés).</p></details></li>
+  <li><p>Elvárás: 4 régió. <code>df["region"].nunique()</code> = 6. Mit gyanítasz, és hogyan nézed meg?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Írásmód-eltérést (pl. „west”, „West ”). Megnézés: <code>df["region"].value_counts()</code> vagy <code>.unique()</code> – kilistázza a különböző értékeket és gyakoriságukat.</p></details></li>
+  <li><p>Mit ad vissza <code>df.shape[1]</code> a gyakorlat nyers adatán?</p>
+    <details class="solution"><summary>Megoldás</summary><p>7-et, az oszlopok számát. (<code>shape[0]</code> = 6957 a sorok száma; ugyanezt adja <code>len(df)</code>.)</p></details></li>
+  <li><p>Miért érdemes az oszlopneveket <code>df.columns.tolist()</code>-tal kiíratni, ha a leírásban úgyis szerepelnek?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Mert a programban pontosan a tárolt nevet kell használni. Egy rejtett szóköz („product ”) vagy nagybetű („Product”) miatt a <code>df["product"]</code> hibát (KeyError) ad.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ===================================================== 4 -->
+<section id="lepes4">
+<h2>4. lépés – Tisztítás I.: duplikátumok és szövegegységesítés</h2>
+
+<h4>Kis eset</h4>
+<p>Egy hatsoros, kitalált nyers tábla (a gyakorlat hibatípusaival):</p>
+<div class="table-wrap"><table>
+<tr><th>#</th><th>tid</th><th>cid</th><th>product</th><th class="num">quantity</th><th class="num">unit_price</th><th>region</th></tr>
+<tr><td>0</td><td>T1</td><td>C1</td><td>Coffee</td><td class="num">1</td><td class="num">2200</td><td>West</td></tr>
+<tr><td>1</td><td>T1</td><td>C1</td><td>Coffee</td><td class="num">1</td><td class="num">2200</td><td>West</td></tr>
+<tr><td>2</td><td>T2</td><td>C2</td><td><code>" coffee "</code></td><td class="num">2</td><td class="num">2200</td><td>North</td></tr>
+<tr><td>3</td><td>T2</td><td>C2</td><td>Bread</td><td class="num">unknown</td><td class="num">550</td><td>North</td></tr>
+<tr><td>4</td><td>T3</td><td>C1</td><td>bread</td><td class="num">1</td><td class="num">NaN</td><td>West</td></tr>
+<tr><td>5</td><td>T3</td><td>C1</td><td>Milk</td><td class="num">3</td><td class="num">420</td><td>NaN</td></tr>
+</table></div>
+<p>Az 1. sor a 0. pontos másolata: minden oszlopa egyezik. A <code>product</code> oszlopban 5 különböző érték van („Coffee”, „ coffee ”, „Bread”, „bread”, „Milk”), pedig valójában csak 3 termék.</p>
+
+<div class="box def"><span class="box-title">Definíció – Teljes duplikátum</span>
+<p>Teljes duplikátum az a sor, amelynek <strong>minden oszlopa</strong> megegyezik egy korábbi soréval.</p>
+<ul>
+  <li><code>df.duplicated()</code> – minden sorra igaz/hamis: másolata-e egy <em>korábbi</em> sornak. Az <em>első</em> előfordulás hamis.</li>
+  <li><code>df.duplicated().sum()</code> – a felesleges másolatok száma.</li>
+  <li><code>df.drop_duplicates()</code> – törli a másolatokat, az első előfordulást megtartja.</li>
+</ul>
+<p><strong>Miért első lépés?</strong> A felesleges másolat minden későbbi számítást torzít: duplán számolja az árbevételt, és a hiánypótlásnál, kiugróvizsgálatnál is kétszeres súllyal szerepel. Ezért előbb kidobjuk, aztán dolgozunk a maradékkal.</p>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Szövegegységesítés</span>
+<pre><code class="language-python">df["product"] = df["product"].str.strip().str.lower()
+df["product"] = df["product"].replace("", pd.NA)</code></pre>
+<p><code>str.strip()</code> levágja a szöveg elején és végén lévő szóközöket, <code>str.lower()</code> kisbetűsít. A végén az üres szöveget (<code>""</code>) hiányzó értékre (<code>pd.NA</code>) cseréljük.</p>
+<p><strong>Miért kell a csere?</strong> Az üres szöveg és a hiányzó érték a képernyőn ugyanúgy néz ki, de a gép számára más: az <code>isna()</code> csak a valódi hiányt (NaN/NA) látja. Ha az üres szöveg megmarad, a hiányellenőrzés nem veszi észre.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – A kis eset duplikátumai</span>
+<p>Mennyi <code>duplicated().sum()</code>, és hány sor marad?</p>
+<details class="solution"><summary>Megoldás</summary><p>1 (csak az 1. sor másolat). Marad 5 sor. A 2. sor nem duplikátum: „ coffee ” ≠ „Coffee”, és a mennyiség is más.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Egységesítés után</span>
+<p>Hány különböző terméknév marad a strip + lower után?</p>
+<details class="solution"><summary>Megoldás</summary><p>3: coffee, bread, milk. A gyakorlat valódi adatán ugyanez a lépés 26-ról pontosan 18-ra csökkentette a terméknevek számát (4 szóközzel körülvett és 4 kisbetűs írásmód volt benne), tehát további javítás nem kellett.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – Hány sort töröl a drop_duplicates()?</span>
+<p>A gyakorlat adatában 6 sor szerepel kétszer. A <code>duplicated().sum()</code> értéke <strong>6</strong>, mert csak a második előfordulásokat számolja. A <code>drop_duplicates()</code> ezt a 6 sort törli (6957 → 6951), és mind a 6 eredeti megmarad.</p>
+<p>Nem „6-ból 1 marad, 5-öt törlünk” (az órán ez a pontatlanság elhangzott, de a kód mást csinál). Ha a másolatokat a párjukkal együtt akarod látni: <code>df[df.duplicated(keep=False)]</code> – ez 12 sort mutat.</p>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – amit a strip + lower nem javít</span>
+<ul>
+  <li>Elírás: „Coffe”, „Cofee”. Ehhez kézi leképezés kell: <code>df["product"].replace({"coffe": "coffee"})</code>.</li>
+  <li>Szóköz a szó belsejében: „tomato  sauce” (két szóköz) – <code>.str.replace(r"\s+", " ", regex=True)</code>.</li>
+  <li>Egységesítés után új duplikátumok keletkezhetnek („Coffee” és „coffee” sorok összeérnek). Érdemes a <code>duplicated()</code>-et újra lefuttatni. A gyakorlat adatán ez 0 – itt nem volt ilyen.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Duplikátumok és szövegek (5 feladat)</summary>
+<ol>
+  <li><p>Egy táblában az egyik sor háromszor szerepel azonosan, a többi egyedi. Mennyi a <code>duplicated().sum()</code>, és hány sort töröl a <code>drop_duplicates()</code>?</p>
+    <details class="solution"><summary>Megoldás</summary><p>2 és 2. Az első előfordulás megmarad, a második és harmadik „duplikált”.</p></details></li>
+  <li><p>Hány különböző érték marad a <code>[" Tea", "tea", "TEA ", "Coffee", "coffee"]</code> listában strip + lower után?</p>
+    <details class="solution"><summary>Megoldás</summary><p>2: „tea” és „coffee”.</p></details></li>
+  <li><p>Két sor mindenben egyezik, kivéve, hogy az egyikben „Bread”, a másikban „bread” áll. Duplikátum-e a 4. lépés elején? És a szövegegységesítés után?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Az elején nem (a szöveg eltér). Egységesítés után igen. Ezért érdemes a duplikátumszűrést az egységesítés után megismételni, és dokumentálni, hogy ezek valódi ismétlések-e.</p></details></li>
+  <li><p>Miért nem jó a <code>df["product"].str.lower()</code> önmagában, ha a mezőkben szóközök is vannak?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A „ biscuits ” kisbetűsítve is „ biscuits ” marad, ami ≠ „biscuits”. Kell a <code>str.strip()</code> is.</p></details></li>
+  <li><p>Valaki az egész táblára azt írja: <code>df = df.drop_duplicates(subset=["product"])</code>. Mi történik?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Csak a <code>product</code> oszlop alapján keres ismétlést, így termékenként egyetlen sor marad (18 sor!). Ez nem teljes duplikátumszűrés, hanem adatvesztés. Teljes duplikátumhoz nem kell <code>subset</code>.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ===================================================== 5 -->
+<section id="lepes5">
+<h2>5. lépés – Tisztítás II.: típuskonverzió és hiányzó értékek</h2>
+
+<h4>Kis eset</h4>
+<p>Folytatjuk a 4. lépés kis tábláját (már 5 sor, egységes nevekkel). A <code>quantity</code> oszlopban „unknown” áll a 3. sorban. Ha erőltetjük a számmá alakítást, mi legyen ezzel?</p>
+<pre><code class="language-python">pd.to_numeric(pd.Series(["1", "2", "unknown", "3"]), errors="coerce")
+# eredmény: [1.0, 2.0, NaN, 3.0]</code></pre>
+<p>A számmá nem alakítható érték <strong>hiányzó érték</strong> lesz. Így a hibás adat ugyanabba a kategóriába kerül, mint a többi hiány, és egy helyen döntesz róla.</p>
+
+<div class="box def"><span class="box-title">Definíció – Típuskonverzió <code>errors="coerce"</code>-szal</span>
+<ul>
+  <li><code>pd.to_numeric(oszlop, errors="coerce")</code> – számmá alakít; ami nem megy, az <code>NaN</code>.</li>
+  <li><code>pd.to_datetime(oszlop, format="%Y-%m-%d", errors="coerce")</code> – dátummá alakít a megadott formátum szerint; ami nem illik rá, az <code>NaT</code> (hiányzó időpont).</li>
+</ul>
+<p>Az <code>errors</code> paraméter lehetséges értékei: <code>"raise"</code> (alapértelmezett: hibával leáll), <code>"coerce"</code> (hiányzóra cseréli).</p>
+<p><strong>Miért coerce?</strong> Mert így a konverzió mindig lefut, és a hibás cellák <em>láthatóvá</em> válnak: a konverzió előtti és utáni <code>isna().sum()</code> különbsége pontosan megmondja, hány hibás érték volt.</p>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Hiányzó értékek kezelése</span>
+<div class="table-wrap"><table>
+<tr><th>Módszer</th><th>Mikor?</th><th>pandas</th></tr>
+<tr><td><strong>Törlés</strong> (a sor törlése)</td><td>ha az érték nem állítható helyre megbízhatóan, és a törölt arány kicsi</td><td><code>df.dropna(subset=[…])</code></td></tr>
+<tr><td><strong>Pótlás mediánnal</strong></td><td>numerikus változó, főleg ferde eloszlás vagy kiugrók mellett</td><td><code>df[c].fillna(df[c].median())</code></td></tr>
+<tr><td><strong>Pótlás módusszal</strong></td><td>kategorikus vagy diszkrét változó</td><td><code>df[c].fillna(df[c].mode()[0])</code></td></tr>
+<tr><td><strong>Pótlás csoporton belül / szabály alapján</strong></td><td>ha egy üzleti szabály megmondja a helyes értéket (pl. termékenként állandó ár)</td><td><code>df[c].fillna(df[kulcs].map(lookup))</code></td></tr>
+</table></div>
+<p><strong>Miért gond mindkettő?</strong> A törlés csökkenti a mintát és torzíthatja az eloszlást; a pótlás „kitalált” értéket visz be. Ezért kell dokumentálni, és fontos döntésnél több tisztítási változattal is lefuttatni az elemzést: ha az eredmény erősen függ a tisztítástól, azt jelezni kell.</p>
+</div>
+
+<div class="box thm"><span class="box-title">Szabály – A tisztítás sorrendje (a gyakorlat szerint)</span>
+<ol>
+  <li><strong>Teljes duplikátumok törlése</strong> – hogy semmi ne számítson kétszer.</li>
+  <li><strong>Szövegek (terméknevek) egységesítése</strong> – hogy a csoportosítás (termékenként) helyes legyen; a 3. lépés csoport-alapú pótlása is erre épül.</li>
+  <li><strong>Numerikus és dátumkonverzió</strong> <code>errors="coerce"</code>-szal – a hibás értékekből hiány lesz.</li>
+  <li><strong>Hiányok ellenőrzése, pótlása vagy törlése</strong> – csak most látod az <em>összes</em> hiányt (az eredetieket és a konverzióból keletkezetteket).</li>
+  <li><strong>Kiugró értékek ellenőrzése IQR-módszerrel</strong> – a kvartilisek számításához tiszta, számtípusú, hiánytalan oszlop kell.</li>
+</ol>
+<p><strong>Hüvelykujjszabály:</strong> minden lépés az előző eredményére épül. Ha felcseréled őket, egy hibát vagy kétszer kezelsz, vagy egyszer sem.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Pótlás termékenként állandó árral</span>
+<p>A kis tábla 4. sorában (bread) hiányzik az egységár. A szabály: az egységár termékenként állandó. A 3. sor szerint a bread ára 550.</p>
+<pre><code class="language-python">price_lookup = df.groupby("product")["unit_price"].first()   # termék → ár
+df["unit_price"] = df["unit_price"].fillna(df["product"].map(price_lookup))</code></pre>
+<details class="solution"><summary>Megoldás</summary><p>A hiányzó ár 550 lesz. A gyakorlat kódja ennél óvatosabb: csak azoknál a termékeknél pótol, ahol a csoportban <em>pontosan egy</em> ismert ár van (<code>nunique() == 1</code>), így ellentmondásos adatból nem pótol. A valódi adaton 6 egységárat pótolt így.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Pótlás vagy törlés?</span>
+<p>A kis táblában: a milk sorában hiányzik a régió (a vásárló C1), a bread sorában (T2) „unknown” volt a mennyiség, ami most NaN. Mit teszel?</p>
+<details class="solution"><summary>Megoldás</summary><p><strong>Régió:</strong> vásárlónként állandó (feltesszük, hogy három hónap alatt senki nem költözött). C1 másik soraiban West áll, tehát pótolható: West. A valódi adaton 4 régió pótolható volt így.</p>
+<p><strong>Mennyiség:</strong> nincs szabály, ami megmondaná. A gyakorlatban a sort <strong>töröltük</strong> (valódi adaton 6 sor). Lehetett volna a leggyakoribb mennyiséggel (1) pótolni, de ez „kitalált” forgalom lenne. A törlés ára: <em>csökken az elemzett árbevétel</em> – ezt a jelentésben le kell írni.</p>
+<p>A kis tábla végeredménye 4 sor: coffee 1 db, coffee 2 db, bread 1 db (550 Ft-tal pótolva), milk 3 db (West-tel pótolva).</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+  <li><strong>Pótlás a konverzió előtt:</strong> ha a „unknown” még szöveg, az <code>isna()</code> nem látja, és kimarad a hiánykezelésből.</li>
+  <li><strong>Átlaggal pótolni kategorikus változót</strong> értelmetlen (a régiók „átlaga”). Kategorikusnál módusz vagy szabály alapú pótlás.</li>
+  <li><strong>Átlaggal pótolni ferde eloszlást</strong> torzít: a kiugró értékek húzzák. Ilyenkor medián.</li>
+  <li><strong>Az egész konverziót a végére hagyd:</strong> <code>astype("int64")</code> hibát ad, amíg van NaN az oszlopban. A gyakorlat kódja ezért csak a pótlás/törlés után alakít egészre.</li>
+  <li><strong>Mindig másolaton dolgozz</strong> (<code>clean_df = df.copy()</code>), hogy a végén össze tudd vetni az eredetivel.</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia</span>
+<p><em>missing value</em> = hiányzó érték (<code>NaN</code> = Not a Number, <code>NaT</code> = Not a Time, <code>pd.NA</code>) · <em>imputation</em> = pótlás · <em>fillna</em> = hiány kitöltése · <em>dropna</em> = hiányos sorok törlése · <em>coerce</em> = kényszerít (itt: hiányzóra cserél) · <em>duplicate</em> = ismétlődés.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Konverzió és hiányok (5 feladat)</summary>
+<ol>
+  <li><p>Mi lesz a <code>pd.to_datetime(["2026-01-05", "2026/01/06", "2026-13-01"], format="%Y-%m-%d", errors="coerce")</code> eredménye?</p>
+    <details class="solution"><summary>Megoldás</summary><p>[2026-01-05, NaT, NaT]. A második rossz formátumú (perjel), a harmadikban nincs 13. hónap. A valódi adaton a dátumkonverzió nem okozott új hiányt.</p></details></li>
+  <li><p>A <code>quantity</code> oszlopban a konverzió előtt 0, utána 6 hiány van. Mit jelent ez?</p>
+    <details class="solution"><summary>Megoldás</summary><p>6 cella tartalma nem volt számmá alakítható (itt: „unknown”). Ezek a konverzió során lettek NaN-ok.</p></details></li>
+  <li><p>A <code>region</code> oszlopban 4 hiány van. Milyen pótlás a legjobb, és mi a feltétele?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Vásárlónkénti pótlás: ugyanannak a vásárlónak más soraiból vett régió. Feltétel: a régió vásárlónként állandó (egy ismert érték a csoportban). Ha ez nem teljesül, a módusz vagy a törlés jöhet szóba.</p></details></li>
+  <li><p>Egy jövedelemoszlopban 3% hiányzik, az eloszlás erősen jobbra ferde (néhány nagyon magas jövedelem). Átlaggal vagy mediánnal pótolnál?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Mediánnal. Az átlagot a néhány magas érték felfelé húzza, így a pótolt érték a tipikusnál nagyobb lenne.</p></details></li>
+  <li><p>Miért nem jó a sorrend, ha a kiugró értékeket a típuskonverzió <em>előtt</em> keresed?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Mert a <code>quantile()</code> szöveges (object) oszlopon nem számol értelmesen, és a hiányok/hibás értékek még benne vannak. A kvartilisekhez tiszta, numerikus oszlop kell.</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l01-lepes5"></div>
+</section>
+
+<!-- ===================================================== 6 -->
+<section id="lepes6">
+<h2>6. lépés – Középértékek és szóródás</h2>
+<p>Most már tiszta az adat. Kezdődhet az <strong>egyváltozós</strong> (univariáns) elemzés: egy-egy változó eloszlásának leírása. Két kérdés: <em>hol van a „közepe”?</em> és <em>mennyire szóródik?</em></p>
+
+<h4>Kis eset</h4>
+<p>Hat vásárló ennyi terméket vett: $2,\ 3,\ 3,\ 5,\ 7,\ 10$.</p>
+<ul>
+  <li>Átlag: $(2+3+3+5+7+10)/6 = 30/6 = 5$.</li>
+  <li>Medián: sorba rendezve a két középső (3. és 4.) érték átlaga: $(3+5)/2 = 4$.</li>
+  <li>Módusz: a leggyakoribb érték: $3$.</li>
+</ul>
+<p>Most cseréld a 10-et 40-re (valaki elírta, vagy egy nagykereskedő vásárolt): $2,\ 3,\ 3,\ 5,\ 7,\ 40$. Az átlag $60/6 = 10$-re ugrik, a medián marad $4$. Egyetlen érték megduplázta az átlagot.</p>
+
+<div class="box def"><span class="box-title">Definíció – Középértékek</span>
+<p>$$\bar x = \frac{1}{n}\sum_{i=1}^{n} x_i \qquad \text{(számtani átlag, } \texttt{mean()}\text{)}$$</p>
+<p><strong>Medián</strong> (<code>median()</code>): a sorba rendezett adatok középső értéke; páros $n$ esetén a két középső átlaga. Az adatok fele kisebb vagy egyenlő, fele nagyobb vagy egyenlő.</p>
+<p><strong>Módusz</strong> (<code>mode()</code>): a leggyakoribb érték. Több is lehet (a pandas mindet visszaadja, ezért <code>mode()[0]</code> vagy <code>mode().iloc[0]</code> kell, ha egy értéket akarsz).</p>
+<p><strong>Miért három?</strong> Az átlag minden értéket felhasznál, ezért érzékeny a kiugrókra. A medián <strong>robusztus</strong> (nem érzékeny rájuk). A módusz kategorikus változóra is működik.</p>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Szóródási mutatók</span>
+<p><strong>Terjedelem:</strong> $R = x_{\max} - x_{\min}$.</p>
+<p><strong>Korrigált tapasztalati szórásnégyzet (variancia)</strong> és <strong>szórás</strong>:</p>
+<p>$$s^2 = \frac{1}{n-1}\sum_{i=1}^{n}(x_i-\bar x)^2, \qquad s = \sqrt{s^2}$$</p>
+<p><strong>Miért négyzet?</strong> Az eltérések összege mindig 0 (a pozitív és negatív eltérések kiejtik egymást), ezért négyzetre emelünk. A gyökvonás visszaadja az eredeti mértékegységet. <strong>Miért $n-1$?</strong> A mintából becsült átlaghoz mérünk, ami egy „szabadságfokot” elhasznál; így torzítatlan a becslés. A pandas <code>var()</code> és <code>std()</code> alapból ezt számolja.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Szórás kézzel</span>
+<p>Adat: $2,\ 3,\ 3,\ 5,\ 7,\ 10$, átlag $5$.</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Eltérések: $-3,\ -2,\ -2,\ 0,\ 2,\ 5$. Négyzetek: $9,\ 4,\ 4,\ 0,\ 4,\ 25$, összegük $46$.</p>
+<p>$$s^2 = \frac{46}{5} = 9{,}2, \qquad s = \sqrt{9{,}2} \approx 3{,}03.$$</p>
+<p>Terjedelem: $10 - 2 = 8$.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Átlag és medián viszonya</span>
+<p>A gyakorlat tisztított adatán a <code>quantity</code>: átlag $1{,}52$, medián $1$, módusz $1$. Mit mond ez az eloszlásról?</p>
+<details class="solution"><summary>Megoldás</summary><p>Az átlag nagyobb a mediánnál: az eloszlás <strong>jobbra ferde</strong> (jobbra elnyúló). A legtöbb tételben 1 darabot vesznek (4110 tétel), kevesebbszer 2-t (2074), ritkán 3-at (761); a ritka nagy értékek felfelé húzzák az átlagot. Szórás: $0{,}68$.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+  <li><strong>pandas és NumPy eltér:</strong> <code>df[c].std()</code> $n-1$-gyel oszt (a példában $3{,}03$), <code>np.std(x)</code> alapból $n$-nel ($2{,}77$). Ugyanígy a variancia. Ha más jön ki, nézd meg a <code>ddof</code> paramétert.</li>
+  <li><strong>A medián nem „egy átlagos érték”</strong> abban az értelemben, hogy nem átlagolunk: a sorrend közepe. Csak páros $n$-nél átlagolunk két értéket.</li>
+  <li><strong>Az átlag nem mindig értelmes:</strong> nominális változónál (régió) csak a módusz.</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia</span>
+<p><em>mean</em> = átlag · <em>median</em> = medián · <em>mode</em> = módusz · <em>range</em> = terjedelem · <em>variance</em> = variancia, szórásnégyzet · <em>standard deviation (std)</em> = szórás · <em>skewed (right / left)</em> = (jobbra / balra) ferde · <em>robust</em> = robusztus (kiugrókra érzéketlen) · <em>univariate</em> = egyváltozós.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Középértékek és szórás (5 feladat)</summary>
+<ol>
+  <li><p>Adat: $4,\ 8,\ 6,\ 2$. Átlag, medián, módusz?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Átlag $20/4 = 5$. Rendezve $2,4,6,8$, medián $(4+6)/2 = 5$. Módusz: nincs egyértelmű, minden érték egyszer fordul elő (a pandas <code>mode()</code> mind a négyet visszaadja).</p></details></li>
+  <li><p>Adat: $1,\ 1,\ 2,\ 3,\ 3,\ 3,\ 8$. Átlag, medián, módusz?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Átlag $21/7 = 3$, medián a 4. érték: $3$, módusz $3$.</p></details></li>
+  <li><p>Adat: $2,\ 4,\ 4,\ 6$. Terjedelem, korrigált variancia, szórás?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Átlag 4. Eltérések $-2,0,0,2$, négyzetösszeg $8$. $R = 4$, $s^2 = 8/3 \approx 2{,}67$, $s \approx 1{,}63$.</p></details></li>
+  <li><p>Öt fizetés (ezer Ft): $300,\ 320,\ 350,\ 380,\ 2000$. Átlag és medián? Melyiket közölnéd „tipikus fizetésként”?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Átlag $3350/5 = 670$, medián $350$. A mediánt: az átlagot az egyetlen 2000-es érték felhúzza, öt emberből négy az átlag alatt keres.</p></details></li>
+  <li><p>Elégedettségi pontszámok (ordinális): $1,\ 2,\ 2,\ 4,\ 5$. Melyik középértéket adod meg, és mennyi?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Ordinális skálán a medián (és a módusz) értelmes: medián $2$, módusz $2$. Az átlag ($2{,}8$) szigorúan véve nem megengedett, mert a pontok közti távolság nem értelmezett.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ===================================================== 7 -->
+<section id="lepes7">
+<h2>7. lépés – Kvartilisek, IQR, boxplot és kiugró értékek</h2>
+<p>A szórás az átlaghoz mér, ezért ugyanúgy érzékeny a kiugrókra. Kell egy olyan szóródási mérték, ami a mediánhoz illik: a kvartilisekre épülő IQR. Ezzel lehet kiugró értéket is <em>keresni</em>.</p>
+
+<h4>Kis eset</h4>
+<p>Kilenc tétel mennyisége, sorba rendezve: $1,\ 2,\ 3,\ 4,\ 5,\ 6,\ 7,\ 8,\ 30$.</p>
+<ul>
+  <li>A medián (5. érték) $Q_2 = 5$.</li>
+  <li>Az alsó negyed határa (3. érték) $Q_1 = 3$, a felső negyedé (7. érték) $Q_3 = 7$.</li>
+  <li>A középső 50% tehát 3 és 7 között van: $IQR = 7 - 3 = 4$.</li>
+  <li>A 30 nagyon messze van ettől. De mennyire messze számít „túl messze”?</li>
+</ul>
+
+<div class="box def"><span class="box-title">Definíció – Kvartilisek és IQR</span>
+<p>$Q_1$ (alsó kvartilis): az adatok 25%-a ennél kisebb vagy egyenlő. $Q_2$ = medián (50%). $Q_3$ (felső kvartilis): 75%.</p>
+<p>$$IQR = Q_3 - Q_1 \qquad \text{(interkvartilis terjedelem)}$$</p>
+<p><strong>A pandas számítása</strong> (<code>quantile(p)</code>, alapértelmezés „linear”): rendezd sorba az $n$ adatot, a keresett pozíció (1-től számozva)</p>
+<p>$$h = (n-1)\,p + 1.$$</p>
+<p>Ha $h$ egész, az ott álló érték a kvantilis; ha nem, a két szomszédos érték között lineárisan interpolálunk.</p>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Kiugró érték az IQR-módszerrel (Tukey-kerítés)</span>
+<p>$$\text{alsó határ} = Q_1 - 1{,}5\cdot IQR, \qquad \text{felső határ} = Q_3 + 1{,}5\cdot IQR$$</p>
+<p>Kiugró (outlier) minden érték, ami az alsó határ alá vagy a felső határ fölé esik.</p>
+<p><strong>Miért pont így?</strong> A kvartilisek nem függnek a szélső értékektől, ezért a határokat maga a kiugró nem tolja el (az átlag ± szórás alapú határt igen). Az 1,5-ös szorzó hagyományos választás (John Tukey).</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Egész pozíciók</span>
+<p>Adat: $1,2,3,4,5,6,7,8,30$ ($n=9$).</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>$Q_1$: $h = 8\cdot 0{,}25 + 1 = 3$ → $Q_1 = 3$. $Q_3$: $h = 8\cdot 0{,}75+1 = 7$ → $Q_3 = 7$. $IQR = 4$.</p>
+<p>Határok: $3 - 6 = -3$ és $7 + 6 = 13$. A 30 > 13, tehát <strong>kiugró</strong>. Átlag $7{,}33$, medián $5$ – a kiugró az átlagot húzza.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Interpolációval</span>
+<p>Adat: $10,12,13,15,16,18,40$ ($n=7$).</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>$Q_1$: $h = 6\cdot0{,}25+1 = 2{,}5$ → a 2. (12) és 3. (13) érték fele úton: $Q_1 = 12{,}5$. $Q_3$: $h = 6\cdot 0{,}75 + 1 = 5{,}5$ → a 16 és 18 között: $Q_3 = 17$. $IQR = 4{,}5$.</p>
+<p>Határok: $12{,}5 - 6{,}75 = 5{,}75$ és $17 + 6{,}75 = 23{,}75$. A 40 kiugró.</p></details>
+</div>
+
+<h4>A boxplot (dobozábra) olvasása</h4>
+<figure>
+<svg viewBox="0 0 620 170" role="img" aria-label="Boxplot az 1–8 és 30 adatsorra" font-family="Inter, system-ui, sans-serif" font-size="12">
+  <!-- tengely: x = 20 + v*18 -->
+  <line x1="20" y1="130" x2="596" y2="130" stroke="currentColor" opacity=".5"/>
+  <g fill="currentColor" text-anchor="middle" opacity=".8">
+    <line x1="20" y1="126" x2="20" y2="134" stroke="currentColor"/><text x="20" y="150">0</text>
+    <line x1="110" y1="126" x2="110" y2="134" stroke="currentColor"/><text x="110" y="150">5</text>
+    <line x1="200" y1="126" x2="200" y2="134" stroke="currentColor"/><text x="200" y="150">10</text>
+    <line x1="290" y1="126" x2="290" y2="134" stroke="currentColor"/><text x="290" y="150">15</text>
+    <line x1="380" y1="126" x2="380" y2="134" stroke="currentColor"/><text x="380" y="150">20</text>
+    <line x1="470" y1="126" x2="470" y2="134" stroke="currentColor"/><text x="470" y="150">25</text>
+    <line x1="560" y1="126" x2="560" y2="134" stroke="currentColor"/><text x="560" y="150">30</text>
+  </g>
+  <!-- bajusz -->
+  <line x1="38" y1="70" x2="74" y2="70" stroke="currentColor" stroke-width="2"/>
+  <line x1="146" y1="70" x2="164" y2="70" stroke="currentColor" stroke-width="2"/>
+  <line x1="38" y1="58" x2="38" y2="82" stroke="currentColor" stroke-width="2"/>
+  <line x1="164" y1="58" x2="164" y2="82" stroke="currentColor" stroke-width="2"/>
+  <!-- doboz -->
+  <rect x="74" y="45" width="72" height="50" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="2"/>
+  <line x1="110" y1="45" x2="110" y2="95" stroke="var(--accent)" stroke-width="3"/>
+  <!-- felső határ -->
+  <line x1="254" y1="30" x2="254" y2="110" stroke="var(--bad)" stroke-dasharray="4 4"/>
+  <text x="258" y="40" fill="var(--bad)">felső határ = 13</text>
+  <!-- kiugró -->
+  <circle cx="560" cy="70" r="6" fill="none" stroke="var(--bad)" stroke-width="2"/>
+  <text x="560" y="55" text-anchor="middle" fill="var(--bad)">kiugró: 30</text>
+  <!-- feliratok -->
+  <g fill="currentColor" text-anchor="middle">
+    <text x="74" y="112">Q1=3</text><text x="110" y="25">medián=5</text><text x="146" y="112">Q3=7</text>
+    <text x="38" y="50">min=1</text><text x="172" y="50">8</text>
+  </g>
+</svg>
+<figcaption>Boxplot az $1,\dots,8,\ 30$ adatsorra. A doboz $Q_1$-től $Q_3$-ig tart (a középső 50%), benne a vonal a medián. A bajuszok a határokon belüli legkisebb és legnagyobb értékig érnek (1 és 8), a határon kívüli pont külön jelölve.</figcaption>
+</figure>
+
+<div class="box tip"><span class="box-title">💡 Hüvelykujjszabály – boxplot</span>
+<ul>
+  <li>Doboz szélessége = IQR: minél szélesebb, annál jobban szóródik a középső fél.</li>
+  <li>Ha a medián nem a doboz közepén van, vagy az egyik bajusz sokkal hosszabb, az eloszlás ferde.</li>
+  <li>A külön pontok a Tukey-határon kívüli értékek – <em>jelöltek</em>, nem automatikusan hibák.</li>
+  <li>Kódban: <code>df.boxplot(column="quantity")</code> vagy <code>plt.boxplot(df["quantity"])</code>; a <code>describe()</code> pedig számokban adja ugyanezt (count, mean, std, min, 25%, 50%, 75%, max).</li>
+</ul>
+</div>
+
+<div class="box def"><span class="box-title">Mit tegyél a kiugró értékkel?</span>
+<ol>
+  <li><strong>Nézd meg egyenként</strong> (<code>df.loc[mask, [...]]</code>): elírás? (pl. −2 valójában 2; 30 valójában 3)</li>
+  <li><strong>Dönts és dokumentálj:</strong>
+    <ul>
+      <li>törlés (ha biztosan hibás és kevés),</li>
+      <li>csere (a gyakorlat kódja: a nem kiugró értékek móduszával),</li>
+      <li>határra vágás (a határon kívüli értéket a határértékre állítod – angolul <em>capping / winsorizing</em>),</li>
+      <li>megtartás (ha valódi, csak ritka érték).</li>
+    </ul></li>
+</ol>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+  <li><strong>Kiugró ≠ hibás.</strong> A gyakorlat tisztított adatán az <code>unit_price</code>-ra $Q_1 = 600$, $Q_3 = 1100$, $IQR = 500$, felső határ $1850$. Így <strong>843 tétel</strong> „kiugró”: az összes kávé (2200 Ft) és csirke (2400 Ft). Ezek valódi árak, nem hibák – törölni vagy cserélni súlyos hiba lenne.</li>
+  <li><strong>Más kvartilis-módszer, más szám.</strong> A tankönyvi „alsó fél mediánja” módszer, az Excel <code>KVARTILIS.KIZÁR</code> és a pandas kis mintán eltérhet. Nagy mintán a különbség elhanyagolható. Kézi feladatnál mindig a megadott módszert használd (itt: pandas).</li>
+  <li><strong>A határon belül számol:</strong> „kisebb, mint az alsó határ” vagy „nagyobb, mint a felső”. A pontosan a határra eső érték nem kiugró.</li>
+</ul>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés – IQR és normális eloszlás</span>
+<p>Az órán elhangzott, hogy az IQR-módszer „a harangörbéhez kapcsolódik”. Pontosítva: a módszer <strong>nem feltételez</strong> normális eloszlást, bármilyen eloszlásra alkalmazható. A kapcsolat annyi, hogy ha az adat normális eloszlású, a Tukey-határok kb. $\mu \pm 2{,}7\sigma$-nál vannak, és az adatoknak csak kb. 0,7%-a esik kívülük. Ferde eloszlásnál (mint a mennyiség vagy az ár) sokkal több pont lehet „kiugró”.</p>
+</div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia</span>
+<p><em>quartile</em> = kvartilis · <em>quantile</em> = kvantilis · <em>interquartile range (IQR)</em> = interkvartilis terjedelem · <em>outlier</em> = kiugró érték · <em>box plot / box-and-whisker plot</em> = dobozábra · <em>whisker</em> = bajusz · <em>fence</em> = (Tukey-)határ · <em>describe()</em> = leíró statisztika.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Kvartilisek és kiugrók (5 feladat)</summary>
+<ol>
+  <li><p>Adat: $1,2,3,4,5$. $Q_1$, $Q_3$, IQR, határok? Van kiugró?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$n=5$: $Q_1$ pozíciója $4\cdot0{,}25+1=2$ → 2; $Q_3$: $4\cdot0{,}75+1 = 4$ → 4. $IQR=2$. Határok: $2-3=-1$ és $4+3=7$. Nincs kiugró.</p></details></li>
+  <li><p>Adat: $1,1,1,1,2,2,2,3,9$. Számold ki a határokat. Melyik érték kiugró?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$Q_1$ = 3. érték = 1, $Q_3$ = 7. érték = 2, $IQR = 1$. Határok: $-0{,}5$ és $3{,}5$. A 9 kiugró, a 3 nem.</p></details></li>
+  <li><p>Az előző adatban a 9-et a nem kiugró értékek móduszával cseréled (ahogy a gyakorlat kódja). Mi lesz az új érték és az új átlag?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A nem kiugró értékek ($1,1,1,1,2,2,2,3$) módusza 1. Új adat: $1,1,1,1,1,2,2,2,3$, átlag $14/9 \approx 1{,}56$ (eredetileg $22/9 \approx 2{,}44$).</p></details></li>
+  <li><p>Adat (11 érték): $3,4,5,5,6,6,7,8,9,11,30$. Add meg $Q_1$-et, $Q_3$-at és a felső határt.</p>
+    <details class="solution"><summary>Megoldás</summary><p>$Q_1$: $h = 10\cdot0{,}25+1 = 3{,}5$ → a 3. és 4. érték (5 és 5) között: 5. $Q_3$: $h = 10\cdot 0{,}75+1 = 8{,}5$ → a 8 és 9 között: $8{,}5$. $IQR = 3{,}5$. Felső határ $8{,}5 + 5{,}25 = 13{,}75$. A 30 kiugró.</p></details></li>
+  <li><p>A gyakorlat tisztított adatán a <code>quantity</code>: $Q_1 = 1$, $Q_3 = 2$. Hány kiugró van, ha a legnagyobb érték 3?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$IQR = 1$, határok $-0{,}5$ és $3{,}5$. A 3 a határon belül van, tehát 0 kiugró. A kód ezért nem cserélt semmit (a kiírt módusz, 1, nem lett felhasználva).</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l01-lepes7"></div>
+</section>
+
+<!-- ===================================================== 8 -->
+<section id="lepes8">
+<h2>8. lépés – Új változó és csoportosítás: tételérték, termékenkénti árbevétel</h2>
+<p>Végre megválaszolhatjuk a vezető kérdését. Ehhez két új eszköz kell: <strong>származtatott változó</strong> (új oszlop meglévőkből) és <strong>csoportosítás</strong> (összesítés kategóriánként).</p>
+
+<h4>Kis eset</h4>
+<div class="table-wrap"><table>
+<tr><th>tid</th><th>product</th><th class="num">quantity</th><th class="num">unit_price</th><th class="num">line_total</th></tr>
+<tr><td>T1</td><td>coffee</td><td class="num">2</td><td class="num">2200</td><td class="num">4400</td></tr>
+<tr><td>T1</td><td>bread</td><td class="num">1</td><td class="num">550</td><td class="num">550</td></tr>
+<tr><td>T2</td><td>milk</td><td class="num">3</td><td class="num">420</td><td class="num">1260</td></tr>
+<tr><td>T2</td><td>coffee</td><td class="num">1</td><td class="num">2200</td><td class="num">2200</td></tr>
+<tr><td>T3</td><td>bread</td><td class="num">2</td><td class="num">550</td><td class="num">1100</td></tr>
+</table></div>
+<p>Termékenként összeadva: coffee $4400+2200 = 6600$, bread $550+1100 = 1650$, milk $1260$. A kávé nyer, pedig darabszámban mindhárom termék egyforma (3–3 db) – az ára miatt.</p>
+
+<div class="box def"><span class="box-title">Definíció – Tételérték és csoportos összesítés</span>
+<p>$$\text{line\_total} = \text{quantity} \times \text{unit\_price}$$</p>
+<pre><code class="language-python">data["line_total"] = data["quantity"] * data["unit_price"]       # soronként
+product_revenue = (data.groupby("product")["line_total"]
+                   .sum()
+                   .sort_values(ascending=False))                 # termékenként, csökkenő
+product_revenue.head(5)                                            # top 5</code></pre>
+<p>A <code>groupby("product")</code> a sorokat termékenként csoportokba osztja, a <code>["line_total"].sum()</code> csoportonként összead. Ez a „split – apply – combine” minta.</p>
+<p><strong>Miért nem elég a darabszám?</strong> Mert a termékek ára nagyon különböző (250 Ft és 2400 Ft között). Az árbevétel a mennyiség és az ár együttes hatása.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Kosárérték</span>
+<p>Mekkora a kis eset kosarainak értéke, és mennyi az átlagos tételérték, illetve az átlagos kosárérték?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p><code>data.groupby("tid")["line_total"].sum()</code>: T1 = 4950, T2 = 3460, T3 = 1100. Összes árbevétel 9510.</p>
+<p>Átlagos tételérték $9510/5 = 1902$, átlagos kosárérték $9510/3 = 3170$. A kettő más kérdés: a megfigyelési egység más (tétel vs. kosár).</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Gyakorisági eloszlás diszkrét változóra</span>
+<p>Hogyan ábrázolod a <code>quantity</code> eloszlását, ha csak az 1, 2, 3 értékek fordulnak elő?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Hisztogram helyett <strong>gyakorisági oszlopdiagrammal</strong>: <code>data["quantity"].value_counts().sort_index()</code>, majd <code>ax.bar(...)</code>. A valódi adaton: 1 → 4110, 2 → 2074, 3 → 761 tétel.</p>
+<figure>
+<svg viewBox="0 0 360 200" role="img" aria-label="A mennyiségek gyakorisága" font-family="Inter, system-ui, sans-serif" font-size="12">
+  <line x1="40" y1="170" x2="340" y2="170" stroke="currentColor" opacity=".5"/>
+  <rect x="60" y="20" width="70" height="150" fill="var(--accent)"/>
+  <rect x="155" y="94.3" width="70" height="75.7" fill="var(--accent)"/>
+  <rect x="250" y="142.2" width="70" height="27.8" fill="var(--accent)"/>
+  <g fill="currentColor" text-anchor="middle">
+    <text x="95" y="14">4110</text><text x="190" y="88">2074</text><text x="285" y="136">761</text>
+    <text x="95" y="186">1</text><text x="190" y="186">2</text><text x="285" y="186">3</text>
+    <text x="190" y="199" font-size="11" opacity=".8">mennyiség egy tételben</text>
+  </g>
+</svg>
+<figcaption>A vásárolt mennyiségek eloszlása (6945 tétel). Egy megfigyelés egy vásárlási tétel, nem egy kosár.</figcaption>
+</figure></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+  <li><strong>Megfigyelési egység:</strong> egy sor = egy tétel. A „hány darabot vesz egy vásárló egy kosárban” kérdéshez előbb kosaranként (<code>transaction_id</code>) kell összesíteni.</li>
+  <li><strong><code>mean()</code> a <code>sum()</code> helyett</strong> az átlagos tételértéket adja termékenként, nem az árbevételt.</li>
+  <li><strong>A törölt sorok hiányoznak:</strong> a 6 ismeretlen mennyiségű sor kiesett, így az árbevétel kicsit alulbecsült. Ezt jelezd a jelentésben.</li>
+  <li><strong>Ábra:</strong> minden ábrán legyen cím, tengelyfelirat (mértékegységgel) és megfelelő típus. Kategóriáknál (termékek) vízszintes oszlopdiagram (<code>barh</code>) olvashatóbb, a <code>grid</code> rácsvonalakat rajzol, a <code>tight_layout()</code> a feliratokat igazítja, a <code>savefig("abra.png")</code> ment.</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia</span>
+<p><em>line total</em> = tételérték · <em>revenue</em> = árbevétel · <em>group by</em> = csoportosítás · <em>aggregate (sum, mean, count)</em> = összesítés · <em>value_counts</em> = gyakorisági tábla · <em>bar chart</em> = oszlopdiagram · <em>histogram</em> = hisztogram (folytonos változóra, osztályközökkel).</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Tételérték és csoportosítás (5 feladat)</summary>
+<ol>
+  <li><p>Egy tétel: 3 db tea, egységár 1400 Ft. Mennyi a tételérték?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$3 \times 1400 = 4200$ Ft.</p></details></li>
+  <li><p>A kis eset táblájában (fent) melyik termék adja a legtöbb árbevételt, és mennyit? Melyik a második?</p>
+    <details class="solution"><summary>Megoldás</summary><p>coffee 6600 Ft, második a bread 1650 Ft, harmadik a milk 1260 Ft.</p></details></li>
+  <li><p>Mit ad vissza a <code>data.groupby("product")["quantity"].sum()</code>, és miben más, mint az árbevétel?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Termékenként az eladott mennyiséget. A valódi adaton itt a kenyér vezet (940 egység), árbevételben viszont a kávé (815 egység, de 2200 Ft-os áron).</p></details></li>
+  <li><p>Hogyan számolod ki régiónként az árbevételt?</p>
+    <details class="solution"><summary>Megoldás</summary><p><code>data.groupby("region")["line_total"].sum()</code>. A valódi adaton: West 2&nbsp;939&nbsp;680, North 2&nbsp;660&nbsp;890, East 2&nbsp;523&nbsp;010, South 1&nbsp;767&nbsp;760 Ft.</p></details></li>
+  <li><p>Miért oszlopdiagram, és nem hisztogram a mennyiségek eloszlására?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Mert a mennyiség diszkrét, csak 3 értéke van. Minden értéknek saját oszlop jár; a hisztogram osztályközei folytonos változóhoz valók, és itt összemosnák az értékeket.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ===================================================== 9 -->
+<section id="lepes9">
+<h2>9. lépés – Kétváltozós elemzés alapjai: kovariancia, korreláció, csoportos összehasonlítás</h2>
+<p>Eddig egy-egy változót néztünk. A féléves feladatban <strong>kétváltozós elemzés</strong> is kell: két változó kapcsolata. Az órán ez csak röviden hangzott el, mert a vásárlási adatban csak két numerikus változó van (és az ár termékenként állandó). A saját adathalmazodon viszont szükséged lesz rá.</p>
+
+<h4>Kis eset</h4>
+<p>Öt hét adata: hirdetési napok ($x$) és eladás ($y$, ezer db): $x = 1,2,3,4,5$, $y = 2,4,5,4,5$. Ha $x$ az átlaga ($3$) fölött van, $y$ is többnyire az átlaga ($4$) fölött: együtt mozognak.</p>
+
+<div class="box def"><span class="box-title">Definíció – Kovariancia és Pearson-féle korreláció</span>
+<p>$$\operatorname{cov}(x,y) = \frac{1}{n-1}\sum_{i=1}^{n}(x_i-\bar x)(y_i-\bar y), \qquad r = \frac{\operatorname{cov}(x,y)}{s_x\, s_y}$$</p>
+<ul>
+  <li>Kovariancia: előjele a kapcsolat iránya (+ együtt nő, − ellentétesen mozog). Nagysága függ a mértékegységtől, ezért önmagában nem értelmezhető erősségként.</li>
+  <li>Korreláció: $-1 \le r \le 1$, mértékegység-független. $|r|$ közel 1: erős <em>lineáris</em> kapcsolat; közel 0: nincs lineáris kapcsolat.</li>
+</ul>
+<p><strong>Miért osztunk a szórásokkal?</strong> Hogy a kapcsolat erőssége ne függjön attól, forintban vagy ezer forintban mérünk. pandas: <code>df[["x","y"]].cov()</code>, <code>df[["x","y"]].corr()</code> (korrelációs mátrix).</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Korreláció kézzel</span>
+<p>$x = 1,2,3,4,5$; $y = 2,4,5,4,5$.</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>$\bar x = 3$, $\bar y = 4$. Eltérések: $x$: $-2,-1,0,1,2$; $y$: $-2,0,1,0,1$. Szorzatok: $4,0,0,0,2$, összeg $6$. $\operatorname{cov} = 6/4 = 1{,}5$.</p>
+<p>$s_x^2 = 10/4 = 2{,}5$, $s_y^2 = 6/4 = 1{,}5$. $r = 1{,}5/\sqrt{2{,}5\cdot1{,}5} = 1{,}5/\sqrt{3{,}75} \approx 0{,}77$: közepesen erős pozitív kapcsolat.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Kategorikus × numerikus: csoportos összehasonlítás</span>
+<p>Régió (nominális) és tételérték (numerikus) kapcsolatára nincs értelme korrelációt számolni. Helyette csoportonként hasonlítjuk össze a mutatókat.</p>
+<pre><code class="language-python">data.groupby("region")["line_total"].agg(["count", "mean", "median", "sum"])</code></pre>
+<details class="solution"><summary>Megoldás (valódi adat)</summary>
+<div class="table-wrap"><table>
+<tr><th>region</th><th class="num">tételek</th><th class="num">átlagos tételérték (Ft)</th><th class="num">árbevétel (Ft)</th></tr>
+<tr><td>West</td><td class="num">2013</td><td class="num">1460,35</td><td class="num">2 939 680</td></tr>
+<tr><td>North</td><td class="num">1825</td><td class="num">1458,02</td><td class="num">2 660 890</td></tr>
+<tr><td>East</td><td class="num">1806</td><td class="num">1397,02</td><td class="num">2 523 010</td></tr>
+<tr><td>South</td><td class="num">1301</td><td class="num">1358,77</td><td class="num">1 767 760</td></tr>
+</table></div>
+<p>Délen a legkisebb a forgalom, de főleg azért, mert kevesebb a tétel. Az átlagos tételérték régiónként hasonló (kb. 1360–1460 Ft). Ábrán: csoportonkénti boxplot (<code>df.boxplot(column="line_total", by="region")</code>) vagy oszlopdiagram.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+  <li><strong>$r \approx 0$ nem jelenti, hogy nincs kapcsolat</strong> – csak lineáris nincs. Pl. $x=1,2,3,4$, $y = 3,1,1,3$: $r = 0$, pedig szabályos U alakú összefüggés van. Mindig nézd meg a pontdiagramot (<code>plt.scatter</code>).</li>
+  <li><strong>Korreláció ≠ ok-okozat.</strong> Két változó együtt mozoghat egy harmadik miatt is.</li>
+  <li><strong>Konstrukcióból adódó korreláció:</strong> a valódi adaton $r(\text{quantity}, \text{line\_total}) = 0{,}57$ és $r(\text{unit\_price}, \text{line\_total}) = 0{,}75$ – de a tételérték e kettő szorzata, így ez nem „felfedezés”.</li>
+  <li><strong>Kovariancia nagyságából nem következik erősség:</strong> a valódi adaton $\operatorname{cov}(\text{quantity}, \text{unit\_price}) \approx 2{,}47$, a korreláció viszont csak $0{,}006$.</li>
+</ul>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés – melyik változópárhoz melyik eszköz?</span>
+<div class="table-wrap"><table>
+<tr><th>Változópár</th><th>Mutató</th><th>Ábra</th></tr>
+<tr><td>numerikus × numerikus</td><td>kovariancia, Pearson-korreláció (monoton, nem lineáris kapcsolatra: Spearman-féle rangkorreláció, <code>corr(method="spearman")</code>)</td><td>pontdiagram (scatter), korrelációs mátrix hőtérképe</td></tr>
+<tr><td>kategorikus × numerikus</td><td>csoportonkénti átlag, medián, szórás (<code>groupby().agg()</code>)</td><td>csoportonkénti boxplot, oszlopdiagram</td></tr>
+<tr><td>kategorikus × kategorikus</td><td>kereszttábla (<code>pd.crosstab(a, b)</code>), sor- vagy oszlopszázalékok; függetlenségvizsgálat: khi-négyzet próba</td><td>csoportosított / halmozott oszlopdiagram</td></tr>
+</table></div>
+</div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia</span>
+<p><em>bivariate analysis</em> = kétváltozós elemzés · <em>covariance</em> = kovariancia · <em>correlation coefficient</em> = korrelációs együttható · <em>correlation matrix</em> (<code>corr()</code>) = korrelációs mátrix · <em>scatter plot</em> = pontdiagram · <em>crosstab / contingency table</em> = kereszttábla, kontingenciatábla.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Kétváltozós elemzés (5 feladat)</summary>
+<ol>
+  <li><p>$x = 1,2,3$; $y = 2,4,6$. Kovariancia és korreláció?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\bar x = 2$, $\bar y = 4$; szorzatok $(-1)(-2) + 0 + (1)(2) = 4$, $\operatorname{cov} = 4/2 = 2$. Mivel $y = 2x$ pontosan, $r = 1$.</p></details></li>
+  <li><p>$x = 1,2,3,4,5$; $y = 5,3,4,2,1$. Mi a kapcsolat iránya? Számold ki a kovarianciát.</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\bar x = 3$, $\bar y = 3$. Szorzatok: $(-2)(2)+(-1)(0)+0+(1)(-1)+(2)(-2) = -9$, $\operatorname{cov} = -9/4 = -2{,}25$. Negatív (ellentétes) kapcsolat; $r = -0{,}9$, erős.</p></details></li>
+  <li><p>$x = 1,2,3,4$; $y = 3,1,1,3$. Mennyi $r$? Mit mutatna a pontdiagram?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$r = 0$ (a kovariancia 0). A pontdiagram U alakot mutatna: van kapcsolat, csak nem lineáris.</p></details></li>
+  <li><p>A valódi adaton $r(\text{quantity}, \text{unit\_price}) = 0{,}006$. Értelmezd üzletileg.</p>
+    <details class="solution"><summary>Megoldás</summary><p>Gyakorlatilag nincs lineáris kapcsolat: a drága termékekből nem vesznek tételenként kevesebbet, mint az olcsókból (a termékenkénti átlagos mennyiség mindenhol kb. 1,43–1,59).</p></details></li>
+  <li><p>Melyik eszközzel vizsgálnád, hogy a régió és a vásárolt mennyiség (1, 2, 3) összefügg-e?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Mindkettő kezelhető kategóriaként, így kereszttábla: <code>pd.crosstab(data["region"], data["quantity"], normalize="index")</code> – régiónként a mennyiségek százalékos megoszlása. Vagy a mennyiség csoportonkénti átlaga (<code>groupby("region")["quantity"].mean()</code>: 1,46–1,55).</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ===================================================== Alkalmazás -->
+<section id="alkalmazas">
+<h2>Alkalmazás – a gyakorlat teljes munkafolyamata</h2>
+<p>Most összerakjuk a gyakorlat három szkriptjét (<code>01_datainfo.py</code>, <code>02_cleaning.py</code>, <code>03_basicstats.py</code>). Mindegyik önállóan futtatható: beimportálja a pandast és beolvassa az adatot. Colabban elég feltölteni a CSV-t és a szkriptet, majd <code>%run 02_cleaning.py</code> – de érdemesebb cellánként bemásolni, hogy lásd, mi történik.</p>
+
+<h3>1. Beolvasás és vizsgálat</h3>
+<pre><code class="language-python">import pandas as pd
+df = pd.read_csv("retail_transactions_raw.csv", sep=";", encoding="utf-8-sig")
+print(df.shape)                              # (6957, 7)
+df.info()                                    # unit_price 6951, region 6953 nem hiányzó
+print(df["transaction_id"].nunique(),        # 1151
+      df["customer_id"].nunique(),           # 120
+      df["product"].nunique())               # 26  (elvárt: 18!)</code></pre>
+<p>A feljegyzett hibák (egyeznek a feladatlap listájával): 6 teljes duplikátum, 4 szóközzel körülvett és 4 kisbetűs terméknév, 6 „unknown” mennyiség, 6 hiányzó egységár, 4 hiányzó régió.</p>
+
+<h3>2. Tisztítás (rövidítve)</h3>
+<pre><code class="language-python">clean_df = df.copy()
+clean_df = clean_df.drop_duplicates()                                  # 6 sor törölve
+clean_df["product"] = clean_df["product"].str.strip().str.lower()     # 26 -> 18 név
+clean_df["product"] = clean_df["product"].replace("", pd.NA)
+
+for column in ["quantity", "unit_price"]:
+    clean_df[column] = pd.to_numeric(clean_df[column], errors="coerce")  # quantity: +6 NaN
+clean_df["date"] = pd.to_datetime(clean_df["date"], format="%Y-%m-%d", errors="coerce")  # +0 NaT
+
+# egységár: termékenként állandó -> pótlás (csak ha a csoportban 1 ismert ár van)
+price_counts = clean_df.groupby("product")["unit_price"].nunique()
+consistent = price_counts[price_counts == 1].index
+price_lookup = clean_df[clean_df["product"].isin(consistent)].groupby("product")["unit_price"].first()
+clean_df["unit_price"] = clean_df["unit_price"].fillna(clean_df["product"].map(price_lookup))  # 6 pótolva
+# régió: vásárlónként állandó -> ugyanígy customer_id szerint                                   # 4 pótolva
+
+clean_df = clean_df.dropna().reset_index(drop=True)                    # 6 sor törölve (quantity)
+
+Q1, Q3 = clean_df["quantity"].quantile(0.25), clean_df["quantity"].quantile(0.75)
+IQR = Q3 - Q1
+outlier_mask = (clean_df["quantity"] &lt; Q1 - 1.5*IQR) | (clean_df["quantity"] &gt; Q3 + 1.5*IQR)
+# Q1 = 1, Q3 = 2, IQR = 1, határok: -0.5 és 3.5 -> 0 kiugró
+clean_df[["quantity", "unit_price"]] = clean_df[["quantity", "unit_price"]].astype("int64")
+clean_df.to_csv("retail_transactions_cleaned.csv", sep=";", encoding="utf-8-sig",
+                index=False, date_format="%Y-%m-%d")</code></pre>
+
+<div class="table-wrap"><table>
+<tr><th>Lépés</th><th>Talált hiba</th><th>Döntés</th><th class="num">Sorok utána</th></tr>
+<tr><td>kiinduló állapot</td><td>–</td><td>–</td><td class="num">6957</td></tr>
+<tr><td>1. duplikátumok</td><td>6 teljes másolat</td><td>törlés</td><td class="num">6951</td></tr>
+<tr><td>2. terméknevek</td><td>26 név 18 helyett</td><td>strip + lower → 18</td><td class="num">6951</td></tr>
+<tr><td>3. konverzió</td><td>6 „unknown” mennyiség → NaN; dátum, ár rendben</td><td><code>errors="coerce"</code></td><td class="num">6951</td></tr>
+<tr><td>4. hiányok</td><td>6 egységár, 4 régió, 6 mennyiség</td><td>ár termék szerint, régió vásárló szerint pótolva; mennyiség hiánya miatt törlés</td><td class="num">6945</td></tr>
+<tr><td>5. kiugrók (quantity)</td><td>0 (határok −0,5 és 3,5)</td><td>nem kellett korrigálni</td><td class="num">6945</td></tr>
+</table></div>
+<p>Összesen 12 sort töröltünk. Ez a táblázat maga a <strong>dokumentáció</strong> – a féléves jelentésbe is ilyen kell.</p>
+
+<h3>3. Leíró statisztika, tételérték, árbevétel</h3>
+<pre><code class="language-python">data = pd.read_csv("retail_transactions_cleaned.csv", sep=";", encoding="utf-8-sig")
+print(data.describe())
+data["line_total"] = data["quantity"] * data["unit_price"]
+product_revenue = data.groupby("product")["line_total"].sum().sort_values(ascending=False)
+print(product_revenue.head(5))
+print(f"{data['line_total'].sum():,} HUF")   # 9,891,340 HUF</code></pre>
+
+<div class="table-wrap"><table>
+<tr><th><code>describe()</code></th><th class="num">quantity</th><th class="num">unit_price</th></tr>
+<tr><td>count</td><td class="num">6945</td><td class="num">6945</td></tr>
+<tr><td>mean</td><td class="num">1,52</td><td class="num">936,74</td></tr>
+<tr><td>std</td><td class="num">0,68</td><td class="num">561,91</td></tr>
+<tr><td>min</td><td class="num">1</td><td class="num">250</td></tr>
+<tr><td>25%</td><td class="num">1</td><td class="num">600</td></tr>
+<tr><td>50%</td><td class="num">1</td><td class="num">750</td></tr>
+<tr><td>75%</td><td class="num">2</td><td class="num">1100</td></tr>
+<tr><td>max</td><td class="num">3</td><td class="num">2400</td></tr>
+</table></div>
+<p>Figyelj: a <code>unit_price</code> leíró statisztikája <em>tételekre</em> súlyozott – a gyakran vásárolt termékek ára többször szerepel. Az átlag (937) nagyobb a mediánnál (750): jobbra ferde, a kávé és a csirke húzza fel.</p>
+
+<figure>
+<svg viewBox="0 0 640 390" role="img" aria-label="Termékenkénti árbevétel" font-family="Inter, system-ui, sans-serif" font-size="12">
+<text x="104" y="18" text-anchor="end" fill="currentColor">coffee</text><rect x="110" y="7" width="440.0" height="14" rx="2" fill="var(--accent)"/><text x="555.0" y="18" fill="currentColor">1 793 000 Ft</text>
+<text x="104" y="38" text-anchor="end" fill="currentColor">chicken</text><rect x="110" y="27" width="273.3" height="14" rx="2" fill="var(--accent)"/><text x="388.3" y="38" fill="currentColor">1 113 600 Ft</text>
+<text x="104" y="58" text-anchor="end" fill="currentColor">butter</text><rect x="110" y="47" width="178.8" height="14" rx="2" fill="var(--accent)"/><text x="293.8" y="58" fill="currentColor">728 450 Ft</text>
+<text x="104" y="78" text-anchor="end" fill="currentColor">tomato sauce</text><rect x="110" y="67" width="163.7" height="14" rx="2" fill="var(--accent)"/><text x="278.7" y="78" fill="currentColor">666 900 Ft</text>
+<text x="104" y="98" text-anchor="end" fill="currentColor">tea</text><rect x="110" y="87" width="153.9" height="14" rx="2" fill="var(--accent)"/><text x="268.9" y="98" fill="currentColor">627 200 Ft</text>
+<text x="104" y="118" text-anchor="end" fill="currentColor">pasta</text><rect x="110" y="107" width="142.9" height="14" rx="2" fill="var(--accent)"/><text x="257.9" y="118" fill="currentColor">582 400 Ft</text>
+<text x="104" y="138" text-anchor="end" fill="currentColor">orange juice</text><rect x="110" y="127" width="137.4" height="14" rx="2" fill="var(--accent)"/><text x="252.4" y="138" fill="currentColor">559 900 Ft</text>
+<text x="104" y="158" text-anchor="end" fill="currentColor">cheese</text><rect x="110" y="147" width="130.1" height="14" rx="2" fill="var(--accent)"/><text x="245.1" y="158" fill="currentColor">530 000 Ft</text>
+<text x="104" y="178" text-anchor="end" fill="currentColor">bread</text><rect x="110" y="167" width="126.9" height="14" rx="2" fill="var(--accent)"/><text x="241.9" y="178" fill="currentColor">517 000 Ft</text>
+<text x="104" y="198" text-anchor="end" fill="currentColor">biscuits</text><rect x="110" y="187" width="120.4" height="14" rx="2" fill="var(--accent)"/><text x="235.4" y="198" fill="currentColor">490 750 Ft</text>
+<text x="104" y="218" text-anchor="end" fill="currentColor">eggs</text><rect x="110" y="207" width="111.4" height="14" rx="2" fill="var(--accent)"/><text x="226.4" y="218" fill="currentColor">454 100 Ft</text>
+<text x="104" y="238" text-anchor="end" fill="currentColor">rice</text><rect x="110" y="227" width="96.6" height="14" rx="2" fill="var(--accent)"/><text x="211.6" y="238" fill="currentColor">393 600 Ft</text>
+<text x="104" y="258" text-anchor="end" fill="currentColor">bananas</text><rect x="110" y="247" width="91.7" height="14" rx="2" fill="var(--accent)"/><text x="206.7" y="258" fill="currentColor">373 500 Ft</text>
+<text x="104" y="278" text-anchor="end" fill="currentColor">chocolate</text><rect x="110" y="267" width="85.0" height="14" rx="2" fill="var(--accent)"/><text x="200.0" y="278" fill="currentColor">346 500 Ft</text>
+<text x="104" y="298" text-anchor="end" fill="currentColor">apples</text><rect x="110" y="287" width="65.4" height="14" rx="2" fill="var(--accent)"/><text x="180.4" y="298" fill="currentColor">266 400 Ft</text>
+<text x="104" y="318" text-anchor="end" fill="currentColor">milk</text><rect x="110" y="307" width="47.6" height="14" rx="2" fill="var(--accent)"/><text x="162.6" y="318" fill="currentColor">194 040 Ft</text>
+<text x="104" y="338" text-anchor="end" fill="currentColor">yoghurt</text><rect x="110" y="327" width="35.3" height="14" rx="2" fill="var(--accent)"/><text x="150.3" y="338" fill="currentColor">144 000 Ft</text>
+<text x="104" y="358" text-anchor="end" fill="currentColor">mineral water</text><rect x="110" y="347" width="27.0" height="14" rx="2" fill="var(--accent)"/><text x="142.0" y="358" fill="currentColor">110 000 Ft</text>
+<text x="110" y="384" fill="currentColor" opacity=".7">Összesen: 9 891 340 Ft (6945 tétel)</text>
+</svg>
+<figcaption>Termékenkénti árbevétel csökkenő sorrendben (a gyakorlat <code>barh</code> ábrájának megfelelője). Az első öt: coffee, chicken, butter, tomato sauce, tea.</figcaption>
+</figure>
+
+<p><strong>Válasz a motiváció kérdésére:</strong> a legtöbb árbevételt a <strong>kávé</strong> hozza (1&nbsp;793&nbsp;000 Ft, a teljes 9&nbsp;891&nbsp;340 Ft kb. 18%-a), pedig mennyiségben csak a negyedik (815 egység; a kenyér 940). Utána a csirke (1&nbsp;113&nbsp;600 Ft) jön – a két legdrágább termék. A legkisebb az ásványvíz (110&nbsp;000 Ft). A bevétel kicsit alulbecsült, mert 6 ismeretlen mennyiségű tételt töröltünk.</p>
+
+<h3>4. Kétváltozós kitekintés</h3>
+<pre><code class="language-python">data[["quantity", "unit_price", "line_total"]].corr().round(3)</code></pre>
+<div class="table-wrap"><table>
+<tr><th></th><th class="num">quantity</th><th class="num">unit_price</th><th class="num">line_total</th></tr>
+<tr><td>quantity</td><td class="num">1</td><td class="num">0,006</td><td class="num">0,570</td></tr>
+<tr><td>unit_price</td><td class="num">0,006</td><td class="num">1</td><td class="num">0,753</td></tr>
+<tr><td>line_total</td><td class="num">0,570</td><td class="num">0,753</td><td class="num">1</td></tr>
+</table></div>
+<p>A mennyiség és az ár között nincs lineáris kapcsolat; a tételértékkel való korreláció konstrukcióból adódik. Ezért mondta az oktató, hogy ezen az adaton a korrelációs mátrixnak nincs sok értelme – a saját adathalmazodon viszont a kétváltozós rész kötelező.</p>
+</section>
+
+<!-- ===================================================== Összefoglalás -->
+<section id="osszefoglalas">
+<h2>Összefoglalás</h2>
+<ul>
+  <li>Az adatbányászat folyamata: cél és adatmegértés → beolvasás → tisztítás → feltáró elemzés → modellezés → értékelés; iteratív, és mindent dokumentálunk.</li>
+  <li>Felügyelt tanulás: van célváltozó (osztályozás). Felügyelet nélküli: nincs (klaszterezés, asszociációs szabályok).</li>
+  <li>A skála (nominális, ordinális, intervallum, arány) mondja meg, mely műveletek és statisztikák értelmesek; a tárolási típus ettől eltérhet.</li>
+  <li>Tisztítási sorrend: duplikátumok → szövegegységesítés → típuskonverzió (<code>errors="coerce"</code>) → hiányok → kiugrók (IQR).</li>
+  <li>Középérték: átlag (érzékeny), medián (robusztus), módusz (kategorikusra is). Szóródás: terjedelem, szórás, IQR.</li>
+  <li>Kiugró: $Q_1 - 1{,}5\,IQR$ alatt vagy $Q_3 + 1{,}5\,IQR$ fölött. Kiugró ≠ hibás.</li>
+  <li>Kétváltozós: numerikus–numerikus korreláció; kategorikus–numerikus csoportos összehasonlítás; kategorikus–kategorikus kereszttábla.</li>
+</ul>
+
+<h3>Döntési táblázat</h3>
+<div class="table-wrap"><table>
+<tr><th>Ha a feladatban ez áll…</th><th>…ezt használd</th></tr>
+<tr><td>„Ellenőrizd, sikerült-e a beolvasás / mekkora az adat”</td><td><code>head()</code>, <code>tail()</code>, <code>shape</code></td></tr>
+<tr><td>„Vannak-e hiányzó értékek?”</td><td><code>info()</code> (nem hiányzók száma) vagy <code>isna().sum()</code></td></tr>
+<tr><td>„Hány kategória / írásmód van?”</td><td><code>nunique()</code>, <code>value_counts()</code></td></tr>
+<tr><td>Pontosan ismétlődő sorok</td><td><code>duplicated().sum()</code>, majd <code>drop_duplicates()</code></td></tr>
+<tr><td>Ugyanaz a szöveg többféle írásmóddal</td><td><code>str.strip().str.lower()</code>; elírásra <code>replace({...})</code></td></tr>
+<tr><td>Numerikus oszlop <code>object</code>/<code>str</code> típusú</td><td><code>pd.to_numeric(..., errors="coerce")</code></td></tr>
+<tr><td>Dátum szövegként</td><td><code>pd.to_datetime(..., format=..., errors="coerce")</code></td></tr>
+<tr><td>Hiány, és egy szabály megadja a helyes értéket</td><td>csoporton belüli pótlás (<code>groupby</code> + <code>map</code> + <code>fillna</code>)</td></tr>
+<tr><td>Hiány numerikus, ferde változóban</td><td>medián; kategorikus / diszkrét: módusz</td></tr>
+<tr><td>Hiány, ami nem állítható helyre</td><td><code>dropna()</code> + dokumentálás (mennyi adat veszett el)</td></tr>
+<tr><td>„Keress kiugró értékeket”</td><td>IQR-módszer: $Q_1 - 1{,}5\,IQR$, $Q_3 + 1{,}5\,IQR$; utána egyenkénti vizsgálat</td></tr>
+<tr><td>„Tipikus érték” kiugrók mellett</td><td>medián</td></tr>
+<tr><td>„Számítsd ki a tételek értékét”</td><td><code>data["line_total"] = quantity * unit_price</code></td></tr>
+<tr><td>„Melyik termék / régió hozza a legtöbbet?”</td><td><code>groupby(...)["line_total"].sum().sort_values(ascending=False)</code></td></tr>
+<tr><td>Diszkrét változó eloszlása</td><td><code>value_counts().sort_index()</code> + oszlopdiagram</td></tr>
+<tr><td>Két numerikus változó kapcsolata</td><td><code>corr()</code> + pontdiagram</td></tr>
+<tr><td>Kategorikus és numerikus változó kapcsolata</td><td><code>groupby(kat)[num].agg(["mean","median"])</code> + csoportonkénti boxplot</td></tr>
+</table></div>
+</section>
+
+<!-- ===================================================== Kvíz -->
+<section id="kviz">
+<h2>Ellenőrző kvíz</h2>
+<p>14 kérdés a lecke egészéből. Ha elakadsz, használd a 💡 Tipp gombot.</p>
+<div class="quiz" data-quiz="l01-vegso"></div>
+</section>
+
+<nav class="pager">
+  <a href="index.html">← Tartalom</a>
+  <a href="02-kosarelemzes.html">2. Kosárelemzés →</a>
+</nav>
+</main>
+</body>
+</html>

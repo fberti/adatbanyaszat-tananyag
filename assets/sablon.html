@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>K-means klaszterezés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script defer src="assets/quiz.js"></script>
+<script defer src="quiz/03.js"></script>          <!-- a lecke kvízei -->
+<script defer src="assets/common.js"></script>    <!-- MINDIG az utolsó -->
+</head>
+<body>
+<nav class="topnav"><div class="inner">
+  <a href="index.html">← Tartalom</a>
+  <span>3. lecke · K-means</span>
+  <span class="spacer"></span>
+  <button id="theme-toggle" type="button" title="Világos/sötét téma">◐</button>
+</div></nav>
+<main>
+<p class="kicker">3. lecke · 3. gyakorlat</p>
+<h1>Vásárlói szegmentáció K-means módszerrel</h1>
+<p class="lead">Egy mondat arról, miről szól a lecke.</p>
+
+<section id="motivacio">
+<h2>Motiváció</h2>
+<p>Konkrét kérdés, amire a lecke végén választ adunk.</p>
+</section>
+
+<section id="utiterv">
+<h2>Útiterv</h2>
+<ol class="roadmap">
+  <li><a href="#lepes1">1. lépés – …</a></li>
+  <li><a href="#lepes2">2. lépés – …</a></li>
+</ol>
+</section>
+
+<section id="lepes1">
+<h2>1. lépés – Távolság két vásárló között</h2>
+
+<h4>Kis eset</h4>
+<p>…</p>
+
+<div class="box def"><span class="box-title">Definíció – Euklideszi távolság</span>
+<p>$$d(x,y)=\sqrt{\sum_{j=1}^{p}(x_j-y_j)^2}$$</p>
+<p><strong>Miért?</strong> …</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1</span>
+<p>Feladat …</p>
+<details class="solution"><summary>Megoldás</summary><p>…</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span><p>…</p></div>
+
+<div class="box tip"><span class="box-title">💡 Hüvelykujjszabály</span><p>…</p></div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia</span><p>angol: <em>inertia</em> = magyar: klaszteren belüli négyzetösszeg …</p></div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés (nem szerepelt a gyakorlaton)</span><p>…</p></div>
+
+<div class="two-col">
+  <div class="box example"><span class="box-title">Standardizálás nélkül</span><p>…</p></div>
+  <div class="box example"><span class="box-title">Standardizálással</span><p>…</p></div>
+</div>
+
+<h4>A gyakorlat kódja</h4>
+<pre><code class="language-python">from sklearn.cluster import KMeans
+km = KMeans(n_clusters=3, n_init=10, random_state=42).fit(X)</code></pre>
+
+<div class="table-wrap"><table>
+<tr><th>k</th><th class="num">inertia</th></tr>
+<tr><td>2</td><td class="num">46,30</td></tr>
+</table></div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Távolságszámítás (5 feladat)</summary>
+<ol>
+  <li><p>Feladat …</p>
+    <details class="solution"><summary>Megoldás</summary><p>Részletes megoldás …</p></details></li>
+</ol>
+</details>
+</section>
+
+<section id="osszefoglalas">
+<h2>Összefoglalás</h2>
+<div class="table-wrap"><table>
+<tr><th>Ha a feladatban ez áll…</th><th>…ezt használd</th></tr>
+</table></div>
+</section>
+
+<section id="kviz">
+<h2>Ellenőrző kvíz</h2>
+<div class="quiz" data-quiz="l3-vegso"></div>
+</section>
+
+<nav class="pager">
+  <a href="02-kosarelemzes.html">← 2. Kosárelemzés</a>
+  <a href="04-hierarchikus-klaszterezes.html">4. Hierarchikus klaszterezés →</a>
+</nav>
+</main>
+</body>
+</html>

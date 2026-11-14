@@ -1,0 +1,921 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Döntési fa és mérőszámok</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script defer src="assets/quiz.js"></script>
+<script defer src="quiz/05.js"></script>          <!-- a lecke kvízei -->
+<script defer src="assets/common.js"></script>    <!-- MINDIG az utolsó -->
+</head>
+<body>
+<nav class="topnav"><div class="inner">
+  <a href="index.html">← Tartalom</a>
+  <span>5. lecke · Döntési fa</span>
+  <span class="spacer"></span>
+  <button id="theme-toggle" type="button" title="Világos/sötét téma">◐</button>
+</div></nav>
+<main>
+<p class="kicker">5. lecke · 5. gyakorlat</p>
+<h1>Osztályozás döntési fával és az osztályozás mérőszámai</h1>
+<p class="lead">Felügyelt tanulás egy hallgatói adathalmazon: hogyan választ vágást a döntési fa (Gini-index, entrópia),
+hogyan olvasunk ki belőle szabályokat, és hogyan döntjük el, jó-e a modell (konfúziós mátrix, accuracy, precision, recall, F1, alapmodell).</p>
+
+<section id="motivacio">
+<h2>Motiváció</h2>
+<p>Félév közben tudjuk, ki mennyit tanul, mennyit jár órára, hány feladatot adott be, és mennyi a korábbi átlaga.
+<strong>Meg lehet-e ebből jósolni, hogy átmegy-e a vizsgán?</strong></p>
+<p>A gyakorlaton épített döntési fa a teszthalmazon <strong>72,4%-os pontosságot</strong> ért el. Jónak hangzik.
+Csakhogy egy „modell”, amely <em>semmit sem néz</em>, és mindenkire azt mondja, hogy „átmegy”, <strong>szintén pontosan 72,4%-ot</strong> ér el.
+A lecke végére érteni fogod, hogyan lehetséges ez, mit mér akkor valójában a fa, és melyik mérőszám mondja meg az igazat.</p>
+</section>
+
+<section id="utiterv">
+<h2>Útiterv</h2>
+<ol class="roadmap">
+  <li><a href="#lepes1">1. lépés – Felügyelt tanulás: bemeneti változók (X) és célváltozó (y)</a></li>
+  <li><a href="#lepes2">2. lépés – Előkészítés: one-hot kódolás és rétegzett tanító/teszt felosztás</a></li>
+  <li><a href="#lepes3">3. lépés – Egy csomópont kevertsége: Gini-index és entrópia</a></li>
+  <li><a href="#lepes4">4. lépés – A legjobb vágás: súlyozott kevertség, nyereség, numerikus küszöb</a></li>
+  <li><a href="#lepes5">5. lépés – A fa felépítése, leállási feltételek, szabályok kiolvasása</a></li>
+  <li><a href="#lepes6">6. lépés – Konfúziós mátrix: accuracy, precision, recall, F1</a></li>
+  <li><a href="#lepes7">7. lépés – Többségi alapmodell és kiegyensúlyozatlan osztályok</a></li>
+  <li><a href="#lepes8">8. lépés – Famélység: alultanulás és túltanulás</a></li>
+  <li><a href="#alkalmazas">Alkalmazás – a gyakorlat teljes munkafolyamata</a></li>
+  <li><a href="#osszefoglalas">Összefoglalás és döntési táblázat</a></li>
+  <li><a href="#kviz">Ellenőrző kvíz</a></li>
+</ol>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes1">
+<h2>1. lépés – Felügyelt tanulás: bemeneti változók (X) és célváltozó (y)</h2>
+
+<h4>Kis eset</h4>
+<p>Az előző két gyakorlaton vásárlókat klasztereztünk. Ott nem tudtuk ellenőrizni, hogy egy vásárló „jó” csoportba került-e,
+mert nem volt hozzá helyes válasz. Ezért hívtuk <strong>nem felügyelt</strong> tanulásnak.</p>
+<p>Most más a helyzet. Itt van öt hallgató (a gyakorlat adatából, rövidítve):</p>
+<div class="table-wrap"><table>
+<tr><th>student_id</th><th>programme</th><th class="num">study_hours</th><th class="num">attendance</th><th class="num">previous_gpa</th><th class="num">assignments_completed</th><th class="num">exam_score</th><th>passed</th></tr>
+<tr><td>S001</td><td>Mechanical Engineering</td><td class="num">15,4</td><td class="num">63,7</td><td class="num">5,00</td><td class="num">7</td><td class="num">73,9</td><td>yes</td></tr>
+<tr><td>S002</td><td>Computer Science</td><td class="num">17,6</td><td class="num">92,5</td><td class="num">4,52</td><td class="num">9</td><td class="num">96,6</td><td>yes</td></tr>
+<tr><td>S003</td><td>Computer Science</td><td class="num">13,2</td><td class="num">100,0</td><td class="num">3,10</td><td class="num">8</td><td class="num">91,3</td><td>yes</td></tr>
+<tr><td>S004</td><td>Computer Science</td><td class="num">8,7</td><td class="num">66,6</td><td class="num">2,72</td><td class="num">7</td><td class="num">39,4</td><td>no</td></tr>
+</table></div>
+<p>Minden múltbeli hallgatónál <strong>tudjuk</strong>, hogy átment-e (<code>passed</code>). Ebből a modell megtanulhatja,
+milyen jellemzők mellett szokás átmenni. Egy új hallgatónál pedig, akinek még nincs vizsgája, a jellemzőiből <em>becsüli</em> a kimenetet.</p>
+
+<div class="box def"><span class="box-title">Definíció – Osztályozás, X és y</span>
+<p>Az <strong>osztályozás</strong> felügyelt tanulási feladat: ismert (címkézett) példákból megtanuljuk, hogyan rendelhető egy megfigyelés
+egy előre megadott kategóriába (osztályba).</p>
+<ul>
+<li><strong>Bemeneti változók (X)</strong>: a megfigyelést leíró jellemzők, amelyekből jósolunk.</li>
+<li><strong>Célváltozó (y)</strong>: a megjósolandó kategória. A tanítóadatban ismert, új adatnál a modell becsüli.</li>
+</ul>
+<p><strong>Miért „felügyelt”?</strong> Mert a tanításkor a helyes válasz ott van mellettünk, mint egy tanár, aki kijavítja a modellt.
+Emiatt az értékelés is sokkal pontosabb lehet, mint klaszterezésnél (ott csak a sziluettmutató volt), hiszen össze tudjuk vetni a jóslatot a valósággal.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Melyik oszlop mi?</span>
+<p>Célváltozó: <code>passed</code> (yes/no). Melyik oszlop legyen bemenet?</p>
+<details class="solution"><summary>Megoldás</summary>
+<ul>
+<li><code>student_id</code>: <strong>nem</strong>. Azonosító, nincs magyarázó ereje (egy új hallgató azonosítója semmit nem mond a tudásáról).</li>
+<li><code>study_hours</code>, <code>attendance</code>, <code>previous_gpa</code>, <code>assignments_completed</code>: <strong>igen</strong>, a vizsga előtt ismert jellemzők.</li>
+<li><code>programme</code>: <strong>igen</strong>, de kategorikus szöveg, ezért kódolni kell (2. lépés).</li>
+<li><code>exam_score</code>: <strong>nem!</strong> Lásd a következő példát.</li>
+</ul></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Miért nem lehet az exam_score bemenet?</span>
+<p>Az adathalmaz előállítási szabálya: ha <code>exam_score</code> ≥ 50, akkor <code>passed = yes</code>, egyébként <code>no</code>. Mi történne, ha bent hagynánk?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>A <code>passed</code> <em>közvetlenül az <code>exam_score</code>-ból készült</em>. Kipróbáltuk: ha bent hagyjuk, a fa egyetlen vágást csinál
+(<code>exam_score ≤ 50,4</code>), és a teszthalmazon <strong>100%-os</strong> a pontossága. Tökéletesnek látszik, de semmit sem tanultunk:
+a fa a választ olvasta le, nem a hallgató szokásaiból jósolt. Ráadásul a vizsgapontszám a jóslás pillanatában még nem is ismert –
+ha ismernénk, nem kellene jósolni. Az oktató szavaival: ez az egy változó „dominálná az egész osztályozási feladatot”, plusz információt nem hordoz.</p>
+</details>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Adatszivárgás (data leakage)</span>
+<p><strong>Adatszivárgás</strong>: a bemenetek közé olyan információ kerül, amely a célváltozóból származik, vagy a jóslás idején még nem állna rendelkezésre.
+Tünete: gyanúsan jó (gyakran ~100%-os) eredmény, ami élesben összeomlik.</p>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<p>„Minél több változót adok a modellnek, annál jobb” – <strong>nem</strong>. Az azonosító zaj, a célváltozóból képzett oszlop pedig csalás.
+Vizsgán gyakori kérdés: <em>miért hagytuk ki az exam_score-t?</em> Válasz: mert a <code>passed</code> ebből készült (≥ 50 → yes), ez adatszivárgás.</p>
+</div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia</span>
+<p><em>supervised learning</em> = felügyelt tanulás · <em>unsupervised</em> = nem felügyelt · <em>features</em> = bemeneti változók, jellemzők (X) ·
+<em>target / label</em> = célváltozó, címke (y) · <em>class</em> = osztály · <em>prediction</em> = előrejelzés, jóslat · <em>data leakage</em> = adatszivárgás.</p>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés (nem szerepelt a gyakorlaton)</span>
+<p>Ha a célváltozó <em>kategória</em> (yes/no, A/B/C), a feladat <strong>osztályozás</strong>. Ha <em>szám</em> (pl. magát az <code>exam_score</code>-t akarnánk jósolni),
+akkor <strong>regresszió</strong>. Mindkettő felügyelt tanulás; döntési fa mindkettőre létezik (<code>DecisionTreeClassifier</code>, <code>DecisionTreeRegressor</code>).</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – X, y, adatszivárgás (5 feladat)</summary>
+<ol>
+  <li><p>Felügyelt vagy nem felügyelt? (a) Vásárlók csoportosítása költési szokás alapján, címke nélkül. (b) E-mailek spam/nem spam besorolása korábban megjelölt levelek alapján.</p>
+    <details class="solution"><summary>Megoldás</summary><p>(a) Nem felügyelt (klaszterezés): nincs ismert helyes csoport. (b) Felügyelt osztályozás: a tanítólevelek címkéje (spam/nem spam) ismert.</p></details></li>
+  <li><p>A gyakorlat adatán hány bemeneti változót használtunk <em>kódolás előtt</em>, és melyek ezek?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Ötöt: a négy numerikus (<code>study_hours</code>, <code>attendance</code>, <code>previous_gpa</code>, <code>assignments_completed</code>) és a <code>programme</code>.
+    Kimaradt a <code>student_id</code> (azonosító), az <code>exam_score</code> (szivárgás), és persze a <code>passed</code> (ez maga y).</p></details></li>
+  <li><p>Egy bank azt akarja jósolni, hogy egy ügyfél felmondja-e a számláját. Az adatban van egy <code>felmondas_datuma</code> oszlop (üres, ha nem mondta fel). Bemenetnek vehető?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Nem. Ez a célváltozó egy másik alakja (ha van dátum, felmondta), és a jóslás idején még nem ismert. Klasszikus adatszivárgás.</p></details></li>
+  <li><p>Valaki bent hagyja az <code>exam_score</code>-t, és 100%-os teszteredményt kap. Mit mondasz neki?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A 100% gyanús. A fa egyetlen szabályt tanult (<code>exam_score ≤ 50,4 → no</code>), ami csak a <code>passed</code> előállítási szabályát (≥ 50 → yes) adja vissza.
+    Új hallgatóra nem használható, mert a vizsgapontszám a vizsga előtt nem ismert.</p></details></li>
+  <li><p>Az oktató megemlítette, hogy célváltozó lehetne a <code>programme</code> is. Ekkor mi lenne y, és milyen típusú feladat ez?</p>
+    <details class="solution"><summary>Megoldás</summary><p>y = <code>programme</code> (3 osztály: Business Informatics, Computer Science, Mechanical Engineering). Ez többosztályos osztályozás:
+    azt kérdezzük, a tanulási szokásokból felismerhető-e, melyik szakra jár a hallgató. Ekkor az <code>exam_score</code> és a <code>passed</code> lehetne bemenet
+    (de egyszerre a kettő fölösleges, mert egymásból következnek).</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l05-lepes1"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes2">
+<h2>2. lépés – Előkészítés: one-hot kódolás és rétegzett tanító/teszt felosztás</h2>
+
+<h4>Kis eset – szöveg helyett számok</h4>
+<p>A <code>programme</code> oszlopban szöveg áll („Computer Science”). Az algoritmus számokkal dolgozik. Mit tegyünk vele?
+Kézenfekvőnek tűnik: Business Informatics = 1, Computer Science = 2, Mechanical Engineering = 3. Csakhogy így a modell azt „hinné”,
+hogy a gépész 3-szor annyi, mint a gazdinfós, és a CS „félúton” van köztük. Ez értelmetlen: a szakoknak nincs sorrendje.</p>
+
+<div class="box def"><span class="box-title">Definíció – One-hot kódolás</span>
+<p>A kategorikus változó helyett <strong>annyi 0/1 oszlopot</strong> veszünk fel, ahány különböző értéke van. Minden sorban
+<strong>pontosan egy</strong> oszlop 1 (azé a kategóriáé, amelyikbe tartozik), a többi 0.</p>
+<div class="table-wrap"><table>
+<tr><th>programme</th><th class="num">programme_Business Informatics</th><th class="num">programme_Computer Science</th><th class="num">programme_Mechanical Engineering</th></tr>
+<tr><td>Business Informatics</td><td class="num">1</td><td class="num">0</td><td class="num">0</td></tr>
+<tr><td>Computer Science</td><td class="num">0</td><td class="num">1</td><td class="num">0</td></tr>
+<tr><td>Mechanical Engineering</td><td class="num">0</td><td class="num">0</td><td class="num">1</td></tr>
+</table></div>
+<p><strong>Miért?</strong> Így nincs kitalált sorrend és távolság a kategóriák között. A fa pedig egyszerű kérdést tehet fel: „<code>programme_Computer Science ≤ 0,5</code>?”, azaz „nem CS-es?”.</p>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – nem ugyanaz, mint a kosármátrix</span>
+<p>A kosárelemzésnél is 0/1 táblát csináltunk, de ott egy sorban <em>több</em> 1-es is lehetett (több termék egy kosárban).
+One-hot kódolásnál egy eredeti értékből pontosan <strong>egy</strong> 1-es lesz – az oktató is kiemelte ezt a különbséget.</p>
+</div>
+
+<h4>Kis eset – miért kell félretenni adatot?</h4>
+<p>Ha a modellt ugyanazokon a hallgatókon értékelnénk, akiken tanult, az olyan lenne, mintha a ZH-n pontosan a gyakorlófeladatok jönnének:
+aki bemagolta, 100%-ot ír, de ebből nem derül ki, hogy érti-e. Ezért az adat egy részét <strong>félretesszük</strong>, és csak a végén nézzük meg rajta a modellt.</p>
+
+<div class="box def"><span class="box-title">Definíció – Tanító- és teszthalmaz, rétegzett felosztás</span>
+<ul>
+<li><strong>Tanítóhalmaz (train)</strong>: ezen tanul a modell (a gyakorlaton 75%).</li>
+<li><strong>Teszthalmaz (test)</strong>: ezt a modell tanítás közben sosem látja; ezen mérjük, mennyire jól jósol új adatra (a gyakorlaton 25%; az oktató szerint általában 15–20% is elég, nagyon sok adatnál akár 30%).</li>
+<li><strong>Rétegzett (stratified) felosztás</strong>: a véletlen felosztás úgy történik, hogy az osztályarányok (yes/no) a tanító- és a teszthalmazban is
+közel ugyanazok legyenek, mint a teljes adatban. sklearn-ben: <code>train_test_split(..., stratify=y)</code>.</li>
+</ul>
+<p><strong>Miért rétegzett?</strong> Az adat <strong>kiegyensúlyozatlan</strong>: 114 hallgatóból 81 átment, 33 nem (kb. 71% – 29%).
+Tisztán véletlen felosztásnál előfordulhat, hogy a kis tesztbe alig (vagy egyáltalán nem) kerül bukott hallgató – akkor azt meg sem tudnánk mérni, felismeri-e őket a modell.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – A gyakorlat felosztása</span>
+<p>114 hallgató (81 yes, 33 no), <code>test_size=0.25</code>, <code>stratify=y</code>. Mekkora lesz a két halmaz, és hány „no” kerül a tesztbe?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Teszt: $0{,}25\cdot 114 = 28{,}5$, felfelé kerekítve <strong>29</strong>; tanító: <strong>85</strong>.
+A tesztben a „no” aránya marad kb. 29%: $29\cdot \tfrac{33}{114}\approx 8{,}4$, így <strong>8 no</strong> és 21 yes. A tanítóban 25 no és 60 yes.
+Ellenőrzés: $8/29 = 27{,}6\%$, $25/85 = 29{,}4\%$, az eredeti $33/114 = 28{,}9\%$ – közel azonosak.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Mi romolhat el rétegzés nélkül?</span>
+<p>20 sor, ebből 4 „no” (20%). Teszthalmaz: 4 sor (<code>test_size=0.2</code>). Mi történhet véletlen felosztással, és mi rétegzéssel?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Az arányos érték $4\cdot 0{,}2 = 0{,}8\approx 1$ „no”. Rétegzés nélkül 1000 különböző <code>random_state</code>-tel kipróbálva kb. 42%-ban <strong>egyetlen „no” sem</strong> került a tesztbe,
+máskor 2–3 is. Ha nincs bukott hallgató a tesztben, nem derül ki, hogy a modell felismer-e egyet is. <code>stratify=y</code>-nal mind az 1000 esetben pontosan 1 „no” került a tesztbe.</p></details>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Hüvelykujjszabály</span>
+<p>A felosztás <strong>előbb</strong> van, mint a tanítás, és minden tanulás (illesztés) <strong>csak a tanítóhalmazon</strong> történik.
+A <code>random_state=42</code> csak azt biztosítja, hogy a „véletlen” felosztás minden futtatáskor ugyanaz legyen (reprodukálhatóság).
+Döntési fához <strong>nem kell standardizálni</strong>: a fa küszöböket keres egy-egy változón, a skála nem számít (szemben a K-means-szel).</p>
+</div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia</span>
+<p><em>one-hot encoding</em> = one-hot kódolás (dummy-változók; pandas: <code>get_dummies</code>) · <em>train / test set</em> = tanító- / teszthalmaz ·
+<em>stratify</em> = rétegzés · <em>imbalanced / balanced</em> = kiegyensúlyozatlan / kiegyensúlyozott · <em>random_state</em> = véletlenmag.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Kódolás és felosztás (5 feladat)</summary>
+<ol>
+  <li><p>Kódold one-hot formában: <code>programme</code> = CS, BI, CS, ME (CS = Computer Science, BI = Business Informatics, ME = Mechanical Engineering), az oszlopsorrend BI, CS, ME.</p>
+    <details class="solution"><summary>Megoldás</summary><p>CS → (0, 1, 0); BI → (1, 0, 0); CS → (0, 1, 0); ME → (0, 0, 1). Minden sorban pontosan egy 1-es.</p></details></li>
+  <li><p>A gyakorlaton a <code>get_dummies</code> után hány oszlopa lett X-nek?</p>
+    <details class="solution"><summary>Megoldás</summary><p>4 numerikus + 3 dummy = <strong>7</strong> oszlop: <code>study_hours, attendance, previous_gpa, assignments_completed, programme_Business Informatics, programme_Computer Science, programme_Mechanical Engineering</code>.</p></details></li>
+  <li><p>Miért rossz ötlet a szakokat 1, 2, 3 számokkal kódolni?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Mert kitalált sorrendet és távolságot visz be (a „3” nagyobb a „2”-nél, a 2 a 1 és 3 között van). Nominális változónál ilyen nincs.
+    Egy küszöbös vágás (pl. „≤ 1,5”) így önkényesen csoportosítaná a szakokat.</p></details></li>
+  <li><p>Egy 200 soros adatban 40 „no” van. <code>test_size=0.25</code>, <code>stratify=y</code>. Hány sor és hány „no” lesz a tesztben?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$0{,}25\cdot 200 = 50$ tesztsor. A „no” aránya 20%, tehát $50\cdot 0{,}2 = 10$ no és 40 yes. A tanítóban 150 sor, ebből 30 no.</p></details></li>
+  <li><p>Igaz vagy hamis: „A rétegzés miatt a tanítóhalmazban 50–50% lesz a yes és a no.”</p>
+    <details class="solution"><summary>Megoldás</summary><p>Hamis. A rétegzés az <em>eredeti</em> arányt őrzi meg (itt kb. 71–29%), nem egyenlíti ki az osztályokat.
+    A kiegyenlítés (pl. túlmintavételezés) egy másik technika.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes3">
+<h2>3. lépés – Egy csomópont kevertsége: Gini-index és entrópia</h2>
+
+<h4>Kis eset</h4>
+<p>A döntési fa csoportokat (csomópontokat) bont kettő felé. Ehhez tudnia kell, mennyire „rendezett” egy csoport. Nézz három csoportot, mindegyikben 4 hallgató:</p>
+<div class="table-wrap"><table>
+<tr><th>Csoport</th><th>Összetétel</th><th>Ha ide jutsz, mit tippelsz?</th></tr>
+<tr><td>A</td><td>4 yes, 0 no</td><td>Biztosan yes – <strong>tiszta</strong> csoport</td></tr>
+<tr><td>B</td><td>3 yes, 1 no</td><td>Valószínűleg yes – kicsit kevert</td></tr>
+<tr><td>C</td><td>2 yes, 2 no</td><td>Fogalmad sincs – <strong>maximálisan kevert</strong></td></tr>
+</table></div>
+<p>Egy olyan szám kell, ami A-ra 0, C-re a legnagyobb, B-re köztes. Két ilyen mérőszám van.</p>
+
+<div class="box def"><span class="box-title">Definíció – Gini-index és entrópia</span>
+<p>Ha egy csomópontban $C$ osztály van, és $p_i$ az $i$-edik osztály aránya:</p>
+<p>$$\text{Gini} = 1-\sum_{i=1}^{C} p_i^2 \qquad\qquad H = -\sum_{i=1}^{C} p_i\log_2 p_i$$</p>
+<ul>
+<li>Mindkettő <strong>0</strong>, ha minden példa egy osztályba tartozik (tiszta csomópont).</li>
+<li>Két osztálynál 50–50%-os aránynál a legnagyobbak: <strong>Gini = 0,5</strong>, <strong>H = 1</strong>.</li>
+<li>Az entrópiában a $0\cdot\log_2 0$ tagot 0-nak vesszük.</li>
+</ul>
+<p><strong>Miért ez a képlet?</strong> A Gini annak a valószínűsége, hogy ha a csomópontból két példát véletlenszerűen (visszatevéssel) húzunk, <em>különböző</em> osztályúak:
+$\sum p_i^2$ az „egyformák” esélye, ennek komplementere a „különbözők” esélye. Tiszta csomópontban ez 0. Az entrópia az információelméletből jön: hány bit kell átlagosan az osztály megnevezéséhez.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – B csoport (3 yes, 1 no)</span>
+<details class="solution"><summary>Megoldás</summary>
+<p>$p_{\text{yes}}=3/4=0{,}75$, $p_{\text{no}}=1/4=0{,}25$.</p>
+<p>$\text{Gini}=1-(0{,}75^2+0{,}25^2)=1-(0{,}5625+0{,}0625)=0{,}375$.</p>
+<p>$H=-(0{,}75\log_2 0{,}75+0{,}25\log_2 0{,}25)=-(0{,}75\cdot(-0{,}415)+0{,}25\cdot(-2))=0{,}311+0{,}5\approx 0{,}811$.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – 8 hallgató: 5 yes, 3 no</span>
+<details class="solution"><summary>Megoldás</summary>
+<p>$\text{Gini}=1-\left(\left(\tfrac58\right)^2+\left(\tfrac38\right)^2\right)=1-\tfrac{25+9}{64}=\tfrac{30}{64}\approx 0{,}469$.</p>
+<p>$H=-\left(\tfrac58\log_2\tfrac58+\tfrac38\log_2\tfrac38\right)\approx 0{,}424+0{,}531=0{,}954$.</p>
+<p>Ezt a csoportot használjuk a következő lépésben is.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – A gyakorlat fájának gyökere</span>
+<p>A tanítóhalmaz: 85 hallgató, <code>value = [25, 60]</code> (25 no, 60 yes – az sklearn ábécérendben írja az osztályokat: előbb no, aztán yes).</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>$\text{Gini}=1-\left(\left(\tfrac{25}{85}\right)^2+\left(\tfrac{60}{85}\right)^2\right)=1-(0{,}0865+0{,}4983)\approx 0{,}415$.
+Az ábrán <code>gini = 0.42</code> áll – ez ugyanez, két tizedesre kerekítve.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktatók</span>
+<ul>
+<li><strong>A 0 a jó, nem a 0,5!</strong> A fa a kevertséget <em>csökkenteni</em> akarja. A 0,5 (két osztálynál) a legrosszabb, teljesen kevert állapot.
+(Az órán is elhangzott egy elszólás, majd javítás: „ha 0,5 körüli, az a legjobb… nem jó, az se jó” – a helyes: a <strong>legkisebb</strong> Gini a cél.)</li>
+<li><strong>A 0,5 és az 1 csak két osztályra maximum.</strong> Három osztálynál a Gini maximuma $1-3\cdot\tfrac19=\tfrac23\approx 0{,}667$, az entrópiáé $\log_2 3\approx 1{,}585$.</li>
+<li>A $p_i$ <em>arány</em>, nem darabszám: $1-(3^2+1^2)$ értelmetlen.</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Gini vagy entrópia?</span>
+<p>Ugyanazt mérik, és a gyakorlatban szinte mindig ugyanazt a vágást választják (a mi kis példánkban is). A Gini számolása egyszerűbb (nincs logaritmus), ezért ez az sklearn alapértelmezése:
+<code>DecisionTreeClassifier(<wbr>criterion="gini")</code>; entrópiához <code>criterion="entropy"</code>.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Gini és entrópia (6 feladat)</summary>
+<ol>
+  <li><p>Egy csomópontban 2 no és 8 yes van. Gini?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$1-(0{,}2^2+0{,}8^2)=1-(0{,}04+0{,}64)=0{,}32$.</p></details></li>
+  <li><p>Ugyanennek az entrópiája? ($\log_2 0{,}2\approx-2{,}322$, $\log_2 0{,}8\approx -0{,}322$)</p>
+    <details class="solution"><summary>Megoldás</summary><p>$H=-(0{,}2\cdot(-2{,}322)+0{,}8\cdot(-0{,}322))=0{,}464+0{,}258\approx 0{,}722$.</p></details></li>
+  <li><p>Gini és entrópia: (a) 6 no, 0 yes; (b) 5 no, 5 yes.</p>
+    <details class="solution"><summary>Megoldás</summary><p>(a) Tiszta: Gini = 0, H = 0. (b) 50–50%: Gini = 0,5, H = 1 (két osztálynál ezek a maximumok).</p></details></li>
+  <li><p>Melyik tisztább: [9 no, 1 yes] vagy [3 no, 7 yes]?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\text{Gini}([9,1])=1-(0{,}81+0{,}01)=0{,}18$; $\text{Gini}([3,7])=1-(0{,}09+0{,}49)=0{,}42$. Az elsőnek kisebb a Ginije, tehát az a tisztább.</p></details></li>
+  <li><p>A gyakorlat fájában a gyökér bal gyereke: <code>value = [14, 9]</code>. Ellenőrizd az ábrán álló <code>gini = 0.48</code>-at.</p>
+    <details class="solution"><summary>Megoldás</summary><p>$1-\left(\left(\tfrac{14}{23}\right)^2+\left(\tfrac{9}{23}\right)^2\right)=1-(0{,}3705+0{,}1531)\approx 0{,}476\approx 0{,}48$. ✓</p></details></li>
+  <li><p>Három osztály: [1, 2, 1]. Gini és entrópia?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Arányok: 0,25; 0,5; 0,25. $\text{Gini}=1-(0{,}0625+0{,}25+0{,}0625)=0{,}625$.
+    $H=-(0{,}25\cdot(-2)+0{,}5\cdot(-1)+0{,}25\cdot(-2))=1{,}5$. Mindkettő nagyobb a kétosztályos maximumnál (0,5 és 1) – három osztálynál ez lehetséges.</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l05-lepes3"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes4">
+<h2>4. lépés – A legjobb vágás: súlyozott kevertség, nyereség, numerikus küszöb</h2>
+
+<h4>Kis eset – 8 hallgató</h4>
+<p>Most már meg tudjuk mérni egy csoport kevertségét. De a fa <em>vágásokat</em> hasonlít össze: melyik kérdéssel bontsuk ketté a csoportot?
+Kitalált, kézzel számolható adat (5 yes, 3 no – a gyökér Ginije az előző lépésből 0,469):</p>
+<div class="table-wrap"><table>
+<tr><th>Hallgató</th><th>házi beadva</th><th class="num">tanulás (óra/hét)</th><th>passed</th></tr>
+<tr><td>1</td><td>nem</td><td class="num">2</td><td>no</td></tr>
+<tr><td>2</td><td>igen</td><td class="num">3</td><td>no</td></tr>
+<tr><td>3</td><td>nem</td><td class="num">4</td><td>yes</td></tr>
+<tr><td>4</td><td>nem</td><td class="num">5</td><td>no</td></tr>
+<tr><td>5</td><td>igen</td><td class="num">6</td><td>yes</td></tr>
+<tr><td>6</td><td>igen</td><td class="num">7</td><td>yes</td></tr>
+<tr><td>7</td><td>nem</td><td class="num">8</td><td>yes</td></tr>
+<tr><td>8</td><td>igen</td><td class="num">9</td><td>yes</td></tr>
+</table></div>
+<p>Vágjunk a „házi beadva” szerint. <em>igen</em>: hallgató 2, 5, 6, 8 → [1 no, 3 yes], Gini 0,375. <em>nem</em>: 1, 3, 4, 7 → [2 no, 2 yes], Gini 0,5.
+Hogyan lesz ebből egyetlen szám? Egyszerű átlag nem jó: ha az egyik gyerekben 1, a másikban 99 példa van, a nagyobbik számít többet.</p>
+
+<div class="box def"><span class="box-title">Definíció – Súlyozott kevertség és nyereség</span>
+<p>Egy $D$ csomópont felosztása után a bal ($D_b$) és jobb ($D_j$) gyerek <strong>példaszámmal súlyozott</strong> kevertsége:</p>
+<p>$$I_{\text{vágás}} = \frac{|D_b|}{|D|}\,I(D_b)+\frac{|D_j|}{|D|}\,I(D_j)$$</p>
+<p>ahol $I$ a Gini vagy az entrópia. A <strong>nyereség</strong> (kevertség-csökkenés):
+$$\text{nyereség} = I(D) - I_{\text{vágás}}.$$
+A fa azt a (változó, küszöb) párt választja, amelynél a <strong>súlyozott kevertség a legkisebb</strong>, vagyis a nyereség a legnagyobb.
+Entrópiával a nyereség neve <strong>információnyereség</strong>.</p>
+<p><strong>Miért súlyozott?</strong> Mert a gyerekek a szülő példáit osztják szét: a nagyobb gyerekben több hallgató „szenved” a kevertségtől.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Kategorikus vágás: házi beadva?</span>
+<details class="solution"><summary>Megoldás</summary>
+<p>$I_{\text{vágás}}=\tfrac48\cdot 0{,}375+\tfrac48\cdot 0{,}5 = 0{,}1875+0{,}25=0{,}4375$.</p>
+<p>Nyereség: $0{,}469-0{,}4375\approx 0{,}031$. Alig javít – a házi beadása ebben az adatban gyenge szempont.</p></details>
+</div>
+
+<h4>Numerikus változó: küszöbök</h4>
+<p>A tanulási óraszámnál nincs „igen/nem”. A fa <strong>küszöböt</strong> keres: „óra ≤ $t$?” A szóba jöhető küszöbök a rendezett, szomszédos értékek <strong>felezőpontjai</strong>:
+2 és 3 között 2,5; 3 és 4 között 3,5; … összesen $8-1=7$ jelölt. (Ezért látsz a fában olyan küszöböket, mint 2,895 vagy 8,5.)</p>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – A legjobb küszöb megkeresése</span>
+<p>Minden jelöltre: bal gyerek = akik óraszáma ≤ $t$; jobb = többiek.</p>
+<details class="solution"><summary>Megoldás</summary>
+<div class="table-wrap"><table>
+<tr><th>küszöb $t$</th><th>bal [no, yes]</th><th class="num">Gini bal</th><th>jobb [no, yes]</th><th class="num">Gini jobb</th><th class="num">súlyozott Gini</th><th class="num">nyereség</th></tr>
+<tr><td>2,5</td><td>[1, 0]</td><td class="num">0</td><td>[2, 5]</td><td class="num">0,408</td><td class="num">0,357</td><td class="num">0,112</td></tr>
+<tr><td>3,5</td><td>[2, 0]</td><td class="num">0</td><td>[1, 5]</td><td class="num">0,278</td><td class="num">0,208</td><td class="num">0,260</td></tr>
+<tr><td>4,5</td><td>[2, 1]</td><td class="num">0,444</td><td>[1, 4]</td><td class="num">0,320</td><td class="num">0,367</td><td class="num">0,102</td></tr>
+<tr><td><strong>5,5</strong></td><td>[3, 1]</td><td class="num">0,375</td><td>[0, 4]</td><td class="num">0</td><td class="num"><strong>0,1875</strong></td><td class="num"><strong>0,281</strong></td></tr>
+<tr><td>6,5</td><td>[3, 2]</td><td class="num">0,480</td><td>[0, 3]</td><td class="num">0</td><td class="num">0,300</td><td class="num">0,169</td></tr>
+<tr><td>7,5</td><td>[3, 3]</td><td class="num">0,500</td><td>[0, 2]</td><td class="num">0</td><td class="num">0,375</td><td class="num">0,094</td></tr>
+<tr><td>8,5</td><td>[3, 4]</td><td class="num">0,490</td><td>[0, 1]</td><td class="num">0</td><td class="num">0,429</td><td class="num">0,040</td></tr>
+</table></div>
+<p>Részletesen a nyertesre: $t=5{,}5$ → bal $\{1,2,3,4\}$ = [3 no, 1 yes], Gini $=1-(0{,}75^2+0{,}25^2)=0{,}375$; jobb $\{5,6,7,8\}$ = [0, 4], Gini 0.
+Súlyozott: $\tfrac48\cdot0{,}375+\tfrac48\cdot 0=0{,}1875$.</p>
+<p><strong>A legjobb vágás: „óra ≤ 5,5”</strong> (súlyozott Gini 0,1875). Szorosan mögötte a 3,5 (0,208). A házi beadása (0,4375) messze lemarad.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – Ugyanez entrópiával</span>
+<details class="solution"><summary>Megoldás</summary>
+<p>Gyökér: $H=0{,}954$. „óra ≤ 5,5”: bal [3,1] → $H=0{,}811$, jobb [0,4] → 0. Súlyozott: $\tfrac48\cdot 0{,}811=0{,}406$, információnyereség $0{,}954-0{,}406=0{,}549$.
+„óra ≤ 3,5”: súlyozott 0,488, nyereség 0,467. Házi: súlyozott 0,906, nyereség 0,049. <strong>Ugyanaz a nyertes</strong>, mint Ginivel.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktatók</span>
+<ul>
+<li>Súlyozás nélküli átlag: $(0{,}375+0)/2$ itt véletlenül ugyanannyi, mert 4–4 a felosztás, de egyenlőtlen gyerekeknél rossz eredményt ad.</li>
+<li>A <em>legkisebb súlyozott</em> kevertséget (vagy a <em>legnagyobb</em> nyereséget) keressük – nem a legnagyobbat.</li>
+<li>Egy vágás nem feltétlenül tisztít meg egy gyereket teljesen; elég, ha összességében csökken a kevertség.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Vágás kiválasztása (5 feladat)</summary>
+<ol>
+  <li><p>A 8 hallgatós példában számold ki a „óra ≤ 6,5” vágás súlyozott Ginijét.</p>
+    <details class="solution"><summary>Megoldás</summary><p>Bal: 1–5 → [3 no, 2 yes], Gini $1-(0{,}36+0{,}16)=0{,}48$. Jobb: 6–8 → [0, 3], Gini 0. Súlyozott: $\tfrac58\cdot 0{,}48=0{,}30$.</p></details></li>
+  <li><p>Hány jelölt küszöböt vizsgál a fa egy numerikus változón, ha a csomópontban 6 különböző érték van: 1, 3, 4, 7, 8, 10? Sorold fel őket.</p>
+    <details class="solution"><summary>Megoldás</summary><p>$6-1=5$ felezőpont: 2; 3,5; 5,5; 7,5; 9.</p></details></li>
+  <li><p>A gyakorlat fájának gyökérvágása (<code>previous_gpa ≤ 2,895</code>): bal [14, 9], jobb [11, 51], a gyökér [25, 60] (Gini 0,415). Súlyozott Gini és nyereség?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Gini bal 0,476; jobb $1-((11/62)^2+(51/62)^2)\approx 0{,}292$.
+    Súlyozott: $\tfrac{23}{85}\cdot 0{,}476+\tfrac{62}{85}\cdot 0{,}292\approx 0{,}129+0{,}213=0{,}342$. Nyereség: $0{,}415-0{,}342\approx 0{,}073$.
+    Az összes többi (változó, küszöb) pár ennél kisebb nyereséget adott – ezért lett ez a gyökér.</p></details></li>
+  <li><p>A 8 hallgatós példában az első vágás után a bal gyerek: hallgató 1–4 (2 h no, 3 h no, 4 h yes, 5 h no; házi: nem, igen, nem, nem). Melyik a legjobb következő vágás: házi, „óra ≤ 2,5”, „≤ 3,5” vagy „≤ 4,5”?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A szülő [3, 1], Gini 0,375.
+    Házi: igen {2} = [1,0], nem {1,3,4} = [2,1] → $\tfrac34\cdot0{,}444=0{,}333$.
+    ≤ 2,5: [1,0] és [2,1] → 0,333. ≤ 3,5: [2,0] és [1,1] → $\tfrac24\cdot 0{,}5=0{,}25$. ≤ 4,5: [2,1] és [1,0] → 0,333.
+    <strong>A legjobb: „óra ≤ 3,5”</strong> (0,25).</p></details></li>
+  <li><p>Két vágás: A: bal [0, 10], jobb [10, 10]; B: bal [5, 5], jobb [5, 15]. Melyiket választja a fa (Gini)?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Szülő [10, 20], 30 példa. A: $\tfrac{10}{30}\cdot 0+\tfrac{20}{30}\cdot 0{,}5=0{,}333$.
+    B: $\tfrac{10}{30}\cdot 0{,}5+\tfrac{20}{30}\cdot (1-(0{,}25^2+0{,}75^2))=0{,}167+\tfrac23\cdot 0{,}375=0{,}167+0{,}25=0{,}417$. Az <strong>A</strong> a jobb (kisebb súlyozott Gini).</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes5">
+<h2>5. lépés – A fa felépítése, leállási feltételek, szabályok kiolvasása</h2>
+
+<h4>Kis eset – folytatjuk a 8 hallgatót</h4>
+<p>Az első vágás „óra ≤ 5,5” lett. A jobb gyerek [0 no, 4 yes] <strong>tiszta</strong> – ott nincs mit tovább bontani: levél, címkéje <em>yes</em>.
+A bal gyerek [3, 1] még kevert. Ugyanazt csináljuk vele, mint a gyökérrel: megkeressük a legjobb vágását (a gyakorlásban kijött: „óra ≤ 3,5”).
+Ugyanaz az eljárás hívódik meg újra és újra, egyre kisebb csoportokon. Ha sosem állítjuk meg, ez a fa jön ki:</p>
+
+<figure>
+<svg viewBox="0 0 640 330" role="img" aria-label="A 8 hallgatós példa teljes döntési fája" style="max-width:640px;width:100%">
+  <style>
+    .nd{fill:var(--bg-soft, transparent);stroke:currentColor;stroke-width:1.2}
+    .lf{fill:none;stroke:var(--accent, currentColor);stroke-width:2}
+    .tx{fill:currentColor;font:13px Inter,system-ui,sans-serif;text-anchor:middle}
+    .sm{fill:currentColor;font:11px Inter,system-ui,sans-serif;text-anchor:middle;opacity:.8}
+    .ln{stroke:currentColor;stroke-width:1.1;fill:none;opacity:.7}
+  </style>
+  <line class="ln" x1="320" y1="62" x2="180" y2="112"/><line class="ln" x1="320" y1="62" x2="480" y2="112"/>
+  <line class="ln" x1="180" y1="162" x2="90" y2="212"/><line class="ln" x1="180" y1="162" x2="280" y2="212"/>
+  <line class="ln" x1="280" y1="262" x2="215" y2="282"/><line class="ln" x1="280" y1="262" x2="345" y2="282"/>
+  <text class="sm" x="235" y="80">igen</text><text class="sm" x="410" y="80">nem</text>
+  <text class="sm" x="120" y="182">igen</text><text class="sm" x="248" y="182">nem</text>
+  <rect class="nd" x="230" y="12" width="180" height="50" rx="8"/>
+  <text class="tx" x="320" y="32">óra ≤ 5,5 ?</text><text class="sm" x="320" y="50">[3 no, 5 yes] · Gini 0,469</text>
+  <rect class="nd" x="95" y="112" width="170" height="50" rx="8"/>
+  <text class="tx" x="180" y="132">óra ≤ 3,5 ?</text><text class="sm" x="180" y="150">[3, 1] · Gini 0,375</text>
+  <rect class="lf" x="410" y="112" width="140" height="50" rx="8"/>
+  <text class="tx" x="480" y="132">levél: yes</text><text class="sm" x="480" y="150">[0, 4] · Gini 0</text>
+  <rect class="lf" x="25" y="212" width="130" height="50" rx="8"/>
+  <text class="tx" x="90" y="232">levél: no</text><text class="sm" x="90" y="250">[2, 0] · Gini 0</text>
+  <rect class="nd" x="195" y="212" width="170" height="50" rx="8"/>
+  <text class="tx" x="280" y="232">óra ≤ 4,5 ?</text><text class="sm" x="280" y="250">[1, 1] · Gini 0,5</text>
+  <rect class="lf" x="150" y="282" width="130" height="44" rx="8"/>
+  <text class="tx" x="215" y="300">levél: yes</text><text class="sm" x="215" y="316">[0, 1] · hallg. 3</text>
+  <rect class="lf" x="290" y="282" width="130" height="44" rx="8"/>
+  <text class="tx" x="355" y="300">levél: no</text><text class="sm" x="355" y="316">[1, 0] · hallg. 4</text>
+</svg>
+<figcaption>A 8 hallgatós példa korlátozás nélkül növesztett fája (sklearn-nel ellenőrizve). Kiemelt keret = levél. Az alsó két levél egy-egy hallgatót „magol be”.</figcaption>
+</figure>
+
+<p>Nézd meg az alsó két levelet: „3,5 &lt; óra ≤ 4,5 → yes”, „4,5 &lt; óra ≤ 5,5 → no”. Ez nem általános szabály, hanem egy-egy hallgató bemagolása.
+Ezért kell a fát <strong>megállítani</strong>.</p>
+
+<div class="box def"><span class="box-title">Algoritmus – Döntési fa tanítása (a gyakorlat PDF-je alapján)</span>
+<p><code>FA_TANÍTÁS(D, mélység)</code>, ahol $D$ az aktuális csomópont tanítópéldái:</p>
+<ol>
+<li>A csomópont <strong>többségi osztálya</strong> = a $D$-ben leggyakoribb osztály (ez lesz a címke, ha itt megállunk).</li>
+<li><strong>Leállás</strong> (levél a többségi osztállyal), ha
+  <ul><li>$D$ minden példája egy osztályba tartozik (tiszta), vagy</li>
+  <li>elértük a maximális mélységet, vagy túl kevés példa maradt a további felosztáshoz.</li></ul></li>
+<li>Különben <strong>minden megengedett (változó, küszöb) párra</strong>: felosztás bal ($x\le$ küszöb) és jobb ($x&gt;$ küszöb) részre;
+  ha valamelyik gyerekben túl kevés példa lenne, kihagyjuk; kiszámoljuk a nyereséget $I(D)-\tfrac{|D_b|}{|D|}I(D_b)-\tfrac{|D_j|}{|D|}I(D_j)$, és megjegyezzük a legjobbat.</li>
+<li>Ha nincs megengedett felosztás, vagy a nyereség túl kicsi: levél a többségi osztállyal.</li>
+<li>Különben a legjobb feltétellel kettévágunk, és <strong>mindkét gyerekre újra meghívjuk</strong>: <code>FA_TANÍTÁS(bal, mélység+1)</code>, <code>FA_TANÍTÁS(jobb, mélység+1)</code>.</li>
+</ol>
+<p>Indítás: <code>FA_TANÍTÁS(tanítóadatok, 0)</code>. <strong>Előrejelzés</strong>: egy új példával a gyökértől a feltételeket követve lemegyünk egy levélig; a levél címkéje a jóslat.
+A tesztadat nem része a tanításnak.</p>
+<p><strong>Miért mohó?</strong> Minden csomópontban csak az <em>adott</em> lépés legjobb vágását nézi, nem tervez előre. Ez gyors, de nem garantálja a globálisan legjobb fát.</p>
+</div>
+
+<div class="box def"><span class="box-title">Leállási feltételek az sklearn-ben</span>
+<ul>
+<li><code>max_depth</code>: a fa legfeljebb ennyi szint mély (a gyakorlaton 3). A gyökér a 0. szint, a levelek a 3.-on vannak.</li>
+<li><code>min_samples_leaf</code>: egy levélben legalább ennyi példa legyen (a gyakorlaton 5). Olyan vágást, ami ennél kisebb gyereket hozna létre, nem enged.</li>
+<li>Ha többet adunk meg, <strong>amelyik előbb teljesül</strong>, az állítja le az adott ágat.</li>
+</ul>
+<p>Egy <code>max_depth=3</code>-as bináris fának legfeljebb $2^3=8$ levele lehet. A gyakorlaton pont 8 lett.</p>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Hüvelykujjszabály – szabály kiolvasása</span>
+<p>Egy <strong>szabály = egy út a gyökértől egy levélig</strong>. Az út feltételei <strong>ÉS</strong>-sel kapcsolódnak, a levél címkéje a következmény:
+„HA feltétel₁ ÉS feltétel₂ ÉS … AKKOR osztály”. Ahány levél, annyi szabály. A fa bal ága mindig az „igaz” (≤) ág.</p>
+</div>
+
+<h4>A gyakorlat fája</h4>
+<figure>
+<img src="../resources/Gyak5/student_decision_tree.png" alt="A gyakorlaton tanított döntési fa (max_depth=3, min_samples_leaf=5)">
+<figcaption>A gyakorlat fája. Egy csomópontban: feltétel, gini, samples (tanítópéldák száma), value = [no, yes], class (többségi osztály). Bal = True (≤), jobb = False.</figcaption>
+</figure>
+<p>Ugyanez szövegesen (<code>student_decision_rules.txt</code>, az <code>export_text</code> kimenete):</p>
+<pre><code class="language-text">|--- previous_gpa &lt;= 2.895
+|   |--- programme_Computer Science &lt;= 0.500
+|   |   |--- attendance &lt;= 69.700
+|   |   |   |--- class: yes
+|   |   |--- attendance &gt;  69.700
+|   |   |   |--- class: no
+|   |--- programme_Computer Science &gt;  0.500
+|   |   |--- previous_gpa &lt;= 2.610
+|   |   |   |--- class: no
+|   |   |--- previous_gpa &gt;  2.610
+|   |   |   |--- class: no
+|--- previous_gpa &gt;  2.895
+|   |--- previous_gpa &lt;= 3.835
+|   |   |--- assignments_completed &lt;= 8.500
+|   |   |   |--- class: yes
+|   |   |--- assignments_completed &gt;  8.500
+|   |   |   |--- class: yes
+|   |--- previous_gpa &gt;  3.835
+|   |   |--- study_hours &lt;= 7.050
+|   |   |   |--- class: yes
+|   |   |--- study_hours &gt;  7.050
+|   |   |   |--- class: yes</code></pre>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Egy szabály kiolvasása</span>
+<p>Írd fel a bal szélső levélhez vezető szabályt, a levél adataival együtt.</p>
+<details class="solution"><summary>Megoldás</summary>
+<p><strong>HA</strong> previous_gpa ≤ 2,895 <strong>ÉS</strong> programme_Computer Science ≤ 0,5 (azaz <em>nem</em> CS-es) <strong>ÉS</strong> attendance ≤ 69,7
+<strong>AKKOR</strong> passed = yes. A levélben 5 tanító-hallgató van, value = [1, 4]: 4 átment, 1 nem. Gini 0,32.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Új hallgató besorolása</span>
+<p>previous_gpa = 2,7; programme = Business Informatics; attendance = 80%. Mit jósol a fa?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>2,7 ≤ 2,895 → balra. Nem CS-es (dummy = 0 ≤ 0,5) → balra. attendance = 80 &gt; 69,7 → jobbra. Levél: value = [4, 3] → <strong>no</strong>.
+(Nem túl magabiztos: 7-ből 4 no.)</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – Egyszerűsítés: azonos címkéjű testvérlevelek</span>
+<p>Mit veszel észre a jobb oldali négy levélen és a CS-ág két levelén?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Mindegyik testvérpár <em>ugyanazt</em> jósolja (yes–yes, no–no). A vágás a Ginit csökkentette (pl. [10, 28] → [10, 19] és [0, 9]: az egyik gyerek tiszta lett),
+ezért a fa megcsinálta – de a <em>jóslaton</em> nem változtat. A fa tehát tömören így jósol:</p>
+<ul>
+<li>previous_gpa &gt; 2,895 → <strong>yes</strong>;</li>
+<li>previous_gpa ≤ 2,895 ÉS CS-es → <strong>no</strong>;</li>
+<li>previous_gpa ≤ 2,895 ÉS nem CS-es ÉS attendance ≤ 69,7 → <strong>yes</strong>; különben → <strong>no</strong>.</li>
+</ul>
+<p>A legfontosabb változó a korábbi tanulmányi átlag (a fa változófontossága szerint is kb. 65%).</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktatók</span>
+<ul>
+<li><strong>Kis levélből nem szabad messzemenő következtetést levonni.</strong> A „kevesebb óralátogatás → átmegy” szabály (attendance ≤ 69,7 → yes) 5 hallgatón alapul.
+Ez valószínűleg véletlen, nem ok-okozat. A fa összefüggést talál, nem magyarázatot.</li>
+<li>A <code>value</code> sorrendje az osztályok ábécérendje (<code>no</code>, <code>yes</code>) – az órán is kérdés volt, melyik szám melyik osztály.</li>
+<li>A dummy-n a „≤ 0,5” azt jelenti: értéke 0, vagyis <em>nem</em> abba a kategóriába tartozik.</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia</span>
+<p><em>root / node / leaf</em> = gyökér / csomópont / levél · <em>split</em> = vágás, felosztás · <em>threshold</em> = küszöb · <em>impurity</em> = kevertség, tisztátalanság ·
+<em>information gain</em> = információnyereség · <em>depth</em> = mélység · <em>samples</em> = példák száma · <em>value</em> = osztályonkénti darabszám · <em>feature importance</em> = változófontosság.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Fa építése és olvasása (6 feladat)</summary>
+<ol>
+  <li><p>A gyakorlat fája szerint mit jósol: previous_gpa = 3,2; assignments_completed = 9?</p>
+    <details class="solution"><summary>Megoldás</summary><p>3,2 &gt; 2,895 → jobbra; 3,2 ≤ 3,835 → balra; 9 &gt; 8,5 → jobbra. Levél [0, 9] → <strong>yes</strong> (tiszta levél).</p></details></li>
+  <li><p>És ha previous_gpa = 2,7 és a hallgató Computer Science szakos?</p>
+    <details class="solution"><summary>Megoldás</summary><p>2,7 ≤ 2,895 → balra; CS-es (1 &gt; 0,5) → jobbra; 2,7 &gt; 2,61 → jobbra. Levél [3, 2] → <strong>no</strong>.</p></details></li>
+  <li><p>A 8 levél <code>value</code> értékei balról jobbra: [1,4], [4,3], [6,0], [3,2], [10,19], [0,9], [1,4], [0,19]. Hány tanító-hallgatót sorol be rosszul a fa, és mennyi a tanítóhalmazon az accuracy?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Minden levélben a kisebbség téved: $1+3+0+2+10+0+1+0=17$ hiba. Helyes: $85-17=68$. Tanító-accuracy $68/85=0{,}80$.</p></details></li>
+  <li><p>A 8 hallgatós példában <code>max_depth=1</code>-gyel mi lesz a fa, és mit jósol egy 4 órát tanuló hallgatóra? És a korlátlan fa?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Csak a gyökérvágás marad: óra ≤ 5,5 → bal levél [3, 1] → no; jobb [0, 4] → yes. A 4 órásra: <strong>no</strong>.
+    A korlátlan fa: 3,5 &lt; 4 ≤ 4,5 → <strong>yes</strong> (a 3. hallgató alapján). A két fa itt eltér.</p></details></li>
+  <li><p>Hol „dolgozott” a <code>min_samples_leaf=5</code> korlát a gyakorlat fájában? Melyik feltétel állította meg a fát a 3. szinten?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A levelek mind a 3. szinten vannak, ott a <code>max_depth=3</code> állította meg a fát. A <code>min_samples_leaf=5</code> a <em>vágások kiválasztásánál</em> hatott:
+    csak olyan küszöb jöhetett szóba, amely mindkét oldalon legalább 5 példát hagy – ezért van három pontosan 5 elemű levél ([1,4], [3,2], [1,4]).
+    Hogy tényleg számított: ugyanez a fa <code>min_samples_leaf</code> nélkül (szintén mélység 3) más vágásokat választ, és tanító-accuracy-je 0,859 lesz 0,800 helyett (8. lépés táblázata).</p></details></li>
+  <li><p>Hány szabályt lehet kiolvasni a gyakorlat fájából, és miért?</p>
+    <details class="solution"><summary>Megoldás</summary><p>8-at, mert 8 levél van, és minden levélhez pontosan egy gyökér–levél út vezet. (Az azonos címkéjű testvérlevelek összevonásával 4 tömörebb szabályra egyszerűsíthető.)</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes6">
+<h2>6. lépés – Konfúziós mátrix: accuracy, precision, recall, F1</h2>
+
+<h4>Kis eset – 10 hallgató</h4>
+<p>Egy modell 10 teszt-hallgatóra jósolt. Pozitív osztály: <strong>yes</strong> (átment).</p>
+<div class="table-wrap"><table>
+<tr><th>Hallgató</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9</th><th>10</th></tr>
+<tr><td>valódi</td><td>yes</td><td>yes</td><td>yes</td><td>yes</td><td>yes</td><td>yes</td><td>no</td><td>no</td><td>no</td><td>no</td></tr>
+<tr><td>jósolt</td><td>yes</td><td>yes</td><td>yes</td><td>yes</td><td>no</td><td>no</td><td>yes</td><td>no</td><td>no</td><td>no</td></tr>
+</table></div>
+<p>Négyféle eset lehet: helyesen mondtuk yes-nek (1–4), tévesen no-nak (5–6), tévesen yes-nek (7), helyesen no-nak (8–10). Számoljuk össze őket egy táblában.</p>
+
+<div class="box def"><span class="box-title">Definíció – Konfúziós (tévesztési) mátrix</span>
+<div class="table-wrap"><table>
+<tr><th></th><th>jósolt: pozitív</th><th>jósolt: negatív</th></tr>
+<tr><th>valódi: pozitív</th><td><strong>TP</strong> – valódi pozitív (eltalált pozitív)</td><td><strong>FN</strong> – hamis negatív (elszalasztott pozitív)</td></tr>
+<tr><th>valódi: negatív</th><td><strong>FP</strong> – hamis pozitív (téves riasztás)</td><td><strong>TN</strong> – valódi negatív</td></tr>
+</table></div>
+<p>A kis esetben: TP = 4, FN = 2, FP = 1, TN = 3. Az elnevezés: a második betű (P/N) azt mondja, mit <em>jósoltunk</em>; az első (T/F), hogy ez igaz volt-e.</p>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – A négy mérőszám</span>
+<p>$$\text{accuracy}=\frac{TP+TN}{TP+TN+FP+FN}\qquad \text{precision}=\frac{TP}{TP+FP}\qquad \text{recall}=\frac{TP}{TP+FN}$$
+$$F_1 = \frac{2\cdot\text{precision}\cdot\text{recall}}{\text{precision}+\text{recall}}$$</p>
+<ul>
+<li><strong>Pontosság (accuracy)</strong>: az összes előrejelzés mekkora része helyes.</li>
+<li><strong>Precizitás (precision)</strong>: a <em>pozitívnak jósolt</em> esetek mekkora része valóban pozitív. (A mátrix „jósolt: pozitív” <em>oszlopa</em>.)</li>
+<li><strong>Érzékenység (recall)</strong>: a <em>valóban pozitív</em> esetek mekkora részét találta meg a modell. (A mátrix „valódi: pozitív” <em>sora</em>.)</li>
+<li><strong>F1</strong>: a precision és a recall <strong>harmonikus</strong> átlaga.</li>
+</ul>
+<p><strong>Miért kell négy szám?</strong> Mert kétféle hiba van, és nem egyformán fájnak. Spamszűrőnél a téves riasztás (FP: fontos levél a spambe kerül) a drága → precision.
+Betegségszűrésnél az elszalasztott beteg (FN) a drága → recall. Az F1 harmonikus átlaga pedig csak akkor magas, ha <em>mindkettő</em> magas.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – A 10 hallgató</span>
+<details class="solution"><summary>Megoldás</summary>
+<p>accuracy $=\tfrac{4+3}{10}=0{,}70$; precision $=\tfrac{4}{4+1}=0{,}80$; recall $=\tfrac{4}{4+2}\approx 0{,}667$;
+$F_1=\tfrac{2\cdot 0{,}8\cdot 0{,}667}{0{,}8+0{,}667}\approx 0{,}727$.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – A gyakorlat döntési fája a teszthalmazon</span>
+<p>Az sklearn konfúziós mátrixa: <strong>sor = valódi, oszlop = jósolt</strong>, az osztályok ábécérendben (no, yes):</p>
+<div class="table-wrap"><table>
+<tr><th></th><th class="num">jósolt no</th><th class="num">jósolt yes</th></tr>
+<tr><th>valódi no</th><td class="num">4</td><td class="num">4</td></tr>
+<tr><th>valódi yes</th><td class="num">4</td><td class="num">17</td></tr>
+</table></div>
+<details class="solution"><summary>Megoldás</summary>
+<p>Pozitív = yes, tehát TP = 17 (jobb alsó!), FN = 4, FP = 4, TN = 4.</p>
+<p>accuracy $=\tfrac{17+4}{29}=0{,}724$; precision $=\tfrac{17}{21}=0{,}810$; recall $=\tfrac{17}{21}=0{,}810$; $F_1=0{,}810$ (ha precision = recall, az F1 is ugyanannyi).
+Ezek pontosan a <code>student_model_comparison.csv</code> értékei.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – Ugyanaz, de a „no” a pozitív</span>
+<details class="solution"><summary>Megoldás</summary>
+<p>Most TP = 4 (bal felső), FN = 4, FP = 4, TN = 17. precision $=4/8=0{,}5$; recall $=4/8=0{,}5$; $F_1=0{,}5$.
+Az accuracy nem változik (0,724). A bukó hallgatók közül <strong>csak minden másodikat</strong> találta meg a fa – a <code>classification_report</code> „no” sora is ezt mutatja.
+Az órán is elhangzott: a kisebbségi osztályt (kevés tanítóminta) rosszabbul jósolja a modell.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktatók</span>
+<ul>
+<li><strong>Az sklearn mátrixában a pozitív (yes) a <em>jobb alsó</em> sarok</strong>, mert ábécérendben a „no” jön előbb. Sok tankönyvben a TP bal felül van – ne pozíció alapján, hanem a feliratok alapján olvass!</li>
+<li>Precision és recall felcserélése. Precision: „amit pozitívnak mondtam, abból mennyi igaz?” (oszlop). Recall: „a valódi pozitívokból mennyit találtam meg?” (sor).
+(Az órán is előfordult, hogy élőben ezek összekeveredtek – a definíció dönt.)</li>
+<li>A precision, recall, F1 <strong>mindig egy kijelölt pozitív osztályra</strong> vonatkozik (<code>pos_label="yes"</code>). Ha megfordítod, más számok jönnek ki.</li>
+<li>Az F1 nem számtani átlag: precision = 1, recall = 0,1 esetén $F_1\approx 0{,}18$, nem 0,55.</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia</span>
+<p><em>confusion matrix</em> = konfúziós / tévesztési mátrix · <em>accuracy</em> = pontosság (találati arány) · <em>precision</em> = precizitás · <em>recall / sensitivity</em> = érzékenység, felidézés ·
+<em>F1-score</em> = F1-mutató · <em>true/false positive/negative</em> = valódi/hamis pozitív/negatív · <em>support</em> (a <code>classification_report</code>-ban) = az osztály valódi elemszáma.
+Vigyázz: a magyar „pontosság” az <em>accuracy</em>, nem a precision!</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Mérőszámok kézzel (6 feladat)</summary>
+<ol>
+  <li><p>TP = 30, FP = 10, FN = 5, TN = 55. Számold ki a négy mérőszámot.</p>
+    <details class="solution"><summary>Megoldás</summary><p>accuracy $=85/100=0{,}85$; precision $=30/40=0{,}75$; recall $=30/35\approx 0{,}857$; $F_1=\tfrac{2\cdot0{,}75\cdot0{,}857}{0{,}75+0{,}857}=0{,}80$.</p></details></li>
+  <li><p>sklearn-mátrix (sor = valódi, oszlop = jósolt, sorrend no, yes): [[50, 10], [20, 20]]. Pozitív = yes. TP, FP, FN, TN? Precision, recall?</p>
+    <details class="solution"><summary>Megoldás</summary><p>TP = 20 (jobb alsó), FN = 20 (bal alsó), FP = 10 (jobb felső), TN = 50. precision $=20/30\approx 0{,}667$; recall $=20/40=0{,}5$; accuracy $=70/100=0{,}7$; $F_1\approx 0{,}571$.</p></details></li>
+  <li><p>Ugyanez a mátrix, de pozitív = no. Precision és recall?</p>
+    <details class="solution"><summary>Megoldás</summary><p>TP = 50, FP = 20 (valódi yes, jósolt no), FN = 10. precision $=50/70\approx 0{,}714$; recall $=50/60\approx 0{,}833$.</p></details></li>
+  <li><p>Precision = 1,0, recall = 0,1. Mennyi az F1, és mit jelent ez a modell viselkedésére?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$F_1=\tfrac{2\cdot1\cdot0{,}1}{1{,}1}\approx 0{,}182$. A modell nagyon ritkán mond pozitívat, de akkor mindig igaza van – viszont a pozitívok 90%-át elszalasztja. Az F1 ezt bünteti.</p></details></li>
+  <li><p>Egy egyetem a bukásveszélyes hallgatóknak felzárkóztatást ajánl. Pozitív = „bukik”. Melyik mérőszám fontosabb, ha az a cél, hogy egy veszélyeztetett se maradjon ki?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A <strong>recall</strong> (a valóban bukók mekkora részét szűrjük ki). Egy fölösleges meghívás (FP) olcsó, egy elszalasztott bukó (FN) drága.</p></details></li>
+  <li><p>Miért egyezik a gyakorlat fájánál a precision és a recall (yes-re mindkettő 0,810)?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Mert FP = FN = 4, így $TP/(TP+FP)=TP/(TP+FN)=17/21$. Ez véletlen egybeesés, nem szabály.</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l05-lepes6"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes7">
+<h2>7. lépés – Többségi alapmodell és kiegyensúlyozatlan osztályok</h2>
+
+<h4>Kis eset</h4>
+<p>Képzelj el egy „modellt”, ami meg sem nézi a hallgatót: mindenkire azt mondja, <em>yes</em>, mert a tanítóhalmazban a többség (60 a 85-ből) átment.
+A teszthalmazban 21 yes és 8 no van. Hányat talál el? 21-et a 29-ből: <strong>72,4%</strong>. Pontosan annyit, mint a döntési fa.</p>
+
+<div class="box def"><span class="box-title">Definíció – Többségi alapmodell (baseline)</span>
+<p>A <strong>többségi alapmodell</strong> a jellemzőket figyelmen kívül hagyja, és mindig a <strong>tanítóhalmaz</strong> leggyakoribb osztályát jósolja
+(sklearn: <code>DummyClassifier(<wbr>strategy="most_frequent")</code>). Accuracy-je a teszten = a többségi osztály aránya.</p>
+<p><strong>Miért kell?</strong> Ez a „nulla tudás” szintje. Egy modell csak akkor ér valamit, ha <em>ezt</em> megveri. Kiegyensúlyozatlan adatnál (pl. 72–28%) már a semmittevés is magas accuracy-t ad.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa – A gyakorlat összehasonlítása</span>
+<p>Az alapmodell konfúziós mátrixa (sor = valódi, oszlop = jósolt):</p>
+<div class="table-wrap"><table>
+<tr><th></th><th class="num">jósolt no</th><th class="num">jósolt yes</th></tr>
+<tr><th>valódi no</th><td class="num">0</td><td class="num">8</td></tr>
+<tr><th>valódi yes</th><td class="num">0</td><td class="num">21</td></tr>
+</table></div>
+<figure><img src="../resources/Gyak5/student_confusion_matrices.png" alt="Konfúziós mátrixok: döntési fa és többségi alapmodell"><figcaption>A gyakorlat két konfúziós mátrixa (<code>student_confusion_matrices.png</code>).</figcaption></figure>
+<details class="solution"><summary>Megoldás – a mérőszámok (pozitív = yes)</summary>
+<div class="table-wrap"><table>
+<tr><th>modell</th><th class="num">accuracy</th><th class="num">balanced acc.</th><th class="num">precision</th><th class="num">recall</th><th class="num">F1</th></tr>
+<tr><td>Döntési fa</td><td class="num">0,724</td><td class="num">0,655</td><td class="num">0,810</td><td class="num">0,810</td><td class="num">0,810</td></tr>
+<tr><td>Többségi alapmodell</td><td class="num">0,724</td><td class="num">0,500</td><td class="num">0,724</td><td class="num">1,000</td><td class="num">0,840</td></tr>
+</table></div>
+<p>Alapmodell: TP = 21, FP = 8, FN = 0, TN = 0. accuracy $=21/29=0{,}724$; precision $=21/29=0{,}724$ (a jósolt yes-ek közt ott a 8 bukó); recall $=21/21=1$ (minden átmenőt „megtalált”, hiszen mindenkit yes-nek mondott);
+$F_1=\tfrac{2\cdot 0{,}724\cdot 1}{1{,}724}=0{,}84$.</p>
+<p><strong>Meglepő:</strong> yes-re nézve az alapmodell F1-e (0,84) <em>nagyobb</em>, mint a fáé (0,81)! Ha viszont a <strong>no</strong> a pozitív – és egy oktatót éppen a bukásveszélyes hallgatók érdekelnek –,
+az alapmodell recallja <strong>0</strong> (egyetlen bukót sem talál meg), a fáé 0,5. A fa tehát <em>tud valamit</em>, amit az accuracy elrejt.</p>
+</details>
+</div>
+
+<figure><img src="../resources/Gyak5/student_model_comparison.png" alt="A döntési fa és a többségi alapmodell mérőszámai oszlopdiagramon"><figcaption>A mérőszámok összehasonlítása (<code>student_model_comparison.png</code>).</figcaption></figure>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés – Balanced accuracy (a kódban szerepelt, az órán nem magyaráztuk)</span>
+<p>A <strong>kiegyensúlyozott pontosság</strong> az osztályonkénti recallok átlaga:
+$$\text{balanced accuracy}=\frac{1}{2}\left(\frac{TP}{TP+FN}+\frac{TN}{TN+FP}\right)$$
+(a második tag a negatív osztály recallja, más néven <em>specificitás</em>). Minden osztály egyforma súllyal számít, akármilyen kicsi.</p>
+<ul>
+<li>Fa: $\tfrac12\left(\tfrac{17}{21}+\tfrac48\right)=\tfrac12(0{,}810+0{,}5)=0{,}655$.</li>
+<li>Alapmodell: $\tfrac12\left(1+0\right)=0{,}5$ – két osztálynál a „mindig ugyanazt mondó” modellé <strong>mindig 0,5</strong>, bármilyen az arány.</li>
+</ul>
+<p>Így már látszik a különbség: 0,655 vs 0,5. Kiegyensúlyozatlan osztályoknál ez becsületesebb mérőszám, mint az accuracy.</p>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktatók</span>
+<ul>
+<li>„72% pontosság, jó modell” – előbb nézd meg, mennyi a többségi osztály aránya! Ha 72%, a modell az accuracy szerint semmit sem javított.</li>
+<li>Az alapmodell a <strong>tanítóhalmaz</strong> címkéiből tanulja meg a többségi osztályt, nem a tesztből.</li>
+<li>Az órán elhangzott, hogy a baseline-hoz „egy döntési fát tanítunk be” – valójában a kód <code>DummyClassifier</code>-t használ, ami egyáltalán nem fa, és semmilyen jellemzőt nem néz.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Alapmodell és kiegyensúlyozatlanság (5 feladat)</summary>
+<ol>
+  <li><p>Kártyacsalás-felderítés: a tranzakciók 95%-a rendben van, 5% csalás. Mennyi a „soha nem csalás” alapmodell accuracy-je, és mennyi a recallja a csalásokra?</p>
+    <details class="solution"><summary>Megoldás</summary><p>accuracy = 0,95; recall (pozitív = csalás) = 0, mert egyetlen csalást sem jelez. A 95% teljesen félrevezető.</p></details></li>
+  <li><p>Egy modell accuracy-je 0,90 egy olyan adaton, ahol a többségi osztály aránya 0,90. Jó a modell?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Accuracy alapján semmivel sem jobb az alapmodellnél. Meg kell nézni a kisebbségi osztály recallját / a balanced accuracy-t, mielőtt bármit mondunk.</p></details></li>
+  <li><p>A tanítóhalmazban 25 no és 60 yes van. Mit jósol a többségi alapmodell egy tesztelt hallgatóra, akinek previous_gpa = 1,5?</p>
+    <details class="solution"><summary>Megoldás</summary><p>yes – mint mindenkire. A jellemzőket (a gyenge átlagot is) figyelmen kívül hagyja.</p></details></li>
+  <li><p>Miért magasabb az alapmodell F1-e (yes-re) a fáénál?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Mert a yes a <em>többségi</em> osztály: aki mindenkit yes-nek mond, recall = 1, és a precision is magas (0,724) – a harmonikus átlag 0,84.
+    Az F1 a választott pozitív osztályra vonatkozik; ha a pozitív a többség, a mindig-pozitív modell is jól jön ki. A kisebbségi (no) osztályra nézve az alapmodell F1-e 0.</p></details></li>
+  <li><p>Balanced accuracy: TP = 30, FN = 10, TN = 15, FP = 5.</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\tfrac12\left(\tfrac{30}{40}+\tfrac{15}{20}\right)=\tfrac12(0{,}75+0{,}75)=0{,}75$. (Accuracy: $45/60=0{,}75$ – itt véletlenül ugyanannyi, mert a két recall egyenlő.)</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes8">
+<h2>8. lépés – Famélység: alultanulás és túltanulás</h2>
+
+<h4>Kis eset</h4>
+<p>Az 5. lépés kis fáján már láttuk: korlát nélkül a fa egyenként „bemagolta” a 3. és 4. hallgatót. A tanítóhalmazon így 100%-os lett – de egy új 4,2 órás hallgatóról
+egyetlen ember alapján mond yes-t. Mi történik a valódi adaton, ha a <code>max_depth</code>-et növeljük? (Ezt az órán nem futtattuk le – „otthon ki lehet próbálni” –, itt megtettük helyetted.)</p>
+
+<div class="table-wrap"><table>
+<tr><th class="num">max_depth</th><th class="num">levelek</th><th class="num">tanító-accuracy</th><th class="num">teszt-accuracy</th></tr>
+<tr><td class="num">1</td><td class="num">2</td><td class="num">0,765</td><td class="num">0,724</td></tr>
+<tr><td class="num">2</td><td class="num">4</td><td class="num">0,800</td><td class="num"><strong>0,759</strong></td></tr>
+<tr><td class="num">3</td><td class="num">8</td><td class="num">0,859</td><td class="num">0,724</td></tr>
+<tr><td class="num">4</td><td class="num">11</td><td class="num">0,871</td><td class="num">0,690</td></tr>
+<tr><td class="num">5</td><td class="num">14</td><td class="num">0,894</td><td class="num">0,690</td></tr>
+<tr><td class="num">6</td><td class="num">16</td><td class="num">0,894</td><td class="num">0,655</td></tr>
+<tr><td class="num">8</td><td class="num">19</td><td class="num">0,929</td><td class="num">0,621</td></tr>
+<tr><td class="num">10</td><td class="num">22</td><td class="num">0,988</td><td class="num">0,655</td></tr>
+<tr><td class="num">korlátlan (11)</td><td class="num">23</td><td class="num">1,000</td><td class="num">0,655</td></tr>
+</table></div>
+<p style="font-size:.92em">Gini, <code>min_samples_leaf</code> nélkül, ugyanazzal a felosztással (<code>random_state=42</code>). A gyakorlat fájánál (<code>max_depth=3</code>, <code>min_samples_leaf=5</code>) a tanító-accuracy 0,800, a teszt 0,724.</p>
+
+<div class="box def"><span class="box-title">Definíció – Alultanulás és túltanulás</span>
+<ul>
+<li><strong>Alultanulás (underfitting)</strong>: a tanító- <em>és</em> a teszteredmény is gyenge. A modell túl egyszerű, nem tudja megragadni az összefüggést (pl. túl sekély fa).</li>
+<li><strong>Túltanulás (overfitting)</strong>: a tanítóeredmény nagyon jó, a teszteredmény lényegesen rosszabb – nagy a rés a kettő között. A modell a tanítóminták zaját is „bemagolta”, új adatra nem általánosít.</li>
+</ul>
+<p><strong>Miért?</strong> Minden új szint újabb, egyre kisebb csoportokra szabott szabályokat hoz. Egy darabig valódi mintázatot tanul (a teszt is javul), utána már az egyedi hallgatókat (a teszt romlik).
+A jó mélység valahol a kettő között van – ezt kell megtalálni.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa – A táblázat olvasása</span>
+<details class="solution"><summary>Megoldás</summary>
+<ul>
+<li><strong>Mélység 1</strong>: tanító 0,765, teszt 0,724 – mindkettő alacsony, a teszten épp az alapmodell szintje → <strong>alultanulás</strong> felé.</li>
+<li><strong>Mélység 2</strong>: a teszt itt a legjobb (0,759), a rés kicsi (0,04) → jó kompromisszum.</li>
+<li><strong>Mélység 8–korlátlan</strong>: tanító 0,93–1,00, teszt 0,62–0,66, a rés 0,3 körüli → <strong>túltanulás</strong>. A korlátlan fa minden tanító-hallgatót eltalál, mégis rosszabb a teszten, mint a mélység 1!</li>
+</ul></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktatók</span>
+<ul>
+<li><strong>A teszthalmaz kicsi (29 fő)</strong>: egy hallgató $1/29\approx 3{,}4$ százalékpont. A 0,724 → 0,759 különbség egyetlen hallgató! Kis adatnál ne olvass bele túl sokat egy-egy lépcsőbe, inkább a trendet nézd.</li>
+<li>Az órán az alultanulás okaként a „kevés tanítóminta” hangzott el. Pontosabban: az alultanulás jellemzően a <em>túl egyszerű</em> modell jele (fánál: túl kicsi mélység, túl szigorú leállás); több adat ezen önmagában nem segít.
+Több adat inkább a <em>túltanulás</em> ellen hat.</li>
+<li>A legjobb mélységet a teszthalmazon „kipróbálgatva” választani csalás egy kicsit: így a teszt is részt vesz a döntésben. (Lásd a Kiegészítést.)</li>
+</ul>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés (nem szerepelt a gyakorlaton)</span>
+<p>A hiperparaméterek (pl. <code>max_depth</code>, <code>min_samples_leaf</code>) helyes megválasztására a <strong>keresztvalidáció</strong> (<em>cross-validation</em>, sklearn: <code>GridSearchCV</code>) szolgál:
+a tanítóhalmazt $k$ részre bontjuk, és felváltva mindegyiken validálunk. A teszthalmazt csak a legvégén, egyszer használjuk. A túltanulás másik ellenszere a fa <strong>metszése</strong> (<em>pruning</em>), sklearn-ben <code>ccp_alpha</code>.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Alul- és túltanulás (5 feladat)</summary>
+<ol>
+  <li><p>Tanító-accuracy 0,62, teszt 0,60; a többségi osztály aránya 0,60. Mit diagnosztizálsz?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Alultanulást: mindkettő gyenge, a teszt épp az alapmodell szintje. Bonyolultabb modell (mélyebb fa) kell.</p></details></li>
+  <li><p>Tanító 0,99, teszt 0,70. Mit diagnosztizálsz, és mit állítanál a fán?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Túltanulást (nagy rés). Csökkentsd a <code>max_depth</code>-et, vagy növeld a <code>min_samples_leaf</code>-et.</p></details></li>
+  <li><p>A táblázat alapján melyik mélységnél a legnagyobb a rés a tanító és a teszt között, és mennyi?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A 10-es mélységnél: $0{,}988-0{,}655=0{,}333$ (a korlátlan fánál $1-0{,}655=0{,}345$ – ez a legnagyobb).</p></details></li>
+  <li><p>Hogyan hat a <code>min_samples_leaf</code> növelése a túltanulásra?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Csökkenti: nem engedi, hogy a fa 1-2 elemű levelekkel egyes hallgatókat magoljon be. A valódi adaton <code>min_samples_leaf=5</code>-tel korlátlan mélységnél is csak 0,847 lesz a tanító-accuracy (nem 1,0).</p></details></li>
+  <li><p>Miért ne a teszt-accuracy maximuma alapján válaszd ki véglegesen a mélységet, majd jelentsd ugyanazt a teszt-accuracy-t a modell teljesítményeként?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Mert akkor a teszthalmazhoz igazítottad a modellt, így a jelentett szám optimista – a teszt már nem „sosem látott” adat. Erre való a keresztvalidáció a tanítóhalmazon.</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l05-lepes8"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="alkalmazas">
+<h2>Alkalmazás – a gyakorlat teljes munkafolyamata</h2>
+<p>A gyakorlaton két szkript futott: <code>01_decision_tree.py</code> (1–3. feladat) és <code>02_evaluation.py</code> (4. feladat). Lássuk rövidítve, mi mit csinál.</p>
+
+<h3>1. Bemeneti és célváltozó, one-hot kódolás</h3>
+<pre><code class="language-python">TARGET = "passed"
+NUMERIC_FEATURES = ["study_hours", "attendance", "previous_gpa", "assignments_completed"]
+CATEGORICAL_FEATURES = ["programme"]
+# student_id: azonosító; exam_score: kihagyjuk, mert passed ebből készült (&gt;= 50 -&gt; yes)
+df = pd.read_csv("student_performance.csv", sep=";", encoding="utf-8-sig")
+X = df[NUMERIC_FEATURES + CATEGORICAL_FEATURES].copy()
+y = df[TARGET].copy()
+X = pd.get_dummies(X, columns=["programme"], dtype=int)   # 3 új 0/1 oszlop</code></pre>
+<p>Eredmény: 114 hallgató, 81 yes / 33 no; X-nek 7 oszlopa van. Szakok: Computer Science 57, Business Informatics 31, Mechanical Engineering 26.</p>
+
+<h3>2. Rétegzett felosztás</h3>
+<pre><code class="language-python">X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.25, random_state=42, stratify=y)</code></pre>
+<p>Tanító: 85 (60 yes, 25 no), teszt: 29 (21 yes, 8 no). Megjegyzés a kódban: <em>a döntési fához nem szükséges standardizálás</em>.</p>
+
+<h3>3. A fa tanítása és megjelenítése</h3>
+<pre><code class="language-python">model = DecisionTreeClassifier(criterion="gini", max_depth=3,
+                               min_samples_leaf=5, random_state=42)
+model.fit(X_train, y_train)
+print(model.get_depth(), model.get_n_leaves())     # 3, 8
+plot_tree(model, feature_names=X_train.columns.tolist(),
+          class_names=[str(c) for c in model.classes_], filled=True)
+text_rules = export_text(model, feature_names=X_train.columns.tolist(), decimals=3)</code></pre>
+<p>A fa: mélység 3, 8 levél (az ábrát és a szabályokat lásd az <a href="#lepes5">5. lépésben</a>). Gyökérvágás: <code>previous_gpa ≤ 2,895</code>. Változófontosság: previous_gpa 0,65; programme_Computer Science 0,14; assignments_completed 0,12; attendance 0,06; study_hours 0,02.</p>
+
+<h3>4. Értékelés és alapmodell</h3>
+<pre><code class="language-python">y_pred_tree = model.predict(X_test)
+baseline = DummyClassifier(strategy="most_frequent")
+baseline.fit(np.zeros((len(y_train), 1)), y_train)        # csak a címkéket nézi
+y_pred_baseline = baseline.predict(np.zeros((len(y_test), 1)))
+for name, pred in {"Döntési fa": y_pred_tree, "Többségi alapmodell": y_pred_baseline}.items():
+    accuracy_score(y_test, pred); balanced_accuracy_score(y_test, pred)
+    precision_score(y_test, pred, pos_label="yes", zero_division=0)
+    recall_score(y_test, pred, pos_label="yes", zero_division=0)
+    f1_score(y_test, pred, pos_label="yes", zero_division=0)
+ConfusionMatrixDisplay.from_predictions(y_test, pred, labels=classes)  # sor = valódi, oszlop = jósolt</code></pre>
+<p>Az eredmény (<code>student_model_comparison.csv</code>) a <a href="#lepes7">7. lépés</a> táblázatában van: <strong>mindkét modell accuracy-je 0,724</strong>. A szkript ki is írja: „A döntési fa accuracy eltérése az alapmodelltől: +0,00 százalékpont.”
+A <code>zero_division=0</code> azért kell, mert ha egy modell egyszer sem jósol pozitívat, a precision nevezője 0 lenne.</p>
+
+<h3>5. Értelmezés – mit mondanánk egy ZH-n?</h3>
+<ul>
+<li>A fa accuracy-je nem jobb az alapmodellnél, mert az adat kiegyensúlyozatlan (72% átment).</li>
+<li>A fa viszont a bukó hallgatók felét felismeri (recall<sub>no</sub> = 0,5), az alapmodell egyet sem; balanced accuracy 0,655 vs 0,5.</li>
+<li>A legfontosabb előrejelző a korábbi tanulmányi átlag; 2,9 fölött a fa mindenkire „átmegy”-et mond.</li>
+<li>Tanító-accuracy 0,80, teszt 0,72: kisebb rés, enyhe túltanulás jele; a kis teszthalmaz (29 fő) miatt a számok bizonytalanok.</li>
+<li>Továbblépés: a famélység hangolása (5. feladat, <a href="#lepes8">8. lépés</a>) – a mi futtatásunkban a 2-es mélység adta a legjobb teszteredményt.</li>
+</ul>
+</section>
+
+<!-- ============================================================ -->
+<section id="osszefoglalas">
+<h2>Összefoglalás</h2>
+<ul>
+<li>Osztályozás = felügyelt tanulás: ismert címkéjű példákból (X → y) tanulunk. A célváltozóból képzett oszlop (exam_score) bemenetként <strong>adatszivárgás</strong>.</li>
+<li>Kategorikus bemenet → <strong>one-hot</strong>; felosztás tanító/teszt halmazra <strong>rétegzetten</strong> (<code>stratify=y</code>), tanítás csak a tanítón.</li>
+<li>Kevertség: $\text{Gini}=1-\sum p_i^2$, $H=-\sum p_i\log_2 p_i$; 0 = tiszta, két osztálynál max. 0,5 ill. 1.</li>
+<li>A fa mohón, rekurzívan a <strong>legkisebb súlyozott kevertségű</strong> (legnagyobb nyereségű) vágást választja; numerikus változón a felezőpontok a küszöbjelöltek.</li>
+<li>Leállás: tiszta csomópont, <code>max_depth</code>, <code>min_samples_leaf</code>; levélcímke = többségi osztály. Szabály = gyökér–levél út, ÉS-kapcsolattal.</li>
+<li>Konfúziós mátrix → accuracy, precision (oszlop), recall (sor), F1 (harmonikus átlag); mindig egy kijelölt pozitív osztályra.</li>
+<li>Mindig hasonlíts a <strong>többségi alapmodellhez</strong>; kiegyensúlyozatlan adatnál az accuracy félrevezet (0,724 = 0,724).</li>
+<li>Sekély fa → alultanulás; túl mély fa → túltanulás (tanító ↑, teszt ↓).</li>
+</ul>
+
+<h3>Döntési táblázat</h3>
+<div class="table-wrap"><table>
+<tr><th>Ha a feladatban ez áll…</th><th>…ezt használd</th></tr>
+<tr><td>„Melyik változó lehet bemenet?”</td><td>Ami a jóslás előtt ismert és nem a célváltozóból készült; azonosító és szivárgó oszlop ki.</td></tr>
+<tr><td>Szöveges kategorikus változó, sorrend nélkül</td><td>One-hot kódolás (<code>get_dummies</code>), nem 1, 2, 3.</td></tr>
+<tr><td>Kiegyensúlyozatlan osztályok, felosztás</td><td><code>train_test_split(..., stratify=y)</code></td></tr>
+<tr><td>„Mennyire kevert ez a csomópont?”</td><td>Gini $1-\sum p_i^2$ vagy entrópia $-\sum p_i\log_2 p_i$</td></tr>
+<tr><td>„Melyik vágást választja a fa?”</td><td>Súlyozott kevertség $\sum \tfrac{|D_k|}{|D|}I(D_k)$ minden jelöltre; a legkisebb nyer.</td></tr>
+<tr><td>Numerikus változó, küszöb kell</td><td>Rendezett szomszédos értékek felezőpontjai; mindegyikre súlyozott Gini.</td></tr>
+<tr><td>„Írd fel a szabályt / mit jósol a fa erre a hallgatóra?”</td><td>Gyökértől a levélig: bal = feltétel igaz (≤); feltételek ÉS-sel; levél többségi osztálya.</td></tr>
+<tr><td>„Az összes jóslat hány %-a helyes?”</td><td>Accuracy $\tfrac{TP+TN}{n}$</td></tr>
+<tr><td>„A pozitívnak jósoltak közül mennyi igaz?” / drága a téves riasztás</td><td>Precision $\tfrac{TP}{TP+FP}$</td></tr>
+<tr><td>„A valódi pozitívokból mennyit találtunk meg?” / drága az elszalasztás</td><td>Recall $\tfrac{TP}{TP+FN}$</td></tr>
+<tr><td>Egy szám, ami precisiont és recallt is figyelembe vesz</td><td>F1 (harmonikus átlag)</td></tr>
+<tr><td>„Jó-e a 72%-os accuracy?”</td><td>Hasonlítsd a többségi alapmodellhez; nézd a kisebbségi osztály recallját / a balanced accuracy-t.</td></tr>
+<tr><td>Tanító és teszt is gyenge</td><td>Alultanulás → bonyolultabb modell (mélyebb fa).</td></tr>
+<tr><td>Tanító kiváló, teszt sokkal rosszabb</td><td>Túltanulás → kisebb <code>max_depth</code>, nagyobb <code>min_samples_leaf</code>.</td></tr>
+</table></div>
+</section>
+
+<section id="kviz">
+<h2>Ellenőrző kvíz</h2>
+<div class="quiz" data-quiz="l05-vegso"></div>
+</section>
+
+<nav class="pager">
+  <a href="04-hierarchikus-klaszterezes.html">← 4. Hierarchikus klaszterezés</a>
+  <a href="06-neuralis-halo.html">6. Neurális háló →</a>
+</nav>
+</main>
+</body>
+</html>

@@ -1,0 +1,726 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hierarchikus klaszterezés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script defer src="assets/quiz.js"></script>
+<script defer src="quiz/04.js"></script>          <!-- a lecke kvízei -->
+<script defer src="assets/common.js"></script>    <!-- MINDIG az utolsó -->
+</head>
+<body>
+<nav class="topnav"><div class="inner">
+  <a href="index.html">← Tartalom</a>
+  <span>4. lecke · Hierarchikus klaszterezés</span>
+  <span class="spacer"></span>
+  <button id="theme-toggle" type="button" title="Világos/sötét téma">◐</button>
+</div></nav>
+<main>
+<p class="kicker">4. lecke · 4. gyakorlat</p>
+<h1>Hierarchikus (agglomeratív) klaszterezés és a dendrogram</h1>
+<p class="lead">Ugyanazt a 120 vásárlót csoportosítjuk újra, de most nem középpontokat mozgatunk: lépésről lépésre összevonjuk a legközelebbi csoportokat, és az összevonások fájából olvassuk le a klaszterszámot.</p>
+
+<section id="motivacio">
+<h2>Motiváció</h2>
+<p>A 3. gyakorlaton a K-means két vagy három vásárlói szegmenst talált. Ehhez előre meg kellett adni a $k$-t, és az eredmény a véletlen kezdőpontoktól is függhetett. Most a kérdés ez:</p>
+<div class="box tip"><span class="box-title">🎯 A lecke kérdése</span>
+<p>Kaphatunk-e klasztereket úgy, hogy <strong>nem adjuk meg előre a $k$-t</strong>, hanem az adat „mutatja meg”, hány csoport van? És ha igen: ugyanazt a szegmentációt kapjuk-e, mint a K-means-szel? Melyik módszert választanád a féléves feladatban, ahol a modellt <strong>új adatokra is alkalmazni kell</strong>?</p>
+</div>
+<p>A lecke végén mindhárom kérdésre válaszolunk – a gyakorlat valódi eredményeivel.</p>
+</section>
+
+<section id="utiterv">
+<h2>Útiterv</h2>
+<ol class="roadmap">
+  <li><a href="#lepes1">1. lépés – Az agglomeratív elv és a távolságmátrix</a></li>
+  <li><a href="#lepes2">2. lépés – Kapcsolási módok: single, complete, average</a></li>
+  <li><a href="#lepes3">3. lépés – A Ward-módszer</a></li>
+  <li><a href="#lepes4">4. lépés – A dendrogram olvasása és a klaszterszám</a></li>
+  <li><a href="#lepes5">5. lépés – HAC és K-means összevetése</a></li>
+  <li><a href="#alkalmazas">Alkalmazás – a 4. gyakorlat munkafolyamata</a></li>
+  <li><a href="#osszefoglalas">Összefoglalás és döntési táblázat</a></li>
+  <li><a href="#kviz">Ellenőrző kvíz</a></li>
+</ol>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes1">
+<h2>1. lépés – Az agglomeratív elv és a távolságmátrix</h2>
+
+<h4>Kis eset</h4>
+<p>Öt vásárlónk van. Egyetlen jellemzőjük: hányszor vásároltak egy hónapban.</p>
+<div class="table-wrap"><table>
+<tr><th>Vásárló</th><th>A</th><th>B</th><th>C</th><th>D</th><th>E</th></tr>
+<tr><td>Havi vásárlás</td><td class="num">1</td><td class="num">3</td><td class="num">4</td><td class="num">7</td><td class="num">11</td></tr>
+</table></div>
+
+<figure>
+<svg viewBox="0 0 520 70" role="img" aria-label="Öt pont a számegyenesen: A=1, B=3, C=4, D=7, E=11">
+  <line x1="20" y1="35" x2="500" y2="35" stroke="currentColor" stroke-width="1.5"/>
+  <g font-size="12" fill="currentColor" text-anchor="middle">
+    <text x="40" y="60">0</text><text x="200" y="60">4</text><text x="360" y="60">8</text><text x="480" y="60">11</text>
+  </g>
+  <g fill="var(--accent)">
+    <circle cx="80" cy="35" r="7"/><circle cx="160" cy="35" r="7"/><circle cx="200" cy="35" r="7"/><circle cx="320" cy="35" r="7"/><circle cx="480" cy="35" r="7"/>
+  </g>
+  <g font-size="14" font-weight="700" fill="currentColor" text-anchor="middle">
+    <text x="80" y="20">A</text><text x="160" y="20">B</text><text x="200" y="20">C</text><text x="320" y="20">D</text><text x="480" y="20">E</text>
+  </g>
+</svg>
+<figcaption>Az öt vásárló a számegyenesen (1 egység = 40 px).</figcaption>
+</figure>
+
+<p>Indulj ki abból, hogy <strong>mindenki egyedül alkot egy klasztert</strong>: $\{A\},\{B\},\{C\},\{D\},\{E\}$ – ez 5 klaszter. Melyik kettőt vonnád össze először? Azt a kettőt, amelyik a legközelebb van egymáshoz: $B$ és $C$ (távolságuk $|4-3|=1$). Ezután már csak 4 klaszter van: $\{A\},\{B,C\},\{D\},\{E\}$. Ezt ismételjük, amíg egyetlen klaszter nem marad.</p>
+<p>Ahhoz, hogy mindig tudjuk, „ki van legközelebb”, az összes páronkénti távolságot egy táblázatba írjuk. Ez a <strong>távolságmátrix</strong>:</p>
+<div class="table-wrap"><table>
+<tr><th></th><th>A</th><th>B</th><th>C</th><th>D</th><th>E</th></tr>
+<tr><th>A</th><td class="num">0</td><td class="num">2</td><td class="num">3</td><td class="num">6</td><td class="num">10</td></tr>
+<tr><th>B</th><td class="num">2</td><td class="num">0</td><td class="num"><strong>1</strong></td><td class="num">4</td><td class="num">8</td></tr>
+<tr><th>C</th><td class="num">3</td><td class="num"><strong>1</strong></td><td class="num">0</td><td class="num">3</td><td class="num">7</td></tr>
+<tr><th>D</th><td class="num">6</td><td class="num">4</td><td class="num">3</td><td class="num">0</td><td class="num">4</td></tr>
+<tr><th>E</th><td class="num">10</td><td class="num">8</td><td class="num">7</td><td class="num">4</td><td class="num">0</td></tr>
+</table></div>
+<p>A mátrix szimmetrikus, a főátlóban 0 áll. Így elég a főátló fölötti $\binom{5}{2}=10$ értéket ismerni.</p>
+
+<div class="box def"><span class="box-title">Definíció – Agglomeratív hierarchikus klaszterezés (HAC)</span>
+<ol>
+  <li>Kezdetben minden adatpont egy egyelemű klaszter: $n$ pont → $n$ klaszter.</li>
+  <li>Kiszámoljuk a klaszterek páronkénti távolságát (távolságmátrix).</li>
+  <li>Kiválasztjuk a <strong>legkisebb távolságú</strong> klaszterpárt, és összevonjuk. Feljegyezzük: kit kivel, milyen <strong>magasságon</strong> (távolságon) vontunk össze.</li>
+  <li>Frissítjük az új klaszter távolságát az összes többihez.</li>
+  <li>Ismételjük a 3–4. lépést, amíg egyetlen klaszter marad.</li>
+</ol>
+<p>$n$ pontnál pontosan $n-1$ összevonás történik. $m$ összevonás után $n-m$ klaszter van.</p>
+<p><strong>Miért „hierarchikus”?</strong> Mert nem egyetlen felosztást kapunk, hanem egymásba ágyazott felosztások sorozatát: minden klaszter két korábbi klaszter uniója. Ezt a fát rajzolja ki a <strong>dendrogram</strong>. <strong>Miért „agglomeratív”?</strong> Mert alulról felfelé, összevonással (agglomerálással) építkezik.</p>
+</div>
+
+<p>A gyakorlati PDF ugyanezt pszeudokóddal írja le:</p>
+<pre><code class="language-plaintext">C ← minden adatpont külön, egyelemű klaszterként
+H ← üres lista
+Számítsuk ki a klaszterek közötti D távolságokat d és L alapján
+AMÍG |C| &gt; 1:
+    (A, B) ← a legkisebb D(A, B) értékű különböző klaszterpár
+    h ← D(A, B)
+    U ← A ∪ B;  fűzzük H végére: (A, B, h, |U|)
+    C ← (C \ {A, B}) ∪ {U}
+    minden V ≠ U klaszterre: D(U, V) ← az U és V távolsága d és L alapján
+VISSZAAD H</code></pre>
+<p>Itt $d$ a <strong>pontok</strong> közötti távolság (pl. euklideszi), $L$ a <strong>kapcsolási mód</strong>, ami megmondja, hogyan lesz pontok távolságából <strong>klaszterek</strong> távolsága. A $H$ lista az összevonások naplója – a Pythonban ez a <code>linkage</code> függvény kimenete, a <code>Z</code> mátrix.</p>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Hány klaszter, hány lépés?</span>
+<p>A gyakorlaton 120 vásárlót klaszterezünk. Hány összevonás készül, és hány klaszter van a 100. összevonás után?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Összevonás: $n-1=119$ (a <code>retail_hac_linkage.csv</code> pontosan 119 sorból áll). A 100. után $120-100=20$ klaszter van.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Távolságmátrix két jellemzővel</span>
+<p>Ha két jellemző van, a pontok távolsága euklideszi (lásd a 3. leckét). Legyen $P=(1;2)$, $Q=(4;6)$, $R=(1;5)$. Számold ki a távolságmátrixot, és döntsd el, melyik pár vonódik össze először!</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>$d(P,Q)=\sqrt{3^2+4^2}=5$, $d(P,R)=\sqrt{0^2+3^2}=3$, $d(Q,R)=\sqrt{3^2+1^2}=\sqrt{10}\approx3{,}162$.</p>
+<p>A legkisebb a $d(P,R)=3$, tehát először $P$ és $R$ vonódik össze, 3-as magasságon.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – A linkage-tábla csomópontjai</span>
+<p>A <code>retail_hac_linkage.csv</code> első sorai (vásárlók indexei 0-tól 119-ig):</p>
+<div class="table-wrap"><table>
+<tr><th>left_node</th><th>right_node</th><th class="num">merge_height</th><th class="num">customer_count</th></tr>
+<tr><td>24</td><td>36</td><td class="num">0,0000</td><td class="num">2</td></tr>
+<tr><td>10</td><td>11</td><td class="num">0,0003</td><td class="num">2</td></tr>
+<tr><td>…</td><td>…</td><td class="num">…</td><td class="num">…</td></tr>
+<tr><td>35</td><td>121</td><td class="num">0,0033</td><td class="num">3</td></tr>
+</table></div>
+<p>Mit jelent a 121-es csomópont? Miért lehet egy összevonási magasság pontosan 0?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>A $0,\dots,n-1$ indexek az eredeti vásárlók. Az $i$-edik (0-tól számolt) összevonás eredménye az $n+i$ azonosítót kapja. A 121 $=120+1$, vagyis a 2. összevonásban létrejött $\{10,11\}$ klaszter (C011 és C012). A 35-ös vásárló ehhez csatlakozik, így lesz 3 fős.</p>
+<p>A 0 magasság azt jelenti, hogy a 24-es és 36-os vásárló (C025 és C037) a két vizsgált jellemzőben (vásárlásszám, összköltés) teljesen egyforma, távolságuk 0.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+  <li>Az összevonás <strong>klasztereket</strong> von össze, nem csak pontokat. A második lépéstől egy pont egy már meglévő klaszterhez is csatlakozhat, és két többelemű klaszter is összeolvadhat.</li>
+  <li>A pontok <strong>nem mozognak</strong>. Nincs középpont-áthelyezés, mint a K-means-nél.</li>
+  <li>Távolságot csak összemérhető skálán érdemes számolni. Ezért dolgozunk a <strong>standardizált</strong> adatokkal (a standardizálás a <a href="03-kmeans.html">3. leckében</a> szerepel).</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia</span>
+<p><em>hierarchical agglomerative clustering (HAC)</em> = agglomeratív (összevonó) hierarchikus klaszterezés · <em>distance matrix</em> = távolságmátrix · <em>linkage</em> = kapcsolás, kapcsolási mód (és a scipy függvény neve is) · <em>merge height / merge distance</em> = összevonási magasság / távolság · <em>node</em> = csomópont · <em>leaf</em> = levél (egy eredeti adatpont a dendrogramon).</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Az agglomeratív elv (5 feladat)</summary>
+<ol>
+  <li><p>8 pontot klaszterezünk. Hány klaszter van 3 összevonás után? Összesen hány összevonás lesz?</p>
+    <details class="solution"><summary>Megoldás</summary><p>3 összevonás után $8-3=5$ klaszter. Összesen $8-1=7$ összevonás lesz.</p></details></li>
+  <li><p>Hány különböző (főátlón kívüli, nem ismétlődő) értéke van a távolságmátrixnak $n=6$, illetve $n=120$ pont esetén?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\binom{n}{2}=\frac{n(n-1)}{2}$. $n=6$: $15$. $n=120$: $\frac{120\cdot119}{2}=7140$.</p></details></li>
+  <li><p>Pontok egy egyenesen: 2, 5, 6, 10. Melyik pár vonódik össze először, és milyen magasságon?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A legkisebb távolság $|6-5|=1$, tehát az 5-ös és a 6-os pont vonódik össze, 1-es magasságon.</p></details></li>
+  <li><p>Négy pont: $P=(1;2)$, $Q=(4;6)$, $R=(1;5)$, $S=(5;6)$. Írd fel a távolságmátrixot (3 tizedesre), és add meg az első összevonást!</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>$d(P,Q)=5$, $d(P,R)=3$, $d(P,S)=\sqrt{32}\approx5{,}657$, $d(Q,R)=\sqrt{10}\approx3{,}162$, $d(Q,S)=1$, $d(R,S)=\sqrt{17}\approx4{,}123$.</p>
+    <p>A legkisebb $d(Q,S)=1$: először $Q$ és $S$ vonódik össze, 1-es magasságon.</p></details></li>
+  <li><p>A linkage-tábla utolsó sora: <code>236; 237; 19,68; 120</code>. Mit jelent ez? Melyik összevonásban jött létre a 236-os csomópont?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Ez a 119. (utolsó) összevonás: a 236-os és a 237-es klaszter összeolvad egy 120 fős klaszterré (a teljes adathalmaz) 19,68-as magasságon. A 236-os csomópont a $236-120=116$-os indexű, vagyis a 117. összevonásban keletkezett (0-tól számolva a 116.).</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l04-lepes1"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes2">
+<h2>2. lépés – Kapcsolási módok: single, complete, average</h2>
+
+<h4>Kis eset</h4>
+<p>Folytassuk a példát. Az első összevonás után a klaszterek: $\{A\},\{B,C\},\{D\},\{E\}$. Most ki kell számolni, milyen messze van például $A$ a $\{B,C\}$ klasztertől. De $A$ és $B$ távolsága 2, $A$ és $C$ távolsága 3. Melyik számít?</p>
+<p>Erre nincs egyetlen „helyes” válasz – <strong>választanunk kell</strong>. Három kézenfekvő választás:</p>
+<ul>
+  <li>a <strong>legközelebbi</strong> pontpár: $\min(2;3)=2$;</li>
+  <li>a <strong>legtávolabbi</strong> pontpár: $\max(2;3)=3$;</li>
+  <li>az összes pontpár <strong>átlaga</strong>: $(2+3)/2=2{,}5$.</li>
+</ul>
+
+<div class="box def"><span class="box-title">Definíció – Kapcsolási módok (linkage)</span>
+<p>Legyen $A$ és $B$ két klaszter, $d(a,b)$ két pont távolsága.</p>
+<p><strong>Single</strong> (egyszeres, legközelebbi szomszéd): $$D_{\text{single}}(A,B)=\min_{a\in A,\;b\in B} d(a,b)$$</p>
+<p><strong>Complete</strong> (teljes, legtávolabbi szomszéd): $$D_{\text{complete}}(A,B)=\max_{a\in A,\;b\in B} d(a,b)$$</p>
+<p><strong>Average</strong> (átlagos): $$D_{\text{average}}(A,B)=\frac{1}{|A|\cdot|B|}\sum_{a\in A}\sum_{b\in B} d(a,b)$$</p>
+<p>Mindhárom esetben <strong>a legkisebb $D$ értékű párt vonjuk össze</strong>. A kapcsolási mód csak azt dönti el, hogyan mérjük két klaszter távolságát.</p>
+<p><strong>Miért több módszer?</strong> Mert mást jelent a „közel”: a single-nél elég, ha két klaszternek <em>van</em> egy-egy közeli pontja; a complete-nél a két klaszter <em>minden</em> pontjának közel kell lennie egymáshoz; az average a kettő közötti kompromisszum.</p>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – minimalizál, nem maximalizál</span>
+<p>Az órán egy ponton úgy hangzott el, hogy a single „a legközelebbi pontok távolságát maximalizálja”. Pontosan: a single a klaszterek távolságát a legközelebbi pontpárral <strong>méri</strong>, és mindig a <strong>legkisebb</strong> ilyen távolságú párt vonja össze. A complete a legtávolabbi pontpárral mér, de összevonni szintén a legkisebb $D$-jű párt fogja. A „max” a complete <em>képletében</em> van, nem a választásban.</p>
+</div>
+
+<h4>A kézi példa végigszámolva – single és complete egymás mellett</h4>
+<p>Ugyanaz az öt vásárló (1, 3, 4, 7, 11), csak a kapcsolási mód más. Minden sorban a legkisebb jelölt nyer (félkövér).</p>
+
+<div class="two-col">
+  <div class="box example"><span class="box-title">Single</span>
+  <ol>
+    <li>Kezdés: a mátrix legkisebb eleme $d(B,C)=1$ → <strong>$\{B,C\}$, magasság 1</strong>.</li>
+    <li>Jelöltek: $A$–$BC$: $\min(2;3)=\mathbf{2}$; $D$–$BC$: $\min(4;3)=3$; $D$–$E$: 4. → <strong>$\{A,B,C\}$, magasság 2</strong>.</li>
+    <li>Jelöltek: $D$–$ABC$: $\min(6;4;3)=\mathbf{3}$; $D$–$E$: 4; $E$–$ABC$: 7. → <strong>$\{A,B,C,D\}$, magasság 3</strong>.</li>
+    <li>$E$–$ABCD$: $\min(10;8;7;4)=4$ → <strong>egy klaszter, magasság 4</strong>.</li>
+  </ol>
+  <p>Magasságok: 1, 2, 3, 4. Két klaszternél: $\{A,B,C,D\}$ és $\{E\}$.</p>
+  </div>
+  <div class="box example"><span class="box-title">Complete</span>
+  <ol>
+    <li>Kezdés: ugyanaz, $d(B,C)=1$ → <strong>$\{B,C\}$, magasság 1</strong>.</li>
+    <li>Jelöltek: $A$–$BC$: $\max(2;3)=\mathbf{3}$; $D$–$BC$: $\max(4;3)=4$; $D$–$E$: 4. → <strong>$\{A,B,C\}$, magasság 3</strong>.</li>
+    <li>Jelöltek: $D$–$E$: $\mathbf{4}$; $D$–$ABC$: $\max(6;4;3)=6$; $E$–$ABC$: 10. → <strong>$\{D,E\}$, magasság 4</strong>.</li>
+    <li>$ABC$–$DE$: $\max(6;10;4;8;3;7)=10$ → <strong>egy klaszter, magasság 10</strong>.</li>
+  </ol>
+  <p>Magasságok: 1, 3, 4, 10. Két klaszternél: $\{A,B,C\}$ és $\{D,E\}$.</p>
+  </div>
+</div>
+
+<p>Az első két lépésben ugyanazok vonódnak össze (csak más magasságon), a 3. lépésben azonban <strong>szétválik az út</strong>: a single-nél $D$ a nagy klaszterhez csapódik, mert $C$ közel van hozzá (3); a complete-nél $D$ inkább $E$-vel párosul, mert a nagy klaszter túlsó széle ($A$) már 6 egységre van tőle.</p>
+
+<figure>
+<svg viewBox="0 0 640 250" role="img" aria-label="Single és complete dendrogram egymás mellett az öt vásárlóra">
+  <g font-size="12" fill="currentColor" stroke="none">
+    <text x="160" y="16" text-anchor="middle" font-weight="700">Single</text>
+    <text x="480" y="16" text-anchor="middle" font-weight="700">Complete</text>
+  </g>
+  <!-- tengelyek: alap y=210, 1 egység = 18 px -->
+  <g stroke="currentColor" stroke-width="1" fill="none" opacity="0.5">
+    <line x1="30" y1="30" x2="30" y2="210"/><line x1="350" y1="30" x2="350" y2="210"/>
+  </g>
+  <g font-size="10" fill="currentColor" text-anchor="end">
+    <text x="26" y="213">0</text><text x="26" y="177">2</text><text x="26" y="141">4</text><text x="26" y="105">6</text><text x="26" y="69">8</text><text x="26" y="33">10</text>
+    <text x="346" y="213">0</text><text x="346" y="177">2</text><text x="346" y="141">4</text><text x="346" y="105">6</text><text x="346" y="69">8</text><text x="346" y="33">10</text>
+  </g>
+  <!-- single: levelek x = 60,110,160,210,260 -->
+  <g stroke="var(--accent)" stroke-width="2.2" fill="none">
+    <polyline points="110,210 110,192 160,192 160,210"/>
+    <polyline points="60,210 60,174 135,174 135,192"/>
+    <polyline points="97.5,174 97.5,156 210,156 210,210"/>
+    <polyline points="153.75,156 153.75,138 260,138 260,210"/>
+  </g>
+  <!-- complete: levelek x = 380,430,480,530,580 -->
+  <g stroke="var(--accent)" stroke-width="2.2" fill="none">
+    <polyline points="430,210 430,192 480,192 480,210"/>
+    <polyline points="380,210 380,156 455,156 455,192"/>
+    <polyline points="530,210 530,138 580,138 580,210"/>
+    <polyline points="417.5,156 417.5,30 555,30 555,138"/>
+  </g>
+  <!-- vágási vonal complete: h=7 -> y=84 -->
+  <line x1="360" y1="84" x2="620" y2="84" stroke="currentColor" stroke-dasharray="6 4" stroke-width="1.5"/>
+  <text x="622" y="80" font-size="11" fill="currentColor" text-anchor="end">vágás h = 7</text>
+  <g font-size="13" font-weight="700" fill="currentColor" text-anchor="middle">
+    <text x="60" y="230">A</text><text x="110" y="230">B</text><text x="160" y="230">C</text><text x="210" y="230">D</text><text x="260" y="230">E</text>
+    <text x="380" y="230">A</text><text x="430" y="230">B</text><text x="480" y="230">C</text><text x="530" y="230">D</text><text x="580" y="230">E</text>
+  </g>
+  <text x="160" y="246" font-size="11" fill="currentColor" text-anchor="middle">magasságok: 1, 2, 3, 4</text>
+  <text x="480" y="246" font-size="11" fill="currentColor" text-anchor="middle">magasságok: 1, 3, 4, 10</text>
+</svg>
+<figcaption>Ugyanaz az adat, két kapcsolási mód. A single „láncot” épít (mindig egy új pont csatlakozik), a complete két jól elkülönülő csoportot ad. A függőleges tengely az összevonási magasság.</figcaption>
+</figure>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Két klaszter távolsága háromféleképpen</span>
+<p>$A=\{1,2\}$, $B=\{5,9\}$. Mennyi $D_{\text{single}}$, $D_{\text{complete}}$, $D_{\text{average}}$?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>A négy pontpár távolsága: $|1-5|=4$, $|1-9|=8$, $|2-5|=3$, $|2-9|=7$.</p>
+<p>Single: $\min=3$. Complete: $\max=8$. Average: $\frac{4+8+3+7}{4}=5{,}5$.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Average a kézi példán</span>
+<p>Számold végig az 1, 3, 4, 7, 11 pontokat average kapcsolással!</p>
+<details class="solution"><summary>Megoldás</summary>
+<ol>
+  <li>$\{B,C\}$, magasság 1.</li>
+  <li>$A$–$BC$: $(2+3)/2=2{,}5$; $D$–$BC$: $(4+3)/2=3{,}5$; $D$–$E$: 4. → $\{A,B,C\}$, magasság 2,5.</li>
+  <li>$D$–$E$: 4; $D$–$ABC$: $(6+4+3)/3\approx4{,}333$; $E$–$ABC$: $(10+8+7)/3\approx8{,}333$. → $\{D,E\}$, magasság 4.</li>
+  <li>$ABC$–$DE$: $(6+10+4+8+3+7)/6=38/6\approx6{,}333$.</li>
+</ol>
+<p>Az összevonási <em>sorrend</em> itt egyezik a complete-tel, a magasságok a single és a complete közé esnek.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – Mikor egyezik a három módszer?</span>
+<p>Miért ad mindhárom módszer ugyanakkora magasságot az első összevonásnál?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Mert az első lépésben minden klaszter egyelemű. Két egyelemű klaszter között csak egyetlen pontpár van, így a minimum, a maximum és az átlag is ugyanaz: a két pont távolsága. A módszerek csak akkor térhetnek el, amikor már többelemű klaszterek is vannak.</p></details>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Hüvelykujjszabály – a módszerek „jelleme”</span>
+<ul>
+  <li><strong>Single:</strong> hajlamos a <strong>láncolódásra</strong> (chaining): egyetlen közeli pontpár elég ahhoz, hogy két csoport összeolvadjon. Hosszú, elnyújtott klasztereket is megtalál, de egy „hídpont” két valódi csoportot összeránthat.</li>
+  <li><strong>Complete:</strong> <strong>tömör</strong>, nagyjából egyforma átmérőjű klasztereket ad; érzékeny a kiugró pontokra (a legtávolabbi pont dönt).</li>
+  <li><strong>Average:</strong> a kettő között, kevésbé szélsőséges.</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia</span>
+<p><em>single linkage</em> = egyszeres kapcsolás, legközelebbi szomszéd módszer · <em>complete linkage</em> = teljes kapcsolás, legtávolabbi szomszéd módszer · <em>average linkage</em> (UPGMA) = átlagos kapcsolás · <em>chaining</em> = láncolódás.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Kapcsolási módok (5 feladat)</summary>
+<ol>
+  <li><p>$A=\{2,4\}$, $B=\{7,12\}$. Számold ki a három kapcsolási távolságot!</p>
+    <details class="solution"><summary>Megoldás</summary><p>Pártávolságok: 5, 10, 3, 8. Single: 3. Complete: 10. Average: $(5+10+3+8)/4=6{,}5$.</p></details></li>
+  <li><p>Pontok: $A=2$, $B=3$, $C=5$, $D=9$, $E=14$. Végezd el a single kapcsolású klaszterezést: add meg az összevonásokat és a magasságokat!</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <ol>
+      <li>$\{A,B\}$, magasság 1.</li>
+      <li>$C$–$AB$: $\min(3;2)=2$; $C$–$D$: 4; $D$–$E$: 5 → $\{A,B,C\}$, magasság 2.</li>
+      <li>$D$–$ABC$: $\min(7;6;4)=4$; $D$–$E$: 5 → $\{A,B,C,D\}$, magasság 4.</li>
+      <li>$E$–$ABCD$: $\min(\dots;5)=5$ → egy klaszter, magasság 5.</li>
+    </ol>
+    <p>Ismét lánc: minden lépésben egy új pont csatlakozik a nagy klaszterhez.</p></details></li>
+  <li><p>Ugyanezekre a pontokra végezd el a complete kapcsolást!</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <ol>
+      <li>$\{A,B\}$, magasság 1.</li>
+      <li>$C$–$AB$: $\max(3;2)=3$; $C$–$D$: 4; $D$–$E$: 5 → $\{A,B,C\}$, magasság 3.</li>
+      <li>$D$–$E$: 5; $D$–$ABC$: $\max(7;6;4)=7$ → $\{D,E\}$, magasság 5.</li>
+      <li>$ABC$–$DE$: $\max=|2-14|=12$ → egy klaszter, magasság 12.</li>
+    </ol></details></li>
+  <li><p>Az előző két feladat alapján: mi a két klaszter single és complete esetén? Melyik tűnik természetesebbnek?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Single: $\{A,B,C,D\}$ és $\{E\}$. Complete: $\{A,B,C\}$ és $\{D,E\}$. A complete felosztása kiegyensúlyozottabb; a single egyetlen pontot (a legtávolabbit) választ le – ez a láncolódás tipikus jele.</p></details></li>
+  <li><p>Ugyanezekre a pontokra average kapcsolással mennyi az utolsó összevonás magassága? (2 tizedes)</p>
+    <details class="solution"><summary>Megoldás</summary><p>A sorrend: $\{A,B\}$ (1), $\{A,B,C\}$ ($(3+2)/2=2{,}5$), $\{D,E\}$ (5, mert $D$–$ABC$ $=(7+6+4)/3\approx5{,}67$ nagyobb). Végül $\{2,3,5\}$ és $\{9,14\}$ hat pártávolsága: 7, 12, 6, 11, 4, 9, összegük 49, átlaguk $49/6\approx8{,}17$.</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l04-lepes2"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes3">
+<h2>3. lépés – A Ward-módszer</h2>
+
+<h4>Kis eset</h4>
+<p>A gyakorlat kódja egyik eddigi módszert sem használja, hanem a <code>method="ward"</code> beállítást. Ennek ötlete a K-means-ből ismerős: a K-means a klaszteren belüli négyzetes eltérések összegét (inertia, SSE) próbálja kicsinek tartani. A Ward minden lépésben azt kérdezi: <strong>melyik összevonás növeli a legkevésbé ezt az összeget?</strong></p>
+<p>Nézzük a kézi példa második lépését. Klaszterek: $\{A\}=\{1\}$, $\{B,C\}=\{3,4\}$, $\{D\}=\{7\}$, $\{E\}=\{11\}$.</p>
+<ul>
+  <li>$\mathrm{SSE}(\{3,4\})$: átlag 3,5; $(0{,}5)^2+(0{,}5)^2=0{,}5$.</li>
+  <li>Ha $A$-t hozzávesszük: $\{1,3,4\}$, átlag $8/3\approx2{,}667$; $\mathrm{SSE}\approx2{,}778+0{,}111+1{,}778=4{,}667$. Növekedés: $4{,}667-0{,}5-0=4{,}167$.</li>
+  <li>Ha $D$-t és $E$-t vonjuk össze: $\{7,11\}$, $\mathrm{SSE}=2^2+2^2=8$. Növekedés: $8$.</li>
+</ul>
+<p>A kisebb növekedés nyer: $A$ csatlakozik $\{B,C\}$-hez.</p>
+
+<div class="box def"><span class="box-title">Definíció – Ward-kapcsolás</span>
+<p>Egy klaszter négyzetes eltérésösszege: $\mathrm{SSE}(A)=\sum_{a\in A}\lVert a-\bar a\rVert^2$, ahol $\bar a$ a klaszter középpontja (átlaga).</p>
+<p>A Ward-módszer azt a párt vonja össze, amelyre a növekedés a legkisebb:
+$$\Delta(A,B)=\mathrm{SSE}(A\cup B)-\mathrm{SSE}(A)-\mathrm{SSE}(B)=\frac{|A|\cdot|B|}{|A|+|B|}\,\lVert\bar a-\bar b\rVert^2 .$$</p>
+<p><strong>Miért jó a második alak?</strong> Nem kell újra kiszámolni az egész SSE-t: elég a két középpont távolsága és a két klaszter mérete. A $\frac{|A||B|}{|A|+|B|}$ szorzó miatt <strong>nagy klaszterek összevonása drágább</strong>, mint kicsiké – a Ward ezért kiegyensúlyozott méretű, gömbszerű klasztereket szeret.</p>
+<p>A Ward a négyzetes eltérésre épül, ezért <strong>euklideszi távolsággal</strong> használjuk (a gyakorlat kódja is <code>metric="euclidean"</code>).</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – A kézi példa Ward-dal</span>
+<p>Végezd el az 1, 3, 4, 7, 11 pontok Ward-klaszterezését a $\Delta$ képlettel!</p>
+<details class="solution"><summary>Megoldás</summary>
+<ol>
+  <li>Egyelemű klasztereknél $\Delta=\frac{1\cdot1}{2}d^2=\frac{d^2}{2}$: a legkisebb $d(B,C)=1$, $\Delta=0{,}5$ → $\{B,C\}$.</li>
+  <li>$A$–$BC$: $\frac{1\cdot2}{3}(1-3{,}5)^2=\frac23\cdot6{,}25\approx4{,}167$; $D$–$E$: $\frac12\cdot16=8$; $D$–$BC$: $\frac23\cdot(7-3{,}5)^2\approx8{,}167$ → $\{A,B,C\}$.</li>
+  <li>$D$–$E$: 8; $D$–$ABC$: $\frac{1\cdot3}{4}(7-2{,}667)^2\approx14{,}083$ → $\{D,E\}$.</li>
+  <li>$ABC$–$DE$: $\frac{3\cdot2}{5}(2{,}667-9)^2\approx48{,}133$.</li>
+</ol>
+<p>Ellenőrzés: a teljes SSE $60{,}8$, és $0{,}5+4{,}167+8+48{,}133=60{,}8$. Az összevonási sorrend itt a complete-tel egyezik, két klaszternél $\{A,B,C\}$ és $\{D,E\}$.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – SSE-vel és képlettel ugyanaz</span>
+<p>Mennyi $\Delta(\{1,3\},\{8\})$? Számold ki kétféleképpen!</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>SSE-vel: $\{1,3,8\}$ átlaga 4, $\mathrm{SSE}=9+1+16=26$; $\mathrm{SSE}(\{1,3\})=1+1=2$; $\mathrm{SSE}(\{8\})=0$. $\Delta=26-2-0=24$.</p>
+<p>Képlettel: középpontok 2 és 8, $\frac{2\cdot1}{3}\cdot6^2=24$. ✓</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – A méret számít</span>
+<p>Két összevonási lehetőség: (a) két egyelemű klaszter, középpontjaik 4 egységre; (b) két tízelemű klaszter, középpontjaik szintén 4 egységre. Melyiket választja a Ward?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>(a) $\frac{1\cdot1}{2}\cdot16=8$. (b) $\frac{10\cdot10}{20}\cdot16=80$. A Ward az (a)-t választja: azonos középponttávolságnál a kis klaszterek összevonása olcsóbb.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – mit mutat a magasság Ward esetén?</span>
+<p>Single/complete/average esetén a dendrogram magassága maga a klasztertávolság. Ward esetén <strong>nem</strong> a két középpont egyszerű távolsága (a gyakorlat kódja is figyelmeztet erre), hanem a $\Delta$ növekedésből számolt érték. A gyakorlaton ezért 19,68 a legfelső magasság, ami nem egy „vásárlók közti távolság”. A magasságok sorrendje és ugrásai viszont ugyanúgy olvashatók.</p>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés (nem szerepelt a gyakorlaton)</span>
+<ul>
+  <li>A scipy a Ward-magasságot $h=\sqrt{2\Delta}$ alakban adja. Két egyelemű klaszternél $\Delta=d^2/2$, így $h=d$: az első összevonások magassága még a valódi távolság. A kézi példában a magasságok: $1$; $\sqrt{8{,}333}\approx2{,}887$; $\sqrt{16}=4$; $\sqrt{96{,}27}\approx9{,}81$.</li>
+  <li>Az órán úgy hangzott el, hogy a Ward „csak a Python-implementációban” jelent meg. Valójában régi, klasszikus módszer (J. H. Ward, 1963), és a statisztikai programok többségében elérhető.</li>
+  <li>Létezik <em>centroid</em> (középpont-távolság) és <em>median</em> kapcsolás is; ezeknél előfordulhat, hogy egy későbbi összevonás alacsonyabban van, mint egy korábbi (a dendrogram „megfordul”), ezért ritkábban használják.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Ward (5 feladat)</summary>
+<ol>
+  <li><p>Mennyi $\Delta(\{2\},\{6\})$?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\frac{1\cdot1}{2}\cdot4^2=8$. (Ellenőrzés: $\{2,6\}$ átlaga 4, SSE $=4+4=8$.)</p></details></li>
+  <li><p>Melyik összevonást választja a Ward: $\{1,3\}+\{5\}$ vagy $\{9\}+\{10\}$?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\{1,3\}+\{5\}$: $\frac{2\cdot1}{3}(2-5)^2=6$. $\{9\}+\{10\}$: $\frac12\cdot1=0{,}5$. A második (0,5) a kisebb, azt választja.</p></details></li>
+  <li><p>Pontok: 2, 3, 5, 9, 14. Add meg a Ward-összevonások sorrendjét és $\Delta$ értékét!</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <ol>
+      <li>$\{2,3\}$: $\Delta=0{,}5$.</li>
+      <li>$\{5\}$ + $\{2,3\}$: $\frac23(5-2{,}5)^2\approx4{,}167$ (a $\{9\}+\{14\}$ 12,5 lenne) → $\{2,3,5\}$.</li>
+      <li>$\{9\}+\{14\}$: $12{,}5$; $\{9\}+\{2,3,5\}$: $\frac34(9-3{,}333)^2\approx24{,}08$ → $\{9,14\}$.</li>
+      <li>$\{2,3,5\}+\{9,14\}$: $\frac{6}{5}(3{,}333-11{,}5)^2\approx80{,}03$.</li>
+    </ol></details></li>
+  <li><p>Igaz vagy hamis: „A Ward-módszer és a K-means ugyanazt a célfüggvényt (klaszteren belüli négyzetösszeg) használja, ezért mindig ugyanazt a felosztást adják.”</p>
+    <details class="solution"><summary>Megoldás</summary><p>Hamis. A célfüggvény rokon, de a Ward mohón, lépésenként von össze, és egy korábbi összevonást nem bont vissza; a K-means a pontokat szabadon átsorolja a középpontok között. Gyakran hasonló, de nem garantáltan azonos az eredmény. (A gyakorlat adatán történetesen azonos lett – lásd az <a href="#alkalmazas">Alkalmazás</a> részt.)</p></details></li>
+  <li><p>Egy scipy Ward-dendrogramon az első összevonás magassága 4. Mekkora volt a két (egyelemű) klaszter távolsága, és mennyi a $\Delta$?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Egyelemű klasztereknél $h=d$, tehát $d=4$. $\Delta=d^2/2=8$, és valóban $\sqrt{2\cdot8}=4$.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes4">
+<h2>4. lépés – A dendrogram olvasása és a klaszterszám</h2>
+
+<h4>Kis eset</h4>
+<p>Nézd meg újra a complete dendrogramot (<a href="#lepes2">2. lépés</a>). Az összevonási magasságok: 1, 3, 4, 10. Az első három összevonás alacsonyan, egymáshoz közel történt, az utolsó viszont nagyot ugrik: 4-ről 10-re. Ez azt jelzi, hogy az utolsó lépés már <strong>két egymástól távoli csoportot</strong> erőltet össze. Ha egy vízszintes vonalat húzunk 4 és 10 közé (pl. 7-nél), az <strong>két</strong> függőleges ágat metsz: ez a két klaszter, $\{A,B,C\}$ és $\{D,E\}$.</p>
+<p>A single dendrogram magasságai 1, 2, 3, 4: az ugrások egyformák, nincs „természetes” vágási hely – a láncolódás itt elmossa a szerkezetet.</p>
+
+<div class="box def"><span class="box-title">Definíció – Klaszterszám a dendrogramról</span>
+<ol>
+  <li>Építsd fel a teljes hierarchiát, és rajzold meg a dendrogramot.</li>
+  <li>Vizsgáld meg az összevonási magasságokat. Keresd meg a <strong>legnagyobb ugrást</strong> két egymást követő összevonás között.</li>
+  <li>Húzz vízszintes <strong>vágási vonalat</strong> a legnagyobb ugrás két magassága közé (pl. a felezőpontjukba).</li>
+  <li>Számold meg, hány függőleges ágat metsz a vonal: ez a <strong>klaszterek száma</strong>.</li>
+</ol>
+<p>Számolással: ha a magasságok növekvő sorrendben $h_1\le h_2\le\dots\le h_{n-1}$, akkor $k$ klaszterhez $n-k$ összevonás kell. A $k$-hoz tartozó rés: $$\text{rés}(k)=h_{n-k+1}-h_{n-k}.$$ A javasolt $k$ ott van, ahol ez a legnagyobb; a vágási magasság $\frac{h_{n-k}+h_{n-k+1}}{2}$.</p>
+<p><strong>Miért?</strong> Az alacsony összevonások hasonló pontokat kötnek össze. Egy hirtelen nagy ugrás azt jelenti, hogy a következő lépés már lényegesen eltérő csoportokat kapcsolna össze – ott érdemes megállni.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Melyik $k$?</span>
+<p>Hét pont dendrogramjának összevonási magasságai: 0,5; 0,8; 1,1; 1,5; 4,0; 4,6. Hány klasztert javasolsz, és hol vágsz?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Ugrások: 0,3; 0,3; 0,4; <strong>2,5</strong>; 0,6. A legnagyobb az 1,5 → 4,0 közötti. Vágás pl. $\frac{1{,}5+4{,}0}{2}=2{,}75$-nél. Alatta 4 összevonás történt, így $7-4=3$ klaszter marad (a vonal 3 ágat metsz).</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Silhouette a választott $k$-ra</span>
+<p>A dendrogram csak javaslatot ad. A választott felosztás minőségét a <strong>silhouette</strong> mutatóval ellenőrizzük (3. lecke): egy $i$ pontra
+$$s(i)=\frac{b(i)-a(i)}{\max\{a(i),\,b(i)\}},$$
+ahol $a(i)$ az $i$ átlagos távolsága a saját klasztere többi pontjától, $b(i)$ a legközelebbi másik klaszter pontjaitól. Számold ki $D=7$ silhouette-értékét a complete és a single kéttagú felosztásában!</p>
+<details class="solution"><summary>Megoldás</summary>
+<p><strong>Complete</strong> ($\{A,B,C\}$, $\{D,E\}$): $a=|7-11|=4$, $b=\frac{6+4+3}{3}\approx4{,}333$, $s=\frac{4{,}333-4}{4{,}333}\approx0{,}077$.</p>
+<p><strong>Single</strong> ($\{A,B,C,D\}$, $\{E\}$): $a=\frac{6+4+3}{3}\approx4{,}333$, $b=4$, $s=\frac{4-4{,}333}{4{,}333}\approx-0{,}077$.</p>
+<p>A single felosztásban $D$ negatív: közelebb van a másik klaszterhez, mint a sajátjához. Az átlagos silhouette: complete $\approx0{,}527$, single $\approx0{,}386$ – a complete felosztás jobb.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – Vágás adott magasságon</span>
+<p>Tíz pont dendrogramján 6 összevonás van egy adott $h$ magasság alatt, a többi fölötte. Hány klasztert ad a $h$-nál húzott vágás?</p>
+<details class="solution"><summary>Megoldás</summary><p>$10-6=4$ klaszter. (A vonal 4 függőleges ágat metsz.)</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – a dendrogram olvasása</span>
+<ul>
+  <li><strong>A levelek vízszintes sorrendje nem távolság.</strong> Két egymás mellé rajzolt levél nem feltétlenül hasonló: a közelséget az mutatja, <strong>milyen magasan</strong> találkoznak.</li>
+  <li>A vágási vonalat a <strong>rés belsejébe</strong> húzd, ne egy összevonás magasságára: ott a vonal pont egy vízszintes szakaszon futna, és nem egyértelmű a metszett ágak száma.</li>
+  <li>A legnagyobb ugrás <strong>a vizsgált tartományban</strong> (a gyakorlaton $k=2\dots8$) számít; $k=1$ nem értelmes klaszterezés.</li>
+  <li>„Szemre” és „számolva” eltérhet: a gyakorlaton az oktató a dendrogramot nézve 3 klasztert olvasott le, a kód a legnagyobb rés alapján $k=2$-t javasolt. Ilyenkor a silhouette és a szakmai értelmezés dönt.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Dendrogram és klaszterszám (5 feladat)</summary>
+<ol>
+  <li><p>Az 1. kidolgozott példa magasságaival (0,5; 0,8; 1,1; 1,5; 4,0; 4,6): hány klasztert kapsz, ha 4,3-nál, illetve ha 1,3-nál vágsz?</p>
+    <details class="solution"><summary>Megoldás</summary><p>4,3 alatt 5 összevonás van → $7-5=2$ klaszter. 1,3 alatt 3 összevonás (0,5; 0,8; 1,1) → $7-3=4$ klaszter.</p></details></li>
+  <li><p>Ugyanezen az adaton $k=3$-hoz mi az alsó és a felső magasság ($h_{n-k}$, $h_{n-k+1}$), és mekkora a rés?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$n=7$, $k=3$: $h_4=1{,}5$ és $h_5=4{,}0$, a rés $2{,}5$. (A $k=2$ rése $4{,}6-4{,}0=0{,}6$.)</p></details></li>
+  <li><p>Pontok egy egyenesen: $\{1,2\}$ és $\{6,8\}$ a két klaszter. Mennyi a 2-es pont silhouette-értéke?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$a=|2-1|=1$, $b=\frac{|2-6|+|2-8|}{2}=5$, $s=\frac{5-1}{5}=0{,}8$.</p></details></li>
+  <li><p>Ugyanott mennyi a 6-os pont silhouette-értéke?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$a=|6-8|=2$, $b=\frac{5+4}{2}=4{,}5$, $s=\frac{4{,}5-2}{4{,}5}\approx0{,}556$.</p></details></li>
+  <li><p>A complete kézi példán (magasságok 1, 3, 4, 10) hány klasztert javasol a legnagyobb rés, és mi az átlagos silhouette? Hasonlítsd össze a 3 klaszteres $\{A,B,C\},\{D\},\{E\}$ felosztással (átlagos silhouette $\approx0{,}308$)!</p>
+    <details class="solution"><summary>Megoldás</summary><p>Rések: $k=4$: 2 ($3-1$), $k=3$: 1 ($4-3$), $k=2$: 6 ($10-4$). A legnagyobb rés $k=2$-nél van; az átlagos silhouette $\approx0{,}527$, jobb, mint a 3 klaszteres $0{,}308$. A két szempont itt egybevág.</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l04-lepes4"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes5">
+<h2>5. lépés – HAC és K-means összevetése</h2>
+
+<h4>Kis eset</h4>
+<p>A kézi példában a single már a második lépésben $A$-t a $\{B,C\}$-hez kötötte. Ha később kiderülne, hogy jobb lett volna $A$-t külön hagyni, a HAC ezt már nem tudja javítani: <strong>a korábbi összevonásokat nem bontja vissza</strong>. Az eredményt az összevonások sorrendje határozza meg. A K-means ezzel szemben minden iterációban újra besorolja a pontokat a legközelebbi középponthoz – egy pont „átköltözhet” másik klaszterbe.</p>
+
+<div class="box def"><span class="box-title">Tétel jellegű összefoglalás – a HAC tulajdonságai</span>
+<ul>
+  <li><strong>Mohó és visszavonhatatlan:</strong> minden lépésben a pillanatnyilag legjobb összevonást választja, és azt soha nem bontja fel.</li>
+  <li><strong>Determinisztikus:</strong> nincs véletlen kezdőpont. Ugyanarra az adatra, ugyanazzal a kapcsolással mindig ugyanazt a dendrogramot adja (egyenlő távolságoknál a holtverseny feloldása lehet implementációfüggő).</li>
+  <li><strong>Nem kell előre $k$:</strong> a teljes hierarchia egyszer készül el; $k$-t utólag, a dendrogram vágásával választjuk. Bármelyik $k$ kiolvasható újrafuttatás nélkül.</li>
+  <li><strong>Drága nagy adatra:</strong> a távolságmátrix $\frac{n(n-1)}{2}$ elemű, és minden lépés után frissíteni kell.</li>
+  <li><strong>Nincs „predict”:</strong> az eredmény a meglévő pontok fája. Egy új pont besorolására nincs beépített szabály.</li>
+</ul>
+</div>
+
+<div class="table-wrap"><table>
+<tr><th>Szempont</th><th>K-means (3. gyakorlat)</th><th>HAC (4. gyakorlat)</th></tr>
+<tr><td>Kell-e előre $k$?</td><td>Igen, a futtatás bemenete (<code>n_clusters</code>).</td><td>Nem; utólag, a dendrogram vágásával.</td></tr>
+<tr><td>Fő paraméter</td><td>$k$ (és <code>n_init</code>, <code>max_iter</code>, <code>random_state</code>)</td><td>Kapcsolási mód (single/complete/average/ward) és távolságmérték</td></tr>
+<tr><td>Determinisztikus?</td><td>Nem – a véletlen kezdő középpontoktól függ (rögzített <code>random_state</code>-tel reprodukálható).</td><td>Igen.</td></tr>
+<tr><td>Javít-e korábbi döntést?</td><td>Igen, a pontok iterációnként átsorolódhatnak.</td><td>Nem, az összevonás végleges.</td></tr>
+<tr><td>Futásidő, memória</td><td>Gyors, nagy adatra is jó (kb. $n\cdot k$ távolság iterációnként).</td><td>Lassú, $n^2$-es memória (távolságmátrix); néhány ezer pontig kényelmes.</td></tr>
+<tr><td>Klaszterek alakja</td><td>Gömbszerű, hasonló méretű.</td><td>A kapcsolástól függ (single: elnyújtott is; ward: gömbszerű).</td></tr>
+<tr><td>Alkalmazható új pontra?</td><td><strong>Igen</strong>: <code>predict()</code> – a legközelebbi középponthoz sorol.</td><td><strong>Közvetlenül nem</strong>: újra kell futtatni, vagy kerülőúton (pl. a legközelebbi klaszterközéppont) sorolni.</td></tr>
+<tr><td>Mit ad a klaszterszámhoz?</td><td>Könyökmódszer (inertia), silhouette.</td><td>Dendrogram (legnagyobb rés), silhouette.</td></tr>
+</table></div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Új vásárló érkezik</span>
+<p>A féléves feladat (B változat) kéri: „Alkalmazza a választott modellt új adatokon, amennyiben az alkalmazott klaszterezési módszer ezt lehetővé teszi.” Hogyan sorolnál be egy új vásárlót K-means-szel, és hogyan HAC-cal?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p><strong>K-means:</strong> az új vásárló adatait <em>ugyanazokkal</em> a paraméterekkel standardizálod (a tanító adat átlaga és szórása), majd <code>model.predict(X_uj)</code> – a legközelebbi középpont klaszterét kapja.</p>
+<p><strong>HAC:</strong> a sklearn <code>AgglomerativeClustering</code>-nek nincs <code>predict</code> metódusa, csak <code>fit_predict</code>, ami az <em>összes</em> pontot újraklaszterezi – ettől a régi címkék is megváltozhatnak. Kerülőutak: (1) kiszámolod a HAC-klaszterek középpontjait, és az új pontot a legközelebbihez sorolod; (2) a HAC-címkékre egy osztályozót tanítasz. Ezek már nem „tiszta” HAC-alkalmazások, ezt a beadandóban érdemes leírni.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Mekkora a távolságmátrix?</span>
+<p>Hány elemű a (fél) távolságmátrix 120, illetve 100 000 vásárlónál? Mennyi memória kell az utóbbihoz, ha egy szám 8 bájt?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>120 vásárló: $\frac{120\cdot119}{2}=7140$ – semmiség. 100 000 vásárló: $\frac{100\,000\cdot99\,999}{2}\approx5\cdot10^9$ elem, ami $8$ bájttal kb. $40$ GB. Ezért nagy adatra a K-means a praktikus választás.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – Kétszer futtatva</span>
+<p>Ugyanazt a programot kétszer lefuttatod <code>random_state</code> nélkül. Melyik módszer adhat két különböző eredményt?</p>
+<details class="solution"><summary>Megoldás</summary><p>Csak a K-means: a kezdő középpontok véletlenek, így más lokális optimumba juthat. A HAC-ban nincs véletlen elem, a dendrogram mindkétszer ugyanaz.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+  <li>„A HAC nem igényel paramétert” – hamis. A kapcsolási módot és a távolságmértéket meg kell adni, és $k$-t is ki kell választani (csak utólag).</li>
+  <li>„A HAC-nál nem kell standardizálni” – hamis. Távolságokra épül, ugyanúgy skálaérzékeny, mint a K-means.</li>
+  <li>A klasztercímkék (1, 2, …) <strong>sorszámok, nem rangsorok</strong>: a „2-es klaszter” nem „jobb” az 1-esnél, és a két módszer ugyanazt a csoportot más számmal is jelölheti.</li>
+</ul>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés (nem szerepelt a gyakorlaton)</span>
+<ul>
+  <li><strong>Divizív (felosztó) hierarchikus klaszterezés:</strong> a fordított irány – egyetlen klaszterből indul, és lépésenként kettévág (pl. DIANA). Ritkábban használt, mert sokféle vágás közül kell választani.</li>
+  <li><strong>Futásidő:</strong> a naiv HAC $O(n^3)$ idejű és $O(n^2)$ memóriájú; a gyakori kapcsolásokra van $O(n^2)$ idejű algoritmus is, de a memóriaigény megmarad.</li>
+  <li><strong>sklearn:</strong> az <code>AgglomerativeClustering</code> osztály közvetlenül címkéket ad:
+<pre><code class="language-python">from sklearn.cluster import AgglomerativeClustering
+labels = AgglomerativeClustering(n_clusters=2, linkage="ward").fit_predict(X)</code></pre>
+  A gyakorlat a scipy <code>linkage</code> + <code>cut_tree</code>/<code>fcluster</code> párost használja, mert abból a dendrogram is rajzolható.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – HAC vagy K-means? (5 feladat)</summary>
+<ol>
+  <li><p>Egy webshop 2 millió vásárlóját kell szegmentálni. Melyik módszert választanád, és miért?</p>
+    <details class="solution"><summary>Megoldás</summary><p>K-means. A HAC távolságmátrixa $\approx2\cdot10^{12}$ elemű lenne – ez nem fér a memóriába, a K-means viszont iterációnként csak $n\cdot k$ távolságot számol.</p></details></li>
+  <li><p>80 megfigyelésed van, és nem tudod, hány csoport lehet; szeretnéd látni, hogyan épülnek egymásra a csoportok. Melyik módszer?</p>
+    <details class="solution"><summary>Megoldás</summary><p>HAC: kis adat, a dendrogram megmutatja a teljes hierarchiát, és bármely $k$ utólag kiolvasható.</p></details></li>
+  <li><p>A HAC egy korai lépésben két pontot összevont, amelyek a végső felosztásban rossz helyre kerülnek. Kijavítja ezt az algoritmus?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Nem. A HAC a korábbi összevonásokat nem bontja vissza; a két pont onnantól mindig együtt marad.</p></details></li>
+  <li><p>Miért írja a féléves feladat, hogy az új adatokra alkalmazás csak „amennyiben az alkalmazott klaszterezési módszer ezt lehetővé teszi”?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Mert nem minden klaszterező módszernek van besoroló szabálya új pontra. A K-means-nek van (legközelebbi középpont, <code>predict</code>), a HAC-nak nincs – ott újrafuttatás vagy kerülőút kell, és ezt indokolni kell.</p></details></li>
+  <li><p>A K-means-t <code>random_state=42</code>-vel futtatod. Ettől determinisztikus lesz a módszer?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A <em>futás</em> reprodukálható lesz (mindig ugyanazt kapod), de a módszer maga továbbra is a kezdőpontoktól függ: más seed más eredményt adhat. A rögzített seed csak elrejti ezt a függést.</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l04-lepes5"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="alkalmazas">
+<h2>Alkalmazás – a 4. gyakorlat munkafolyamata</h2>
+<p>Adat: a 3. gyakorlat standardizált vásárlói összesítője (<code>retail_customers_standardized.csv</code>), 120 vásárló, két jellemző: <code>purchase_count</code> (vásárlások száma) és <code>total_spent</code> (összköltés). Két jellemzőt azért használunk, hogy a csoportok síkban ábrázolhatók legyenek.</p>
+
+<h3>1. feladat – Dendrogram (<code>01_hac_dendrogram.py</code>)</h3>
+<pre><code class="language-python">from scipy.cluster.hierarchy import linkage, dendrogram
+
+FEATURES = ["purchase_count", "total_spent"]
+METHOD = "ward"            # további lehetőségek: single, complete, average
+
+X_scaled = customers_scaled[FEATURES]
+Z = linkage(X_scaled.to_numpy(), method=METHOD, metric="euclidean")   # teljes hierarchia
+
+dendrogram(Z, labels=customers_scaled["customer_id"].tolist(),
+           leaf_rotation=90, leaf_font_size=7, ax=ax)   # 120 levél: elforgatott feliratok
+
+linkage_table = pd.DataFrame(Z, columns=["left_node", "right_node",
+                                         "merge_height", "customer_count"])</code></pre>
+<p>A <code>linkage</code> egyetlen hívással elvégzi mind a 119 összevonást; a <code>Z</code> mátrix minden sora egy összevonás (bal csomópont, jobb csomópont, magasság, létszám). A <code>dendrogram</code> ebből rajzol. A dendrogram tetején a legutolsó összevonások:</p>
+
+<figure>
+<svg viewBox="0 0 560 250" role="img" aria-label="A Ward-dendrogram felső része: három 40 fős csoport, vágás 13,67-nél">
+  <!-- alap y=220, 1 egység = 10 px -->
+  <g stroke="currentColor" stroke-width="1" opacity="0.5"><line x1="50" y1="20" x2="50" y2="220"/></g>
+  <g font-size="10" fill="currentColor" text-anchor="end">
+    <text x="46" y="223">0</text><text x="46" y="173">5</text><text x="46" y="123">10</text><text x="46" y="73">15</text><text x="46" y="23">20</text>
+  </g>
+  <!-- három csoport háromszöggel -->
+  <g fill="var(--accent)" fill-opacity="0.25" stroke="var(--accent)" stroke-width="1.5">
+    <polygon points="90,220 170,220 130,204"/>
+    <polygon points="230,220 310,220 270,199"/>
+    <polygon points="390,220 470,220 430,178"/>
+  </g>
+  <g stroke="var(--accent)" stroke-width="2.2" fill="none">
+    <polyline points="130,204 130,143 270,143 270,199"/>
+    <polyline points="200,143 200,23 430,23 430,178"/>
+  </g>
+  <g font-size="11" fill="currentColor">
+    <text x="136" y="200">1,59</text><text x="276" y="196">2,08</text><text x="436" y="174">4,17</text>
+    <text x="206" y="139">7,65</text><text x="315" y="18">19,68</text>
+  </g>
+  <line x1="60" y1="83" x2="530" y2="83" stroke="#d1453b" stroke-dasharray="6 4" stroke-width="1.8"/>
+  <text x="530" y="78" font-size="11" fill="#d1453b" text-anchor="end">vágás 13,67 → k = 2</text>
+  <line x1="60" y1="161" x2="530" y2="161" stroke="currentColor" stroke-dasharray="2 4" stroke-width="1.5"/>
+  <text x="530" y="157" font-size="11" fill="currentColor" text-anchor="end">vágás 5,91 → k = 3</text>
+  <g font-size="12" fill="currentColor" text-anchor="middle">
+    <text x="130" y="238">40 vásárló</text><text x="270" y="238">40 vásárló</text><text x="430" y="238">40 vásárló</text>
+  </g>
+</svg>
+<figcaption>Vázlat a <code>retail_hac_linkage.csv</code> utolsó öt sorából. A háromszögek a 40 fős részfák (belső szerkezetük nem látszik). A két alacsonyabb csoport 7,65-nél, a harmadik 19,68-nál csatlakozik.</figcaption>
+</figure>
+
+<h3>2. feladat – Klaszterszám (<code>02_hac_k.py</code>)</h3>
+<pre><code class="language-python">for k in range(2, max_k + 1):                 # k = 2 … 8
+    lower = float(Z[n-k-1, 2])                # az utolsó végrehajtott összevonás (n-k.)
+    upper = float(Z[n-k, 2])                  # a következő összevonás
+    labels = cut_tree(Z, n_clusters=[k]).ravel()
+    results.append({"k": k, "lower_height": lower, "upper_height": upper,
+                    "height_gap": upper - lower,
+                    "silhouette": silhouette_score(X, labels)})
+
+suggested_k = comparison.loc[comparison.height_gap.idxmax(), "k"]   # legnagyobb rés
+cut_height = (row.lower_height + row.upper_height) / 2               # rés közepe
+height_labels = fcluster(Z, t=cut_height, criterion="distance")     # vágás magasságnál</code></pre>
+<p>A <code>Z</code> 0-tól indexelt, ezért a $h_{n-k}$ a <code>Z[n-k-1, 2]</code>. A <code>cut_tree</code> adott $k$-ra, az <code>fcluster(…, criterion="distance")</code> adott magasságra vág – pozitív résnél a kettő ugyanazt adja.</p>
+
+<div class="table-wrap"><table>
+<tr><th>k</th><th class="num">lower_height</th><th class="num">upper_height</th><th class="num">height_gap</th><th class="num">silhouette</th></tr>
+<tr><td><strong>2</strong></td><td class="num">7,652</td><td class="num">19,682</td><td class="num"><strong>12,030</strong></td><td class="num"><strong>0,7155</strong></td></tr>
+<tr><td>3</td><td class="num">4,165</td><td class="num">7,652</td><td class="num">3,487</td><td class="num">0,7144</td></tr>
+<tr><td>4</td><td class="num">2,085</td><td class="num">4,165</td><td class="num">2,081</td><td class="num">0,6822</td></tr>
+<tr><td>5</td><td class="num">1,590</td><td class="num">2,085</td><td class="num">0,495</td><td class="num">0,6183</td></tr>
+<tr><td>6</td><td class="num">1,490</td><td class="num">1,590</td><td class="num">0,100</td><td class="num">0,5785</td></tr>
+<tr><td>7</td><td class="num">1,288</td><td class="num">1,490</td><td class="num">0,201</td><td class="num">0,5440</td></tr>
+<tr><td>8</td><td class="num">1,059</td><td class="num">1,288</td><td class="num">0,229</td><td class="num">0,5319</td></tr>
+</table></div>
+<p><strong>Értelmezés.</strong> A legnagyobb rés $k=2$-nél van (12,03), és a silhouette is itt a legnagyobb (0,7155). A vágási magasság $\frac{7{,}652+19{,}682}{2}\approx13{,}67$. A $k=3$ silhouette-je (0,7144) szinte ugyanakkora – az órán is elhangzott, hogy „kettő vagy három, ez a kérdés”. Szemre a dendrogramon a 3 is jól látszik; a számolt rés a 2-t részesíti előnyben.</p>
+
+<h3>3. feladat – Csoportméret, profil, silhouette (<code>03_hac_k_profile.py</code>)</h3>
+<pre><code class="language-python">data["silhouette"] = silhouette_samples(X, labels, metric="euclidean")   # vásárlónként
+customers = customers_aggregated.merge(data[["customer_id", "cluster", "silhouette"]],
+                                       on="customer_id", validate="one_to_one")
+cluster_profile = customers.groupby("cluster").agg(
+    customer_count=("customer_id", "count"),
+    mean_purchase_count=("purchase_count", "mean"),
+    mean_total_spent_huf=("total_spent", "mean"),
+    mean_silhouette=("silhouette", "mean"), ...)</code></pre>
+<p>A silhouette a standardizált térben készül (ott klasztereztünk), a profil viszont az <strong>eredeti mértékegységekben</strong> (db, Ft), mert azt lehet üzletileg értelmezni.</p>
+
+<div class="table-wrap"><table>
+<tr><th>Klaszter</th><th class="num">Vásárló (fő / %)</th><th class="num">Átl. vásárlásszám</th><th class="num">Átl. összköltés (Ft)</th><th class="num">Átl. tételszám</th><th class="num">Átl. egyedi termék</th><th class="num">Átl. kosárérték (Ft)</th><th class="num">Átl. silhouette</th></tr>
+<tr><td>1</td><td class="num">80 / 66,7%</td><td class="num">6,4</td><td class="num">31&nbsp;402</td><td class="num">33,1</td><td class="num">11,9</td><td class="num">4&nbsp;529</td><td class="num">0,701</td></tr>
+<tr><td>2</td><td class="num">40 / 33,3%</td><td class="num">15,9</td><td class="num">184&nbsp;480</td><td class="num">197,3</td><td class="num">18,0</td><td class="num">11&nbsp;562</td><td class="num">0,744</td></tr>
+</table></div>
+<p><strong>Értelmezés.</strong> A 2. klaszter a kisebb (40 fő), de nagyjából 2,5-ször annyit vásárol és közel 6-szor annyit költ: <em>törzsvásárlók / nagy költők</em>. Az 1. klaszter (80 fő) ritkábban vásárló, kis költésű vásárlók csoportja. Mindkét klaszter átlagos silhouette-je 0,7 fölött van, a teljes átlag $\frac{80}{120}\cdot0{,}701+\frac{40}{120}\cdot0{,}744\approx0{,}7155$ (a vásárlónkénti értékek átlaga, azaz a klaszterátlagok létszámmal súlyozott átlaga). A legkisebb egyéni érték is 0,44 – negatív silhouette-ű, rossz helyre sorolt vásárló nincs. (Az órán „0,75” hangzott el; a CSV szerint a pontos érték 0,7155.)</p>
+
+<h3>4–5. feladat – Más kapcsolás, és összevetés a K-means-szel</h3>
+<p>Az órán az oktató jelezte: ezen a mesterséges adathalmazon a csoportok olyan messze vannak egymástól, hogy a kapcsolási mód nem sokat számít. Ezt le is ellenőriztük (a gyakorlat adatán, a gyakorlat kódjával, a <code>METHOD</code> átírásával):</p>
+<div class="table-wrap"><table>
+<tr><th>Módszer</th><th>k = 2 csoportméretek</th><th class="num">silhouette (k = 2)</th><th>k = 3 csoportméretek</th><th class="num">silhouette (k = 3)</th></tr>
+<tr><td>single</td><td>80 + 40</td><td class="num">0,7155</td><td>40 + 40 + 40</td><td class="num">0,7144</td></tr>
+<tr><td>complete</td><td>80 + 40</td><td class="num">0,7155</td><td>40 + 40 + 40</td><td class="num">0,7144</td></tr>
+<tr><td>average</td><td>80 + 40</td><td class="num">0,7155</td><td>40 + 40 + 40</td><td class="num">0,7144</td></tr>
+<tr><td>ward</td><td>80 + 40</td><td class="num">0,7155</td><td>40 + 40 + 40</td><td class="num">0,7144</td></tr>
+<tr><td>K-means (3. gyak.)</td><td>80 + 40</td><td class="num">0,7155</td><td>40 + 40 + 40</td><td class="num">0,7144</td></tr>
+</table></div>
+<p>Mind a négy kapcsolás és a K-means is <strong>pontosan ugyanazt a felosztást</strong> adja $k=2$-re és $k=3$-ra is (ezért egyeznek a silhouette-értékek a 3. gyakorlat táblájával). A magasságok persze eltérnek (pl. a legfelső összevonás single-lel 0,95, ward-dal 19,68), de mindegyiknél $k=2$-nél van a legnagyobb rés.</p>
+<div class="box tip"><span class="box-title">💡 Mit tanulunk ebből?</span>
+<p>Jól elkülönülő csoportoknál a módszerek egybehangzanak – ez megerősíti, hogy a szegmentáció valódi szerkezetet talált. Saját (valódi) adathalmazon, ahol a csoportok közelebb vannak, a kapcsolási módok és a K-means eltérhetnek; ott érdemes kísérletezni, és a féléves feladatban az eltérést értelmezni. A silhouette nem a módszerhez, hanem a <strong>felosztáshoz</strong> tartozik: ugyanarra a felosztásra ugyanazt adja, bármelyik algoritmus állította elő.</p>
+</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="osszefoglalas">
+<h2>Összefoglalás</h2>
+<ul>
+  <li>A HAC minden pontot külön klaszterként kezd, és lépésenként a <strong>két legközelebbi klasztert</strong> vonja össze, amíg egy marad: $n-1$ összevonás.</li>
+  <li>A <strong>kapcsolási mód</strong> mondja meg, mi két klaszter távolsága: single (min), complete (max), average (átlag), Ward (az SSE legkisebb növekedése).</li>
+  <li>A <strong>dendrogram</strong> az összevonások fája; a függőleges tengely az összevonási magasság. A klaszterszám: vágás a <strong>legnagyobb ugrás</strong> közepén, a metszett ágak száma $k$.</li>
+  <li>A választott $k$-t <strong>silhouette</strong>-tel ellenőrizzük.</li>
+  <li>A HAC determinisztikus, nem kell hozzá előre $k$, de a korábbi összevonásokat nem bontja vissza, nagy adatra drága, és új pontra közvetlenül nem alkalmazható.</li>
+  <li>A gyakorlaton: $k=2$ (rés 12,03, silhouette 0,7155, vágás 13,67), 80 + 40 fős szegmensek – ugyanaz, mint a K-means-szel.</li>
+</ul>
+
+<h3>Döntési táblázat</h3>
+<div class="table-wrap"><table>
+<tr><th>Ha a feladatban ez áll…</th><th>…ezt használd / így gondolkodj</th></tr>
+<tr><td>„Melyik két klaszter vonódik össze?”</td><td>Számold ki a klaszterpárok $D$ értékét a megadott kapcsolással, a <strong>legkisebb</strong> nyer.</td></tr>
+<tr><td>„Single / legközelebbi szomszéd”</td><td>$D=\min d(a,b)$ a két klaszter pontpárjai közt.</td></tr>
+<tr><td>„Complete / legtávolabbi szomszéd”</td><td>$D=\max d(a,b)$.</td></tr>
+<tr><td>„Average / átlagos kapcsolás”</td><td>Az összes $|A|\cdot|B|$ pártávolság átlaga.</td></tr>
+<tr><td>„Ward”, „négyzetes eltérés növekedése”</td><td>$\Delta=\frac{|A||B|}{|A|+|B|}\lVert\bar a-\bar b\rVert^2$, a legkisebb nyer; euklideszi távolság.</td></tr>
+<tr><td>„Hány klaszter $m$ összevonás után?”</td><td>$n-m$.</td></tr>
+<tr><td>„Olvasd le a klaszterszámot a dendrogramról”</td><td>Legnagyobb rés két egymást követő magasság közt → vágás a közepén → metszett ágak száma.</td></tr>
+<tr><td>„Mennyire jó a felosztás?”</td><td>Silhouette: $s=\frac{b-a}{\max(a,b)}$, átlagolva; 1-hez közel jó, 0 körül határeset, negatív rossz besorolás.</td></tr>
+<tr><td>„Hosszú, láncszerű klaszterek / egy pont leválik”</td><td>Single kapcsolás láncolódása.</td></tr>
+<tr><td>„Nagy adat (sok ezer+ pont)”</td><td>K-means (a HAC $n^2$-es memóriája miatt).</td></tr>
+<tr><td>„Nem tudjuk előre $k$-t, a hierarchia is érdekel”</td><td>HAC + dendrogram.</td></tr>
+<tr><td>„Alkalmazd a modellt új adatokra”</td><td>K-means: <code>predict</code> (ugyanazzal a standardizálással). HAC: nincs <code>predict</code> → újrafuttatás vagy kerülőút (legközelebbi klaszterközéppont), indoklással.</td></tr>
+</table></div>
+</section>
+
+<section id="kviz">
+<h2>Ellenőrző kvíz</h2>
+<div class="quiz" data-quiz="l04-vegso"></div>
+</section>
+
+<nav class="pager">
+  <a href="03-kmeans.html">← 3. K-means</a>
+  <a href="05-dontesi-fa.html">5. Döntési fa →</a>
+</nav>
+</main>
+</body>
+</html>

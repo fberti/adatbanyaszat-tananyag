@@ -1,0 +1,1070 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vásárlói szegmentáció K-means módszerrel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script defer src="assets/quiz.js"></script>
+<script defer src="quiz/03.js"></script>          <!-- a lecke kvízei -->
+<script defer src="assets/common.js"></script>    <!-- MINDIG az utolsó -->
+</head>
+<body>
+<nav class="topnav"><div class="inner">
+  <a href="index.html">← Tartalom</a>
+  <span>3. lecke · K-means</span>
+  <span class="spacer"></span>
+  <button id="theme-toggle" type="button" title="Világos/sötét téma">◐</button>
+</div></nav>
+<main>
+<p class="kicker">3. lecke · 3. gyakorlat</p>
+<h1>Vásárlói szegmentáció K-means módszerrel</h1>
+<p class="lead">Hogyan osszunk csoportokba vásárlókat úgy, hogy senki nem mondja meg előre, milyen csoportok vannak? Távolság, standardizálás, a K-means algoritmus kézzel és Pythonban, és a jó klaszterszám kiválasztása.</p>
+
+<section id="motivacio">
+<h2>Motiváció</h2>
+<p>Egy bolt 120 törzsvásárlójáról csak a tranzakciós naplót ismered: ki, mikor, mit, mennyiért vett. Szeretnél célzott ajánlatokat küldeni, ezért csoportokra bontanád őket. Nincs viszont semmilyen előzetes címke („hűséges”, „alkalmi” …), amiből tanulni lehetne.</p>
+<p><strong>A kérdés:</strong> hány és milyen vásárlói csoport rejlik az adatban, és hogyan írjuk le őket forintban és darabban?</p>
+<p>A lecke végén erre konkrét választ adunk: a gyakorlat adatán három jól elkülönülő csoport jön ki (alkalmi, átlagos és törzsvásárlók), átlagosan kb. 3,5, 9,4 és 15,9 vásárlással és 13, 50, illetve 184 ezer Ft költéssel.</p>
+</section>
+
+<section id="utiterv">
+<h2>Útiterv</h2>
+<ol class="roadmap">
+  <li><a href="#lepes1">1. lépés – Felügyelt és felügyelet nélküli tanulás, a klaszter</a></li>
+  <li><a href="#lepes2">2. lépés – Egy sor = egy vásárló: aggregálás</a></li>
+  <li><a href="#lepes3">3. lépés – Távolság két vásárló között</a></li>
+  <li><a href="#lepes4">4. lépés – Standardizálás (z-pontszám)</a></li>
+  <li><a href="#lepes5">5. lépés – A K-means algoritmus kézzel</a></li>
+  <li><a href="#lepes6">6. lépés – Inertia: mennyire jó egy klaszterezés?</a></li>
+  <li><a href="#lepes7">7. lépés – Véletlen kezdőpontok: <code>n_init</code> és <code>random_state</code></a></li>
+  <li><a href="#lepes8">8. lépés – Hány klaszter? A könyökmódszer</a></li>
+  <li><a href="#lepes9">9. lépés – A sziluett (silhouette) mutató</a></li>
+  <li><a href="#alkalmazas">Alkalmazás – a gyakorlat teljes munkafolyamata</a></li>
+  <li><a href="#osszefoglalas">Összefoglalás és döntési táblázat</a></li>
+  <li><a href="#kviz">Ellenőrző kvíz</a></li>
+</ol>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes1">
+<h2>1. lépés – Felügyelt és felügyelet nélküli tanulás, a klaszter</h2>
+
+<h4>Kis eset</h4>
+<p>Két táblázat ugyanarról a négy vásárlóról:</p>
+<div class="two-col">
+  <div class="box example"><span class="box-title">Van címke</span>
+  <div class="table-wrap"><table>
+  <tr><th>vásárló</th><th class="num">vásárlás</th><th class="num">költés (ezer Ft)</th><th>lemorzsolódott?</th></tr>
+  <tr><td>V1</td><td class="num">2</td><td class="num">6</td><td>igen</td></tr>
+  <tr><td>V2</td><td class="num">15</td><td class="num">180</td><td>nem</td></tr>
+  <tr><td>V3</td><td class="num">3</td><td class="num">9</td><td>igen</td></tr>
+  <tr><td>V4</td><td class="num">16</td><td class="num">190</td><td>nem</td></tr>
+  </table></div>
+  <p>A cél: egy új vásárlóról megjósolni a „lemorzsolódott?” oszlopot. A helyes válaszokból tanulunk.</p></div>
+  <div class="box example"><span class="box-title">Nincs címke</span>
+  <div class="table-wrap"><table>
+  <tr><th>vásárló</th><th class="num">vásárlás</th><th class="num">költés (ezer Ft)</th></tr>
+  <tr><td>V1</td><td class="num">2</td><td class="num">6</td></tr>
+  <tr><td>V2</td><td class="num">15</td><td class="num">180</td></tr>
+  <tr><td>V3</td><td class="num">3</td><td class="num">9</td></tr>
+  <tr><td>V4</td><td class="num">16</td><td class="num">190</td></tr>
+  </table></div>
+  <p>Nincs „helyes válasz”. Mégis látszik: V1 és V3 hasonlít, V2 és V4 hasonlít. Ez két csoport.</p></div>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Felügyelt és felügyelet nélküli tanulás</span>
+<p><strong>Felügyelt tanulás</strong> (<em>supervised</em>): az adatban van egy célváltozó (címke), és a modell a bemenetekből ezt tanulja meg előre jelezni. Példa: osztályozás (döntési fa, neurális háló – 5–6. lecke).</p>
+<p><strong>Felügyelet nélküli tanulás</strong> (<em>unsupervised</em>): nincs célváltozó. A modell csak a meglévő jellemzők alapján keres szerkezetet, pl. csoportokat.</p>
+<p><strong>Miért fontos?</strong> A módszert az adat határozza meg: ha nincs előzetes csoportosítási információ, osztályozót nem lehet tanítani – ilyenkor klaszterezünk.</p>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Klaszterezés, klaszter</span>
+<p>A <strong>klaszterezés</strong> felügyelet nélküli tanulási módszer, amely a hasonló objektumokat csoportokba rendezi úgy, hogy az azonos csoportba tartozók jobban hasonlítsanak egymásra, mint a más csoportokba tartozókra. A hasonló objektumokból álló csoport a <strong>klaszter</strong>.</p>
+<p>A „hasonlóság” a gyakorlatban <strong>távolság</strong>: minél közelebb van két pont a többdimenziós térben, annál hasonlóbb. Cél: kis távolság a klaszteren belül, nagy távolság a klaszterek között.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Melyik fajta feladat?</span>
+<p>„Egy bank a régi hitelesek adatából (és abból, hogy visszafizették-e) akarja megjósolni, hogy egy új ügyfél vissza fogja-e fizetni a hitelt.”</p>
+<details class="solution"><summary>Megoldás</summary><p>Van címke (visszafizette: igen/nem), ezt kell előre jelezni → <strong>felügyelt</strong> tanulás (osztályozás).</p></details>
+</div>
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Melyik fajta feladat?</span>
+<p>„Egy webáruház a látogatók kattintási szokásai alapján csoportokat keres, de nem tudja előre, milyen csoportok vannak.”</p>
+<details class="solution"><summary>Megoldás</summary><p>Nincs címke, csoportokat keresünk → <strong>felügyelet nélküli</strong> tanulás (klaszterezés).</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – a klaszter nem kap nevet</span>
+<p>Az algoritmus csak sorszámot ad (0, 1, 2 …). Hogy egy klaszter „törzsvásárlók” vagy „alkalmi vásárlók”, azt <strong>neked</strong> kell megfogalmaznod a klaszter jellemzői alapján. A sorszám ráadásul nem rangsor: a 2-es klaszter nem „jobb” vagy „nagyobb”, mint az 1-es.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Felügyelt vagy felügyelet nélküli? (5 feladat)</summary>
+<ol>
+  <li><p>E-mailek szűrése spamre olyan mintából, ahol minden levélről tudjuk, hogy spam-e.</p>
+    <details class="solution"><summary>Megoldás</summary><p>Van címke (spam/nem spam) → felügyelt (osztályozás).</p></details></li>
+  <li><p>Hírcikkek témák szerinti csoportosítása, amikor a témák listája nem ismert.</p>
+    <details class="solution"><summary>Megoldás</summary><p>Nincs címke → felügyelet nélküli (klaszterezés).</p></details></li>
+  <li><p>Hallgatók vizsgaeredményének (átment/megbukott) előrejelzése a félévközi pontokból, a tavalyi évfolyam adatai alapján.</p>
+    <details class="solution"><summary>Megoldás</summary><p>A tavalyiaknál ismert az eredmény (címke) → felügyelt.</p></details></li>
+  <li><p>A bolt vásárlóinak csoportosítása vásárlásszám és költés alapján (ez a mai gyakorlat).</p>
+    <details class="solution"><summary>Megoldás</summary><p>Nincs előre adott csoport → felügyelet nélküli, klaszterezés (K-means).</p></details></li>
+  <li><p>Egy klaszterezés után a klasztereknek „A”, „B”, „C” nevet adunk, majd egy új vásárlóról megjósoljuk, melyikbe tartozik. Mi változott?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A klaszterezés eredménye <em>címkévé</em> vált; ha ebből tanítunk modellt az új vásárlók besorolására, az már felügyelt feladat. (K-means esetén egyszerűbb: az új pontot a legközelebbi középponthoz rendeljük – ezt csinálja a <code>model.predict()</code>.)</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes2">
+<h2>2. lépés – Egy sor = egy vásárló: aggregálás</h2>
+<p>Eddig (2. lecke) a <em>kosarak</em> érdekeltek: mely termékek kerülnek együtt egy tranzakcióba. Most a <em>vásárlókat</em> csoportosítjuk, ezért a tranzakciós sorokat vásárlónként össze kell gyűjteni.</p>
+
+<h4>Kis eset</h4>
+<div class="table-wrap"><table>
+<tr><th>transaction_id</th><th>customer_id</th><th>product</th><th class="num">quantity</th><th class="num">unit_price</th><th class="num">line_total</th></tr>
+<tr><td>T1</td><td>C1</td><td>kenyér</td><td class="num">2</td><td class="num">500</td><td class="num">1000</td></tr>
+<tr><td>T1</td><td>C1</td><td>tej</td><td class="num">1</td><td class="num">400</td><td class="num">400</td></tr>
+<tr><td>T2</td><td>C1</td><td>kenyér</td><td class="num">1</td><td class="num">500</td><td class="num">500</td></tr>
+<tr><td>T3</td><td>C2</td><td>kávé</td><td class="num">1</td><td class="num">2200</td><td class="num">2200</td></tr>
+<tr><td>T3</td><td>C2</td><td>tej</td><td class="num">2</td><td class="num">400</td><td class="num">800</td></tr>
+<tr><td>T4</td><td>C3</td><td>vaj</td><td class="num">1</td><td class="num">850</td><td class="num">850</td></tr>
+</table></div>
+<p>A tételérték: <code>line_total = quantity × unit_price</code>. A vásárlónkénti tábla:</p>
+<div class="table-wrap"><table>
+<tr><th>customer_id</th><th class="num">purchase_count</th><th class="num">total_spent</th><th class="num">total_items</th><th class="num">unique_products</th><th class="num">average_basket_value</th></tr>
+<tr><td>C1</td><td class="num">2</td><td class="num">1900</td><td class="num">4</td><td class="num">2</td><td class="num">950</td></tr>
+<tr><td>C2</td><td class="num">1</td><td class="num">3000</td><td class="num">3</td><td class="num">2</td><td class="num">3000</td></tr>
+<tr><td>C3</td><td class="num">1</td><td class="num">850</td><td class="num">1</td><td class="num">1</td><td class="num">850</td></tr>
+</table></div>
+
+<div class="box def"><span class="box-title">Definíció – Vásárlónkénti összesítő változók</span>
+<ul>
+<li><strong>purchase_count</strong> (vásárlások száma): a vásárló <em>különböző</em> tranzakcióazonosítóinak száma.</li>
+<li><strong>total_spent</strong> (összes költés): a tételértékek összege, Ft.</li>
+<li><strong>total_items</strong> (összes darab): a mennyiségek összege.</li>
+<li><strong>unique_products</strong> (különböző termékek): a különböző terméknevek száma.</li>
+<li><strong>average_basket_value</strong> (átlagos kosárérték): $\dfrac{\text{total\_spent}}{\text{purchase\_count}}$, Ft/vásárlás.</li>
+</ul>
+<p><strong>Miért?</strong> A klaszterezés <em>objektumokat</em> csoportosít; az objektum itt a vásárló, ezért egy sor kell, hogy egy vásárló legyen. A gyakorlaton a K-means csak az első kettőt (purchase_count, total_spent) kapta meg – így a vásárlók egy síkon ábrázolhatók.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – purchase_count</span>
+<p>C1-nek hány vásárlása van a fenti táblában?</p>
+<details class="solution"><summary>Megoldás</summary><p>C1 sorai: T1, T1, T2 → 3 sor, de csak 2 különböző tranzakció. purchase_count = <strong>2</strong>.</p></details>
+</div>
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – átlagos kosárérték</span>
+<p>Mennyi C1 átlagos kosárértéke?</p>
+<details class="solution"><summary>Megoldás</summary><p>total_spent = 1000 + 400 + 500 = 1900 Ft, purchase_count = 2 → 1900 / 2 = <strong>950 Ft</strong> vásárlásonként.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – sor ≠ vásárlás</span>
+<p>A tranzakciós táblában egy kosár több sorból áll (soronként egy termék). A vásárlások száma ezért <code>nunique</code> (különböző értékek száma), nem <code>count</code> (sorok száma). Ugyanígy: total_items a mennyiségek összege, nem a sorok száma (C1: 4 darab, de 3 sor).</p>
+</div>
+
+<h4>A gyakorlat kódja</h4>
+<pre><code class="language-python">df["line_total"] = df["quantity"] * df["unit_price"]
+
+customers = df.groupby("customer_id", sort=True).agg(
+    purchase_count=("transaction_id", "nunique"),   # különböző tranzakciók
+    total_spent=("line_total", "sum"),
+    total_items=("quantity", "sum"),
+    unique_products=("product", "nunique")
+).reset_index()
+customers["average_basket_value"] = customers["total_spent"] / customers["purchase_count"]</code></pre>
+<p>Eredmény: 120 vásárló. Az első sor (C001): 2 vásárlás, 5770 Ft, 6 darab, 6 különböző termék, 2885 Ft átlagos kosárérték. A régiót és a dátumot nem használtuk.</p>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Aggregálás (5 feladat)</summary>
+<p>A feladatokhoz: C7 sorai: (T10, alma, 3 db, 200 Ft), (T10, kávé, 1 db, 2200 Ft), (T11, alma, 2 db, 200 Ft), (T12, tej, 1 db, 400 Ft), (T12, alma, 1 db, 200 Ft).</p>
+<ol>
+  <li><p>Mennyi C7 purchase_count értéke?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Különböző tranzakciók: T10, T11, T12 → <strong>3</strong> (5 sor van, de az nem számít).</p></details></li>
+  <li><p>Mennyi a total_spent?</p>
+    <details class="solution"><summary>Megoldás</summary><p>3·200 + 1·2200 + 2·200 + 1·400 + 1·200 = 600 + 2200 + 400 + 400 + 200 = <strong>3800 Ft</strong>.</p></details></li>
+  <li><p>Mennyi a total_items és a unique_products?</p>
+    <details class="solution"><summary>Megoldás</summary><p>total_items = 3 + 1 + 2 + 1 + 1 = <strong>8</strong>; unique_products: alma, kávé, tej → <strong>3</strong>.</p></details></li>
+  <li><p>Mennyi az átlagos kosárérték?</p>
+    <details class="solution"><summary>Megoldás</summary><p>3800 / 3 ≈ <strong>1266,67 Ft</strong>.</p></details></li>
+  <li><p>Valaki <code>("transaction_id", "count")</code>-tal számolta a vásárlásszámot. Mit kapott C7-re, és miért hibás?</p>
+    <details class="solution"><summary>Megoldás</summary><p>5-öt (a sorok számát). Ez a megvett tételsorok száma, nem a boltba járások száma; a kosárérték is torzulna (3800/5 = 760 Ft).</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes3">
+<h2>3. lépés – Távolság két vásárló között</h2>
+
+<h4>Kis eset</h4>
+<p>A vásárló 2 vásárlással és 5 ezer Ft költéssel a $(2;\,5)$ pont, B vásárló a $(5;\,9)$ pont. Milyen messze vannak? A két koordináta különbsége 3 és 4; Pitagorasz-tétellel $\sqrt{3^2+4^2}=\sqrt{25}=5$.</p>
+
+<div class="box def"><span class="box-title">Definíció – Euklideszi távolság</span>
+<p>Két $p$ változós pont, $x=(x_1,\dots,x_p)$ és $y=(y_1,\dots,y_p)$ távolsága:</p>
+<p>$$d(x,y)=\sqrt{\sum_{j=1}^{p}(x_j-y_j)^2}$$</p>
+<p><strong>Miért?</strong> Ez a „vonalzóval mért” távolság, a Pitagorasz-tétel általánosítása több dimenzióra. A K-means ezt (pontosabban a négyzetét) használja: a <em>négyzetes</em> euklideszi távolság $\sum_j (x_j-y_j)^2$ – a gyökvonás nem változtat azon, melyik pont a legközelebbi.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – két dimenzió</span>
+<p>$d\big((1;2),(4;6)\big)=?$</p>
+<details class="solution"><summary>Megoldás</summary><p>$\sqrt{(1-4)^2+(2-6)^2}=\sqrt{9+16}=5$.</p></details>
+</div>
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – három dimenzió</span>
+<p>$d\big((0;0;0),(2;3;6)\big)=?$</p>
+<details class="solution"><summary>Megoldás</summary><p>$\sqrt{4+9+36}=\sqrt{49}=7$. Több változónál ugyanígy: minden változóban vett különbség négyzetét összeadjuk.</p></details>
+</div>
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – melyik van közelebb?</span>
+<p>A = $(1;1)$. Melyik van hozzá közelebb: B = $(4;4)$ vagy C = $(1;7)$?</p>
+<details class="solution"><summary>Megoldás</summary><p>$d(A,B)=\sqrt{9+9}=\sqrt{18}\approx 4{,}24$; $d(A,C)=\sqrt{0+36}=6$. B van közelebb. (A négyzetes távolságokkal is: 18 &lt; 36 – ugyanaz a sorrend.)</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – a gyök a végén van</span>
+<p>$\sqrt{(x_1-y_1)^2+(x_2-y_2)^2} \neq |x_1-y_1|+|x_2-y_2|$. Az utóbbi a Manhattan-távolság (pl. $(1;2)$ és $(4;6)$ között 7, nem 5). Előjelre nem kell figyelni: a négyzetre emelés miatt $(1-4)^2=(4-1)^2$.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Euklideszi távolság (5 feladat)</summary>
+<ol>
+  <li><p>$d\big((3;-1),(-1;2)\big)=?$</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\sqrt{(3-(-1))^2+(-1-2)^2}=\sqrt{16+9}=5$.</p></details></li>
+  <li><p>$d\big((2;5),(5;9)\big)=?$ És a négyzetes távolság?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\sqrt{9+16}=5$; négyzetes távolság 25.</p></details></li>
+  <li><p>Mennyi a négyzetes euklideszi távolság $(1;0;2)$ és $(3;4;0)$ között? És a távolság?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$4+16+4=24$; $d=\sqrt{24}\approx 4{,}90$.</p></details></li>
+  <li><p>Melyik középponthoz van közelebb a $P=(4;1)$ pont: $M_1=(0;0)$ vagy $M_2=(4;4)$?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Négyzetes távolságok: $16+1=17$, illetve $0+9=9$ → $M_2$.</p></details></li>
+  <li><p>Vásárlók (vásárlásszám; költés Ft-ban): A = (2; 30 000), B = (10; 31 000), C = (3; 36 000). Melyik van A-hoz közelebb? Melyik változó döntött?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$d(A,B)=\sqrt{64+1\,000\,000}\approx 1000{,}03$; $d(A,C)=\sqrt{1+36\,000\,000}\approx 6000{,}00$. B van közelebb – pedig B ötször annyit jár vásárolni. A vásárlásszám különbsége (8) szinte semmit nem számít a forintkülönbség mellett. Ez vezet a következő lépéshez.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes4">
+<h2>4. lépés – Standardizálás (z-pontszám)</h2>
+<p>Az előző feladat megmutatta a gondot: a távolságot a nagy számokkal mért változó uralja. Most megnézzük, hogyan tehető minden változó egyenlő súlyúvá.</p>
+
+<h4>Kis eset – a nagyságrend dönt</h4>
+<p>Négy vásárló: A = (2; 20 000), B = (6; 20 000), C = (2; 40 000), D = (6; 40 000) (vásárlásszám; Ft).</p>
+<div class="two-col">
+  <div class="box example"><span class="box-title">Standardizálás nélkül</span>
+  <p>$d(A,B)=\sqrt{4^2+0^2}=4$</p>
+  <p>$d(A,C)=\sqrt{0^2+20\,000^2}=20\,000$</p>
+  <p>Eszerint A és B „szinte azonos”, A és C „óriási” különbség. Pedig B háromszor annyit jár vásárolni, C „csak” kétszer annyit költ. Ha ezer Ft-ban mérnénk, $d(A,C)=20$ lenne: <strong>a mértékegység választása megváltoztatja az eredményt.</strong></p></div>
+  <div class="box example"><span class="box-title">Standardizálással</span>
+  <p>Vásárlásszám: átlag 4, szórás 2. Költés: átlag 30 000, szórás 10 000.</p>
+  <p>A = (−1; −1), B = (1; −1), C = (−1; 1), D = (1; 1).</p>
+  <p>$d(A,B)=2$, $d(A,C)=2$. Mindkét eltérés „két szórásnyi”, a két változó egyenlő súllyal szól bele. Az eredmény már nem függ a mértékegységtől.</p></div>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Standardizálás, z-pontszám</span>
+<p>$$z_i=\frac{x_i-\mu}{\sigma}$$</p>
+<p>ahol $x_i$ az eredeti érték, $\mu$ a változó átlaga, $\sigma$ a változó szórása, $z_i$ a standardizált érték.</p>
+<p>A standardizált változó átlaga 0, szórása 1 (ha az eredeti szórás nem nulla).</p>
+<p><strong>Értelmezés:</strong> $z$ megmondja, <strong>hány szórással tér el az érték az átlagtól</strong>. $z=-1{,}5$: másfél szórással az átlag alatt; $z=0$: pont átlagos; $z=2$: két szórással fölötte.</p>
+<p><strong>Visszaalakítás:</strong> $x=\mu+z\cdot\sigma$.</p>
+<p><strong>Miért kell K-means előtt?</strong> Mert a K-means távolságokat számol, és a változók eltérő mértékegysége, nagyságrendje torzítja a távolságot.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – z kiszámítása</span>
+<p>Adatsor: 2, 4, 4, 4, 5, 5, 7, 9. Mennyi a 9 z-értéke?</p>
+<details class="solution"><summary>Megoldás</summary><p>$\mu=40/8=5$. Eltérésnégyzetek: 9, 1, 1, 1, 0, 0, 4, 16, összegük 32; $\sigma=\sqrt{32/8}=2$. $z=(9-5)/2=2$: a 9 két szórással van az átlag fölött.</p></details>
+</div>
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – a gyakorlat első vásárlója</span>
+<p>A gyakorlaton a vásárlásszám átlaga $\mu=9{,}5917$, szórása $\sigma=5{,}3127$. C001 kétszer vásárolt. Mennyi a z-értéke?</p>
+<details class="solution"><summary>Megoldás</summary><p>$z=(2-9{,}5917)/5{,}3127\approx-1{,}43$. Ez van a <code>retail_customers_standardized.csv</code> első sorában is (−1,42896…).</p></details>
+</div>
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – visszaalakítás</span>
+<p>Egy klaszterközéppont vásárlásszám-koordinátája $z=1{,}1921$. Hány vásárlást jelent ez?</p>
+<details class="solution"><summary>Megoldás</summary><p>$x=9{,}5917+1{,}1921\cdot 5{,}3127\approx 15{,}93$ vásárlás.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – három gyakori tévhit</span>
+<ul>
+<li><strong>„A standardizálás normális eloszlásúvá teszi az adatot.”</strong> Nem. Csak eltolja és átskálázza: az eloszlás <em>alakja</em> (ferdesége, kiugró értékei) változatlan. A gyakorlat költésváltozójának ferdesége standardizálás előtt és után is 0,74.</li>
+<li><strong>„A z-értékek −1 és +1 közé kerülnek.”</strong> (Az órán így hangzott el, de pontatlan.) Nincs ilyen korlát: a gyakorlat legnagyobb költője $z\approx 2{,}08$, és kiugró értéknél 3 fölötti z is előfordul. Az átlag 0 és a szórás 1 – a terjedelem nincs rögzítve.</li>
+<li><strong>Melyik szórás?</strong> A <code>StandardScaler</code> a populációs szórást használja (osztó $n$, <code>ddof=0</code>): 5,3127. A pandas <code>.std()</code> alapból mintaszórást ad (osztó $n-1$): 5,3350. Kézi ellenőrzésnél ugyanazt használd, amit a kód.</li>
+</ul>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés (nem szerepelt a gyakorlaton) – min–max skálázás</span>
+<p>Másik elterjedt skálázás: $x'=\dfrac{x-\min}{\max-\min}$, ez $[0;1]$ közé szorít. Ez az, ami valóban korlátos – a z-pontszám nem. Kiugró érték esetén a min–max skálázás a többi pontot összenyomja, ezért K-means-hez a standardizálás a gyakoribb.</p>
+</div>
+
+<h4>A gyakorlat kódja</h4>
+<pre><code class="language-python">from sklearn.preprocessing import StandardScaler
+FEATURES = ["purchase_count", "total_spent"]
+
+X = customers[FEATURES].copy()
+scaler = StandardScaler()                 # z = (x - átlag) / szórás, ddof=0
+X_scaled = pd.DataFrame(scaler.fit_transform(X), columns=FEATURES)
+
+# a paramétereket elmentjük a középpontok visszaalakításához
+scaling_parameters = pd.DataFrame({"feature": FEATURES,
+                                   "mean": scaler.mean_, "scale": scaler.scale_})</code></pre>
+<div class="table-wrap"><table>
+<tr><th>változó</th><th class="num">átlag ($\mu$)</th><th class="num">szórás ($\sigma$, ddof=0)</th></tr>
+<tr><td>purchase_count</td><td class="num">9,5917</td><td class="num">5,3127</td></tr>
+<tr><td>total_spent</td><td class="num">82 427,83</td><td class="num">75 913,26</td></tr>
+</table></div>
+<p>Nyers adaton a költés szórása kb. 14 000-szerese a vásárlásszám szórásának – standardizálás nélkül a távolság gyakorlatilag csak a költést látná.</p>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Standardizálás (5 feladat)</summary>
+<ol>
+  <li><p>Az előző adatsorban (2, 4, 4, 4, 5, 5, 7, 9) mennyi a 2 z-értéke? Mit jelent?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$z=(2-5)/2=-1{,}5$: másfél szórással az átlag alatt.</p></details></li>
+  <li><p>A gyakorlat legnagyobb költője 240 230 Ft-ot költött ($\mu=82\,427{,}83$, $\sigma=75\,913{,}26$). Mennyi a z-értéke? Belefér-e a $[-1;1]$ intervallumba?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$z=(240\,230-82\,427{,}83)/75\,913{,}26\approx 2{,}08$. Nem fér bele – a z-pontszám nem korlátos.</p></details></li>
+  <li><p>A 3-as klaszter középpontjának költés-koordinátája $z=-0{,}9122$. Hány forint ez?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$x=82\,427{,}83+(-0{,}9122)\cdot 75\,913{,}26\approx 13\,178$ Ft (pontosan 13 177,75 Ft).</p></details></li>
+  <li><p>A 3. lépés 5. feladatában (A = (2; 30 000), B = (10; 31 000), C = (3; 36 000)) mérd a költést ezer Ft-ban. Melyik vásárló van most A-hoz közelebb?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A = (2; 30), B = (10; 31), C = (3; 36): $d(A,B)=\sqrt{64+1}\approx 8{,}06$, $d(A,C)=\sqrt{1+36}\approx 6{,}08$. Most <strong>C</strong> a közelebbi! Ugyanaz az adat, más mértékegység, más eredmény – ezért kell standardizálni.</p></details></li>
+  <li><p>Egy jobbra ferde (sok kis, kevés nagy értékű) költésváltozót standardizálsz. Mennyi lesz az új átlag és szórás, és mi lesz a ferdeséggel?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Átlag 0, szórás 1; a ferdeség <strong>nem változik</strong> – a standardizálás lineáris átalakítás, az eloszlás alakját nem módosítja.</p></details></li>
+</ol>
+</details>
+
+<h4>Mini-kvíz</h4>
+<div class="quiz" data-quiz="l03-lepes4"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes5">
+<h2>5. lépés – A K-means algoritmus kézzel</h2>
+<p>Megvan a távolság, és a változók egyenlő súlyúak. Most jöhet a csoportosítás.</p>
+
+<h4>Kis eset – egy dimenzióban</h4>
+<p>Pontok: 1, 2, 4, 7, 9, 10. Két klasztert akarunk ($k=2$). Kezdő középpontok (szándékosan rosszul): $\mu_1=1$, $\mu_2=2$.</p>
+<div class="table-wrap"><table>
+<tr><th>iteráció</th><th>hozzárendelés (legközelebbi középpont)</th><th>új középpontok (átlag)</th></tr>
+<tr><td>1.</td><td>{1} | {2, 4, 7, 9, 10}</td><td>$\mu_1=1$, $\mu_2=32/5=6{,}4$</td></tr>
+<tr><td>2.</td><td>{1, 2} | {4, 7, 9, 10} &nbsp;(a 2 most 1-hez van közelebb: 1 &lt; 4,4)</td><td>$\mu_1=1{,}5$, $\mu_2=30/4=7{,}5$</td></tr>
+<tr><td>3.</td><td>{1, 2, 4} | {7, 9, 10} &nbsp;(a 4: 2,5 &lt; 3,5)</td><td>$\mu_1\approx 2{,}33$, $\mu_2\approx 8{,}67$</td></tr>
+<tr><td>4.</td><td>{1, 2, 4} | {7, 9, 10} – nincs változás</td><td>leáll</td></tr>
+</table></div>
+<p>A középpontok lépésenként „odavándorolnak” a csoportok közepére.</p>
+
+<div class="box def"><span class="box-title">Definíció – A K-means algoritmus</span>
+<p><strong>Bemenet:</strong> numerikus pontok, $k$ = a kialakítandó klaszterek száma (ezt <em>te</em> adod meg). <strong>Kimenet:</strong> minden pont klasztercímkéje és a $k$ klaszterközéppont.</p>
+<ol>
+<li><strong>Kezdés:</strong> válassz $k$ kezdő középpontot ($\mu_1,\dots,\mu_k$), pl. véletlenszerűen az adatpontok közül.</li>
+<li><strong>Hozzárendelés:</strong> minden pontot a hozzá legközelebbi középpont klaszterébe sorolj (négyzetes euklideszi távolság).</li>
+<li><strong>Középpontok frissítése:</strong> minden klaszter új középpontja a pontjainak <em>koordinátánkénti átlaga</em> (innen a „means” név). Üres klaszter középpontja marad.</li>
+<li><strong>Leállás:</strong> ha a középpontok már (szinte) nem mozdulnak (elmozdulás ≤ ε), vagy elértük a maximális iterációszámot (<code>max_iter</code>), állj meg; különben vissza a 2. lépésre.</li>
+</ol>
+<p><strong>Miért működik?</strong> Mindkét lépés csökkenti (vagy nem növeli) a pontok saját középpontjuktól mért négyzetes távolságainak összegét (inertia, 6. lépés): a hozzárendelés a legközelebbi középpontot választja, az átlag pedig az a pont, amelytől a négyzetes távolságok összege a legkisebb. Ezért az algoritmus véges sok lépésben megáll.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa – két dimenzióban, két iteráció</span>
+<p>Pontok: A(1;1), B(2;1), C(1;2), D(5;4), E(6;5), F(5;5); $k=2$. Kezdő középpontok: $M_1=A=(1;1)$, $M_2=B=(2;1)$.</p>
+<figure><svg viewBox="0 0 530 200" width="530" role="img" aria-label="A 2D K-means példa három állapota" font-family="Inter, sans-serif" font-size="11">
+<rect x="1" y="1" width="168" height="168" rx="8" fill="none" stroke="currentColor" stroke-opacity=".3"/>
+<line x1="39" y1="160" x2="39" y2="16" stroke="currentColor" stroke-opacity=".08"/><line x1="15" y1="136" x2="166.2" y2="136" stroke="currentColor" stroke-opacity=".08"/>
+<line x1="63" y1="160" x2="63" y2="16" stroke="currentColor" stroke-opacity=".08"/><line x1="15" y1="112" x2="166.2" y2="112" stroke="currentColor" stroke-opacity=".08"/>
+<line x1="87" y1="160" x2="87" y2="16" stroke="currentColor" stroke-opacity=".08"/><line x1="15" y1="88" x2="166.2" y2="88" stroke="currentColor" stroke-opacity=".08"/>
+<line x1="111" y1="160" x2="111" y2="16" stroke="currentColor" stroke-opacity=".08"/><line x1="15" y1="64" x2="166.2" y2="64" stroke="currentColor" stroke-opacity=".08"/>
+<line x1="135" y1="160" x2="135" y2="16" stroke="currentColor" stroke-opacity=".08"/><line x1="15" y1="40" x2="166.2" y2="40" stroke="currentColor" stroke-opacity=".08"/>
+<line x1="159" y1="160" x2="159" y2="16" stroke="currentColor" stroke-opacity=".08"/><line x1="15" y1="16" x2="166.2" y2="16" stroke="currentColor" stroke-opacity=".08"/>
+<circle cx="39" cy="136" r="5" fill="currentColor" fill-opacity="0.45"/><text x="45" y="130" fill="currentColor">A</text>
+<circle cx="63" cy="136" r="5" fill="currentColor" fill-opacity="0.45"/><text x="69" y="130" fill="currentColor">B</text>
+<circle cx="39" cy="112" r="5" fill="currentColor" fill-opacity="0.45"/><text x="45" y="106" fill="currentColor">C</text>
+<circle cx="135" cy="64" r="5" fill="currentColor" fill-opacity="0.45"/><text x="141" y="58" fill="currentColor">D</text>
+<circle cx="159" cy="40" r="5" fill="currentColor" fill-opacity="0.45"/><text x="165" y="34" fill="currentColor">E</text>
+<circle cx="135" cy="40" r="5" fill="currentColor" fill-opacity="0.45"/><text x="141" y="34" fill="currentColor">F</text>
+<path d="M33.0 130.0L45.0 142.0M33.0 142.0L45.0 130.0" stroke="var(--accent)" stroke-width="3"/><text x="46.0" y="149.0" fill="var(--accent)" font-weight="700">M1</text>
+<path d="M57.0 130.0L69.0 142.0M57.0 142.0L69.0 130.0" stroke="var(--warn)" stroke-width="3"/><text x="70.0" y="149.0" fill="var(--warn)" font-weight="700">M2</text>
+<text x="85.0" y="190" text-anchor="middle" fill="currentColor" font-weight="600">Kezdet</text>
+<rect x="181" y="1" width="168" height="168" rx="8" fill="none" stroke="currentColor" stroke-opacity=".3"/>
+<line x1="219" y1="160" x2="219" y2="16" stroke="currentColor" stroke-opacity=".08"/><line x1="195" y1="136" x2="346.2" y2="136" stroke="currentColor" stroke-opacity=".08"/>
+<line x1="243" y1="160" x2="243" y2="16" stroke="currentColor" stroke-opacity=".08"/><line x1="195" y1="112" x2="346.2" y2="112" stroke="currentColor" stroke-opacity=".08"/>
+<line x1="267" y1="160" x2="267" y2="16" stroke="currentColor" stroke-opacity=".08"/><line x1="195" y1="88" x2="346.2" y2="88" stroke="currentColor" stroke-opacity=".08"/>
+<line x1="291" y1="160" x2="291" y2="16" stroke="currentColor" stroke-opacity=".08"/><line x1="195" y1="64" x2="346.2" y2="64" stroke="currentColor" stroke-opacity=".08"/>
+<line x1="315" y1="160" x2="315" y2="16" stroke="currentColor" stroke-opacity=".08"/><line x1="195" y1="40" x2="346.2" y2="40" stroke="currentColor" stroke-opacity=".08"/>
+<line x1="339" y1="160" x2="339" y2="16" stroke="currentColor" stroke-opacity=".08"/><line x1="195" y1="16" x2="346.2" y2="16" stroke="currentColor" stroke-opacity=".08"/>
+<circle cx="219" cy="136" r="5" fill="var(--accent)" fill-opacity="0.85"/><text x="225" y="130" fill="currentColor">A</text>
+<circle cx="243" cy="136" r="5" fill="var(--warn)" fill-opacity="0.85"/><text x="249" y="130" fill="currentColor">B</text>
+<circle cx="219" cy="112" r="5" fill="var(--accent)" fill-opacity="0.85"/><text x="225" y="106" fill="currentColor">C</text>
+<circle cx="315" cy="64" r="5" fill="var(--warn)" fill-opacity="0.85"/><text x="321" y="58" fill="currentColor">D</text>
+<circle cx="339" cy="40" r="5" fill="var(--warn)" fill-opacity="0.85"/><text x="345" y="34" fill="currentColor">E</text>
+<circle cx="315" cy="40" r="5" fill="var(--warn)" fill-opacity="0.85"/><text x="321" y="34" fill="currentColor">F</text>
+<path d="M213.0 118.0L225.0 130.0M213.0 130.0L225.0 118.0" stroke="var(--accent)" stroke-width="3"/>
+<path d="M297.0 64.0L309.0 76.0M297.0 76.0L309.0 64.0" stroke="var(--warn)" stroke-width="3"/>
+<text x="265.0" y="190" text-anchor="middle" fill="currentColor" font-weight="600">1. iteráció után</text>
+<rect x="361" y="1" width="168" height="168" rx="8" fill="none" stroke="currentColor" stroke-opacity=".3"/>
+<line x1="399" y1="160" x2="399" y2="16" stroke="currentColor" stroke-opacity=".08"/><line x1="375" y1="136" x2="526.2" y2="136" stroke="currentColor" stroke-opacity=".08"/>
+<line x1="423" y1="160" x2="423" y2="16" stroke="currentColor" stroke-opacity=".08"/><line x1="375" y1="112" x2="526.2" y2="112" stroke="currentColor" stroke-opacity=".08"/>
+<line x1="447" y1="160" x2="447" y2="16" stroke="currentColor" stroke-opacity=".08"/><line x1="375" y1="88" x2="526.2" y2="88" stroke="currentColor" stroke-opacity=".08"/>
+<line x1="471" y1="160" x2="471" y2="16" stroke="currentColor" stroke-opacity=".08"/><line x1="375" y1="64" x2="526.2" y2="64" stroke="currentColor" stroke-opacity=".08"/>
+<line x1="495" y1="160" x2="495" y2="16" stroke="currentColor" stroke-opacity=".08"/><line x1="375" y1="40" x2="526.2" y2="40" stroke="currentColor" stroke-opacity=".08"/>
+<line x1="519" y1="160" x2="519" y2="16" stroke="currentColor" stroke-opacity=".08"/><line x1="375" y1="16" x2="526.2" y2="16" stroke="currentColor" stroke-opacity=".08"/>
+<circle cx="399" cy="136" r="5" fill="var(--accent)" fill-opacity="0.85"/><text x="405" y="130" fill="currentColor">A</text>
+<circle cx="423" cy="136" r="5" fill="var(--accent)" fill-opacity="0.85"/><text x="429" y="130" fill="currentColor">B</text>
+<circle cx="399" cy="112" r="5" fill="var(--accent)" fill-opacity="0.85"/><text x="405" y="106" fill="currentColor">C</text>
+<circle cx="495" cy="64" r="5" fill="var(--warn)" fill-opacity="0.85"/><text x="501" y="58" fill="currentColor">D</text>
+<circle cx="519" cy="40" r="5" fill="var(--warn)" fill-opacity="0.85"/><text x="525" y="34" fill="currentColor">E</text>
+<circle cx="495" cy="40" r="5" fill="var(--warn)" fill-opacity="0.85"/><text x="501" y="34" fill="currentColor">F</text>
+<path d="M401.0 122.0L413.0 134.0M401.0 134.0L413.0 122.0" stroke="var(--accent)" stroke-width="3"/>
+<path d="M497.0 42.0L509.0 54.0M497.0 54.0L509.0 42.0" stroke="var(--warn)" stroke-width="3"/>
+<text x="445.0" y="190" text-anchor="middle" fill="currentColor" font-weight="600">2. iteráció után</text>
+</svg><figcaption>A szürke pontok még nincsenek besorolva; a szín az aktuális klaszter, az X a középpont.</figcaption></figure>
+<details class="solution"><summary>Megoldás lépésenként</summary>
+<p><strong>1. iteráció – hozzárendelés</strong> (négyzetes távolságok $M_1$-től | $M_2$-től):</p>
+<div class="table-wrap"><table>
+<tr><th>pont</th><th class="num">$d^2$ $M_1$-től</th><th class="num">$d^2$ $M_2$-től</th><th>klaszter</th></tr>
+<tr><td>A(1;1)</td><td class="num">0</td><td class="num">1</td><td>1</td></tr>
+<tr><td>B(2;1)</td><td class="num">1</td><td class="num">0</td><td>2</td></tr>
+<tr><td>C(1;2)</td><td class="num">1</td><td class="num">2</td><td>1</td></tr>
+<tr><td>D(5;4)</td><td class="num">25</td><td class="num">18</td><td>2</td></tr>
+<tr><td>E(6;5)</td><td class="num">41</td><td class="num">32</td><td>2</td></tr>
+<tr><td>F(5;5)</td><td class="num">32</td><td class="num">25</td><td>2</td></tr>
+</table></div>
+<p><strong>Frissítés:</strong> $M_1=\big(\tfrac{1+1}{2};\tfrac{1+2}{2}\big)=(1;\,1{,}5)$, $M_2=\big(\tfrac{2+5+6+5}{4};\tfrac{1+4+5+5}{4}\big)=(4{,}5;\,3{,}75)$.</p>
+<p><strong>2. iteráció – hozzárendelés:</strong> B-re $d^2(M_1)=1+0{,}25=1{,}25$, $d^2(M_2)=6{,}25+7{,}5625=13{,}8125$ → B átkerül az 1-es klaszterbe. A többi pont marad.</p>
+<p><strong>Frissítés:</strong> $M_1=\big(\tfrac{1+2+1}{3};\tfrac{1+1+2}{3}\big)\approx(1{,}33;\,1{,}33)$, $M_2=\big(\tfrac{5+6+5}{3};\tfrac{4+5+5}{3}\big)\approx(5{,}33;\,4{,}67)$.</p>
+<p><strong>3. iteráció:</strong> a hozzárendelés már nem változik → leáll. Klaszterek: {A, B, C} és {D, E, F}.</p>
+</details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – „ha nem változik, megtaláltuk az optimumot”</span>
+<p>A leálláskor egy <strong>lokális</strong> optimumot találtunk: innen egyik lépés sem javít. Ez nem feltétlenül a legjobb elérhető csoportosítás – a kezdőpontoktól függ (7. lépés). A PDF is kiemeli: „A globális minimum nem garantált.”</p>
+<p>Másik tipikus hiba: az új középpontot nem a klaszter pontjainak <em>átlagaként</em>, hanem pl. a régi középpont és a pontok átlagaként, vagy a mediánnal számolni. K-means-ben mindig a klaszter pontjainak koordinátánkénti átlaga.</p>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés (nem szerepelt a gyakorlaton) – k-means++ és a K-means korlátai</span>
+<ul>
+<li>A scikit-learn <code>KMeans</code> alapból nem teljesen véletlen kezdőpontokat választ, hanem a <strong>k-means++</strong> eljárást használja: az első középpont véletlen adatpont, a további középpontokat a már kiválasztottaktól távoli pontok közül nagyobb eséllyel húzza. Ez ritkábban vezet rossz lokális optimumhoz. (<code>init="random"</code> adja a klasszikus változatot.)</li>
+<li>Alapbeállítás: <code>max_iter=300</code>, a leállási tolerancia <code>tol=1e-4</code>.</li>
+<li>A K-means nagyjából gömb alakú, hasonló kiterjedésű klasztereket talál jól; hosszúkás, egymásba csavarodó csoportokat nem. Érzékeny a kiugró értékekre, mert az átlag is az.</li>
+</ul>
+</div>
+
+<h4>A gyakorlat animációja</h4>
+<p>A <code>kmeans_animation.py</code> egy mesterséges, három jól elkülönülő csoportból álló pontfelhőn mutatja be ugyanezt: a középpontok szándékosan rossz helyről ($M_1=(2;1)$, $M_2=(3;2)$, $M_3=(4;1)$) indulnak, és minden iterációban két képkocka van: <em>1. Hozzárendelés</em> (a pontok a legközelebbi középpont színét kapják), <em>2. Középpontok frissítése</em> (a középpont a klaszter átlagára ugrik – az animáció ezt a mozgást csak szemléltetésként „csúsztatja”). Az oktató megjegyzése: a valós adatok ritkán különülnek el ilyen tisztán.</p>
+
+<details class="box practice"><summary>✏️ Gyakorlás – K-means kézzel (5 feladat)</summary>
+<ol>
+  <li><p>Középpontok $M_1=(0;0)$, $M_2=(4;4)$. Sorold be a P(1;2), Q(3;2), S(2;1), T(4;1) pontokat!</p>
+    <details class="solution"><summary>Megoldás</summary><p>Négyzetes távolságok ($M_1$ | $M_2$): P: 5 | 13 → 1; Q: 13 | 5 → 2; S: 5 | 13 → 1; T: 17 | 9 → 2.</p></details></li>
+  <li><p>Az előző besorolás után hová kerülnek az új középpontok?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$M_1=\big(\tfrac{1+2}{2};\tfrac{2+1}{2}\big)=(1{,}5;\,1{,}5)$, $M_2=\big(\tfrac{3+4}{2};\tfrac{2+1}{2}\big)=(3{,}5;\,1{,}5)$.</p></details></li>
+  <li><p>Egy klaszter pontjai: (1;2), (3;4), (5;0). Hol a középpontja?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\big(\tfrac{1+3+5}{3};\tfrac{2+4+0}{3}\big)=(3;\,2)$.</p></details></li>
+  <li><p>Futtasd végig a K-means-t a 2, 4, 7, 14, 16 pontokon, $k=2$, kezdő középpontok 2 és 4!</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>1. {2} | {4, 7, 14, 16} → $\mu_1=2$, $\mu_2=10{,}25$.</p>
+    <p>2. a 4: |4−2| = 2 &lt; 6,25 → átkerül: {2, 4} | {7, 14, 16} → $\mu_1=3$, $\mu_2\approx 12{,}33$.</p>
+    <p>3. a 7: |7−3| = 4 &lt; 5,33 → átkerül: {2, 4, 7} | {14, 16} → $\mu_1\approx 4{,}33$, $\mu_2=15$.</p>
+    <p>4. nincs változás → leáll.</p></details></li>
+  <li><p>Mikor áll le a K-means? Mi történik, ha egy klaszter kiürül (a PDF álkódja szerint)?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Ha a középpontok legnagyobb elmozdulása legfeljebb ε (gyakorlatilag: a besorolás nem változik), vagy elérte a <code>max_iter</code> iterációt. Üres klaszter esetén a középpontja a helyén marad. (A scikit-learn ilyenkor egy távoli pontot tesz meg új középpontnak.)</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes6">
+<h2>6. lépés – Inertia: mennyire jó egy klaszterezés?</h2>
+<p>Két különböző csoportosítás közül melyik a jobb? Kell egy szám, ami a „klaszteren belül közel” elvet méri.</p>
+
+<h4>Kis eset</h4>
+<p>Az 1, 2, 4, 7, 9, 10 pontok két felosztása:</p>
+<div class="two-col">
+  <div class="box example"><span class="box-title">{1, 2, 4} | {7, 9, 10}</span>
+  <p>Középpontok 2,33 és 8,67.</p>
+  <p>Négyzetes eltérések: $1{,}78+0{,}11+2{,}78$ és $2{,}78+0{,}11+1{,}78$.</p>
+  <p>Összesen: <strong>9,33</strong>.</p></div>
+  <div class="box example"><span class="box-title">{1, 2} | {4, 7, 9, 10}</span>
+  <p>Középpontok 1,5 és 7,5.</p>
+  <p>Négyzetes eltérések: $0{,}25+0{,}25$ és $12{,}25+0{,}25+2{,}25+6{,}25$.</p>
+  <p>Összesen: <strong>21,5</strong>.</p></div>
+</div>
+<p>Az első felosztásban a pontok sokkal közelebb vannak a saját középpontjukhoz – ez a jobb.</p>
+
+<div class="box def"><span class="box-title">Definíció – Inertia (klaszteren belüli négyzetösszeg, WCSS)</span>
+<p>$$W=\sum_{j=1}^{k}\ \sum_{x\in C_j}\lVert x-\mu_j\rVert^2$$</p>
+<p>A pontok <strong>saját klaszterközéppontjuktól</strong> mért <strong>négyzetes</strong> euklideszi távolságainak <strong>összege</strong>. Kisebb érték = tömörebb klaszterek. A K-means pontosan ezt próbálja minimalizálni.</p>
+<p><strong>Tulajdonságok:</strong></p>
+<ul>
+<li>$k=1$-nél az összes pont átlagtól vett négyzetes eltérésének összege. Standardizált adaton ez $n\cdot p$ (mert minden változó varianciája 1): a gyakorlaton $120\cdot 2=240$.</li>
+<li>$k$ növelésével (jó futásnál) mindig csökken; $k=n$-nél 0 (minden pont a saját középpontja).</li>
+<li>Mértékegysége a változók négyzete – a standardizált térben „szórásnégyzet” egységben értendő, ezért közvetlenül nehéz értelmezni; <em>összehasonlításra</em> jó.</li>
+</ul>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – egy dimenzió</span>
+<p>Klaszterek: {1, 2, 3} és {8, 10}. Mennyi az inertia?</p>
+<details class="solution"><summary>Megoldás</summary><p>Középpontok 2 és 9. $W=(1+0+1)+(1+1)=4$.</p></details>
+</div>
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – a 2D példa végeredménye</span>
+<p>Az 5. lépés végén: {A, B, C} középpont $(4/3;4/3)$, {D, E, F} középpont $(16/3;14/3)$. Mennyi az inertia?</p>
+<details class="solution"><summary>Megoldás</summary><p>Első klaszter: $A$: $(1/3)^2+(1/3)^2=2/9$; $B$: $(2/3)^2+(1/3)^2=5/9$; $C$: $5/9$ → $12/9=4/3$. A második klaszter szimmetrikusan szintén $4/3$. $W=8/3\approx 2{,}67$.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – nem átlag, nem sima távolság</span>
+<p>Az órán az inertia „átlagos távolságként” is elhangzott – ez pontatlan. Az inertia a <strong>négyzetes</strong> távolságok <strong>összege</strong> (nem átlaga, nem gyökös távolságok összege). Az 1. kidolgozott példában a sima távolságok összege 1+0+1+1+1 = 4 lenne – itt véletlenül egyezik, de pl. {1, 3} | {8, 10, 12} esetén az inertia 10, a távolságösszeg 6.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Inertia (5 feladat)</summary>
+<ol>
+  <li><p>Egyetlen klaszter: (0;0), (2;0), (1;3). Mennyi az inertia?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Középpont $(1;1)$. $(1+1)+(1+1)+(0+4)=8$.</p></details></li>
+  <li><p>Klaszterek: {1, 3} és {8, 10, 12}. Mennyi az inertia?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Középpontok 2 és 10. $(1+1)+(4+0+4)=10$.</p></details></li>
+  <li><p>Mennyi az 1, 2, 4, 7, 9, 10 pontok inertiája $k=1$ esetén? Mennyit javít a {1, 2, 4} | {7, 9, 10} felosztás?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Átlag 5,5; négyzetes eltérések: 20,25 + 12,25 + 2,25 + 2,25 + 12,25 + 20,25 = 69,5. A két klaszterrel 9,33 – az inertia kb. 87%-kal csökkent.</p></details></li>
+  <li><p>A gyakorlaton 120 vásárló, 2 standardizált változó. Mennyi az inertia $k=1$-nél, és mennyi lenne $k=120$-nál?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$k=1$: $n\cdot p=240$ (a CSV-ben 240,00000000000006 – kerekítési zaj). $k=120$: 0, mert minden vásárló a saját klaszterének középpontja.</p></details></li>
+  <li><p>Miért nem azt a $k$-t választjuk, amelynél az inertia a legkisebb?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Mert az inertia $k$-val (szinte) mindig csökken, a legkisebb érték a legnagyobb $k$-nál van – végső soron $k=n$-nél 0. Ez semmit nem mond az adatról: minden vásárló külön „csoport”. A csökkenés <em>ütemét</em> kell nézni (könyökmódszer).</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes7">
+<h2>7. lépés – Véletlen kezdőpontok: <code>n_init</code> és <code>random_state</code></h2>
+<p>Az 5. lépés buktatója szerint az eredmény a kezdőpontoktól függ. Mennyire?</p>
+
+<h4>Kis eset – beragadás</h4>
+<p>Pontok: 1, 3, 10, 12, 20, 22; $k=3$.</p>
+<div class="two-col">
+  <div class="box example"><span class="box-title">Rossz kezdés: 1, 3, 16</span>
+  <p>Hozzárendelés: {1} | {3} | {10, 12, 20, 22} (a 10: 7 &gt; 6, ezért a 16-hoz kerül).</p>
+  <p>Új középpontok: 1, 3, 16 – <em>ugyanazok</em>. Leáll.</p>
+  <p>Inertia: $0+0+(36+16+16+36)=\mathbf{104}$.</p></div>
+  <div class="box example"><span class="box-title">Jó kezdés: 2, 11, 21</span>
+  <p>Hozzárendelés: {1, 3} | {10, 12} | {20, 22}.</p>
+  <p>Középpontok 2, 11, 21 – leáll.</p>
+  <p>Inertia: $2+2+2=\mathbf{6}$.</p></div>
+</div>
+<p>Mindkettő „konvergált”, de az első egy rossz lokális optimum: két jól elkülönülő csoportot egybevont, egy természetes csoportot kettévágott.</p>
+
+<div class="box def"><span class="box-title">Definíció – Több inicializálás és véletlenmag</span>
+<p><code>n_init=10</code>: az algoritmus <strong>10-szer</strong> fut le különböző véletlen kezdőpontokkal, és azt a futást tartja meg, amelyiknek a <strong>legkisebb az inertiája</strong>.</p>
+<p><code>random_state=42</code>: rögzíti a véletlenszám-generátor kezdőértékét (magját). Így a „véletlen” kezdőpontok minden futtatáskor ugyanazok, az eredmény <strong>reprodukálható</strong>. Bármilyen nemnegatív egész jó; a 42 csak szokás.</p>
+<p><strong>Miért?</strong> Az <code>n_init</code> csökkenti a rossz lokális optimum esélyét; a <code>random_state</code> nélkül két futás eltérhet, és nem tudnád eldönteni, hogy egy változtatásod vagy a véletlen okozta a különbséget.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – a gyakorlat adatán</span>
+<p>A gyakorlat 120 vásárlóján $k=3$-mal, <code>init="random"</code> és <code>n_init=1</code> beállítással 10 különböző véletlenmagot kipróbálva 7 futás az inertia = 17,02 megoldást adja (40–40–40 vásárló), 3 futás viszont beragad egy 37,59 inertiájú megoldásba (80 vásárló egy klaszterben). Mit ad <code>n_init=10</code>?</p>
+<details class="solution"><summary>Megoldás</summary><p>A 10 futás közül a legkisebb inertiájút tartja meg: 17,02. Elég egyetlen jó futás, és a rossz megoldások kiesnek.</p></details>
+</div>
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – jó kezdés is lehet „rossz helyen”</span>
+<p>Pontok 0, 2, 10, 12; $k=2$; kezdés: 0 és 2 (mindkettő ugyanabban a csoportban). Beragad?</p>
+<details class="solution"><summary>Megoldás</summary><p>1. {0} | {2, 10, 12} → 0 és 8. 2. a 2: |2−0| = 2 &lt; 6 → {0, 2} | {10, 12} → 1 és 11. 3. nincs változás. Nem ragadt be: inertia 4, ez a legjobb felosztás. A rossz kezdés nem mindig végzetes – de lehet.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – az <code>n_init</code> nem átlagol</span>
+<p>Az órán elhangzott, hogy a 10 futás „átlagát” nézi – ez téves. A futások eredményét nem lehet átlagolni (a klaszterek sorszámai futásonként mást jelenthetnek). A scikit-learn a <strong>legkisebb inertiájú</strong> futást választja.</p>
+<p>A <code>n_iter_</code> attribútum pedig nem az <code>n_init</code>: azt adja meg, hány iteráció (hozzárendelés + frissítés) kellett a legjobb futásban. A gyakorlaton: 3.</p>
+<p>És a klasztercímkék futásonként felcserélődhetnek: ugyanaz a felosztás egyszer 1–2–3, máskor 3–1–2 sorszámmal jöhet ki. Különböző futások sorszámai automatikusan nem feleltethetők meg.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Kezdőpontok (5 feladat)</summary>
+<ol>
+  <li><p>Az 1, 3, 10, 12, 20, 22 pontokon $k=3$, kezdés: 1, 11, 21. Hová konvergál, mennyi az inertia?</p>
+    <details class="solution"><summary>Megoldás</summary><p>1. {1, 3} | {10, 12} | {20, 22} → 2, 11, 21. 2. nincs változás. Inertia 6 – a legjobb felosztás.</p></details></li>
+  <li><p>Egy <code>n_init=5</code>-ös futás inertiái: 37,6; 17,0; 17,0; 37,6; 21,3. Melyik eredményt adja vissza a modell?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A legkisebb inertiájút: 17,0. (Nem az átlagot, ami 26,1 lenne.)</p></details></li>
+  <li><p>Lefuttatod kétszer ugyanazt a kódot <code>random_state</code> nélkül, és a 2. klaszter egyszer a „nagy költők”, máskor az „alkalmiak”. Hiba van?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Nem feltétlenül. A sorszám önkényes, futásonként felcserélődhet. Rögzített <code>random_state</code>-tel a két futás azonos lesz.</p></details></li>
+  <li><p>Garantálja-e az <code>n_init=10</code> a globálisan legkisebb inertiát?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Nem. Csak megnöveli az esélyét: ha mind a 10 kezdés rossz, az eredmény is rossz lehet.</p></details></li>
+  <li><p>Mit jelent, ha a modell kiírja: „Iterációk száma: 3”?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A kiválasztott futás 3 hozzárendelés–frissítés körben konvergált (<code>model.n_iter_</code>). Nem azonos a futások számával (<code>n_init</code>) és a felső korláttal (<code>max_iter</code>).</p></details></li>
+</ol>
+</details>
+
+<h4>Mini-kvíz</h4>
+<div class="quiz" data-quiz="l03-lepes7"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes8">
+<h2>8. lépés – Hány klaszter? A könyökmódszer</h2>
+<p>Eddig $k$-t kívülről kaptuk. Az inertiával nem választhatunk egyszerűen (a legkisebb a legnagyobb $k$-nál van). Mit nézzünk helyette?</p>
+
+<h4>Kis eset</h4>
+<div class="table-wrap"><table>
+<tr><th>$k$</th><td class="num">1</td><td class="num">2</td><td class="num">3</td><td class="num">4</td><td class="num">5</td><td class="num">6</td></tr>
+<tr><th>inertia</th><td class="num">100</td><td class="num">40</td><td class="num">15</td><td class="num">12</td><td class="num">10</td><td class="num">9</td></tr>
+<tr><th>csökkenés</th><td></td><td class="num">60</td><td class="num">25</td><td class="num">3</td><td class="num">2</td><td class="num">1</td></tr>
+</table></div>
+<p>A 3. klaszter még sokat hoz (25), a 4. már alig (3). A görbe $k=3$-nál „megtörik”: ez a könyök.</p>
+
+<div class="box def"><span class="box-title">Definíció – Könyökmódszer (elbow method)</span>
+<p>Futtasd a K-means-t több $k$-val (azonos adat, változók és beállítások mellett), ábrázold az inertiát $k$ függvényében, és válaszd azt a $k$-t, <strong>ahol az inertia csökkenése jelentősen lelassul</strong> – ahol a görbének „könyöke” van.</p>
+<p><strong>Miért?</strong> A könyök előtt minden új klaszter valódi csoportot választ szét (nagy javulás); utána már csak meglévő csoportokat aprít (kis javulás).</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa – a gyakorlat könyökgörbéje</span>
+<div class="table-wrap"><table>
+<tr><th>$k$</th><th class="num">inertia</th><th class="num">csökkenés</th></tr>
+<tr><td>1</td><td class="num">240,00</td><td></td></tr>
+<tr><td>2</td><td class="num">46,30</td><td class="num">193,70</td></tr>
+<tr><td>3</td><td class="num">17,02</td><td class="num">29,28</td></tr>
+<tr><td>4</td><td class="num">8,31</td><td class="num">8,71</td></tr>
+<tr><td>5</td><td class="num">6,14</td><td class="num">2,17</td></tr>
+<tr><td>6</td><td class="num">4,85</td><td class="num">1,29</td></tr>
+<tr><td>7</td><td class="num">3,59</td><td class="num">1,26</td></tr>
+<tr><td>8</td><td class="num">2,88</td><td class="num">0,71</td></tr>
+</table></div>
+<figure><svg viewBox="0 0 300 230" width="300" role="img" aria-label="Könyökgörbe: inertia a klaszterszám függvényében" font-family="Inter, sans-serif" font-size="11">
+<line x1="48" y1="190.0" x2="288" y2="190.0" stroke="currentColor" stroke-opacity=".15"/><text x="42" y="194.0" text-anchor="end" fill="currentColor">0</text>
+<line x1="48" y1="155.0" x2="288" y2="155.0" stroke="currentColor" stroke-opacity=".15"/><text x="42" y="159.0" text-anchor="end" fill="currentColor">50</text>
+<line x1="48" y1="120.0" x2="288" y2="120.0" stroke="currentColor" stroke-opacity=".15"/><text x="42" y="124.0" text-anchor="end" fill="currentColor">100</text>
+<line x1="48" y1="85.0" x2="288" y2="85.0" stroke="currentColor" stroke-opacity=".15"/><text x="42" y="89.0" text-anchor="end" fill="currentColor">150</text>
+<line x1="48" y1="50.0" x2="288" y2="50.0" stroke="currentColor" stroke-opacity=".15"/><text x="42" y="54.0" text-anchor="end" fill="currentColor">200</text>
+<line x1="48" y1="15.0" x2="288" y2="15.0" stroke="currentColor" stroke-opacity=".15"/><text x="42" y="19.0" text-anchor="end" fill="currentColor">250</text>
+<text x="48.0" y="204" text-anchor="middle" fill="currentColor">1</text>
+<text x="82.3" y="204" text-anchor="middle" fill="currentColor">2</text>
+<text x="116.6" y="204" text-anchor="middle" fill="currentColor">3</text>
+<text x="150.9" y="204" text-anchor="middle" fill="currentColor">4</text>
+<text x="185.1" y="204" text-anchor="middle" fill="currentColor">5</text>
+<text x="219.4" y="204" text-anchor="middle" fill="currentColor">6</text>
+<text x="253.7" y="204" text-anchor="middle" fill="currentColor">7</text>
+<text x="288.0" y="204" text-anchor="middle" fill="currentColor">8</text>
+<rect x="48" y="15" width="240" height="175" fill="none" stroke="currentColor" stroke-opacity=".4"/>
+<line x1="82.3" y1="15" x2="82.3" y2="190" stroke="var(--warn)" stroke-dasharray="4 3"/>
+<line x1="116.6" y1="15" x2="116.6" y2="190" stroke="var(--warn)" stroke-dasharray="4 3"/>
+<polyline points="48.0,22.0 82.3,157.6 116.6,178.1 150.9,184.2 185.1,185.7 219.4,186.6 253.7,187.5 288.0,188.0" fill="none" stroke="var(--accent)" stroke-width="2"/>
+<circle cx="48.0" cy="22.0" r="3.5" fill="var(--accent)"/>
+<circle cx="82.3" cy="157.6" r="3.5" fill="var(--accent)"/>
+<circle cx="116.6" cy="178.1" r="3.5" fill="var(--accent)"/>
+<circle cx="150.9" cy="184.2" r="3.5" fill="var(--accent)"/>
+<circle cx="185.1" cy="185.7" r="3.5" fill="var(--accent)"/>
+<circle cx="219.4" cy="186.6" r="3.5" fill="var(--accent)"/>
+<circle cx="253.7" cy="187.5" r="3.5" fill="var(--accent)"/>
+<circle cx="288.0" cy="188.0" r="3.5" fill="var(--accent)"/>
+<text x="168.0" y="224" text-anchor="middle" fill="currentColor">klaszterszám (k)</text>
+<text transform="translate(12 102.5) rotate(-90)" text-anchor="middle" fill="currentColor">inertia</text></svg><figcaption>A gyakorlat könyökgörbéje (standardizált adat). Szaggatott vonal: a két jelölt könyök.</figcaption></figure>
+<details class="solution"><summary>Hol a könyök?</summary><p>A nagy törés $k=2$-nél van (240 → 46), egy kisebb $k=3$-nál (46 → 17, utána már csak 8,7 a csökkenés). Az oktató szerint ez „sosem egyértelmű”: a $k=2$-t és a $k=3$-at is meg kell nézni, és azt választani, amelyiket jobban meg tudod magyarázni.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – a könyök nem mindig látszik</span>
+<p>Valós adaton a görbe gyakran egyenletesen hajlik, nincs éles törés. A könyökmódszer <em>szűkíti</em> a jelöltek körét, de nem dönt helyetted: nézd meg a sziluettet (9. lépés), a pontdiagramokat és azt, hogy a csoportok értelmezhetők-e.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Könyökmódszer (5 feladat)</summary>
+<ol>
+  <li><p>Inertiák $k=1..6$: 120, 50, 22, 18, 15, 13. Hol a könyök?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Csökkenések: 70, 28, 4, 3, 2. A 3. klaszter még 28-at hoz, a 4. már csak 4-et → $k=3$.</p></details></li>
+  <li><p>Inertiák $k=1..5$: 80, 20, 17, 15, 13. Hol a könyök?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Csökkenések: 60, 3, 2, 2 → $k=2$.</p></details></li>
+  <li><p>Inertiák $k=1..6$: 60, 48, 38, 30, 23, 17. Mit mondasz?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Csökkenések: 12, 10, 8, 7, 6 – egyenletes, nincs könyök. A könyökmódszer itt nem segít; más szempont (sziluett, értelmezhetőség) kell.</p></details></li>
+  <li><p>A gyakorlat táblázata alapján hány százalékkal csökkent az inertia $k=2$-ről $k=3$-ra?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$(46{,}30-17{,}02)/46{,}30\approx 63\%$.</p></details></li>
+  <li><p>Mi az a három dolog, amit a könyökmódszer futtatásakor <em>nem</em> szabad változtatni a $k$-k között?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Az adatot, a változókat (és skálázásukat), valamint a beállításokat (<code>n_init</code>, <code>random_state</code>). Csak $k$ változhat, különben az inertiák nem összevethetők.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes9">
+<h2>9. lépés – A sziluett (silhouette) mutató</h2>
+<p>Az inertia csak a „klaszteren belül közel” felét méri. A sziluett a másik felét is: mennyire van távol egy pont a <em>szomszéd</em> klasztertől.</p>
+
+<h4>Kis eset</h4>
+<p>Egy dimenzióban: A = {1, 2, 4}, B = {9, 10}. Nézzük a 4-es pontot.</p>
+<ul>
+<li>Átlagos távolsága a saját klaszter <em>többi</em> pontjától: $a=\dfrac{|4-1|+|4-2|}{2}=2{,}5$.</li>
+<li>Átlagos távolsága a másik klaszter pontjaitól: $b=\dfrac{|4-9|+|4-10|}{2}=5{,}5$.</li>
+</ul>
+<p>A 4-es a sajátjaihoz közelebb van (2,5 &lt; 5,5), tehát jó helyen van – de nem nagyon magabiztosan.</p>
+
+<div class="box def"><span class="box-title">Definíció – Sziluettérték</span>
+<p>Az $i$-edik pontra:</p>
+<p>$$s(i)=\frac{b(i)-a(i)}{\max\{a(i),\,b(i)\}}$$</p>
+<ul>
+<li>$a(i)$: átlagos távolság a <strong>saját klaszter többi pontjától</strong>;</li>
+<li>$b(i)$: a <strong>legkisebb</strong> átlagos távolság egy <strong>másik</strong> klaszter pontjaitól (a „szomszéd” klaszter).</li>
+</ul>
+<p>A teljes sziluettmutató a pontonkénti értékek <strong>átlaga</strong>. Értéke $-1$ és $1$ között van, a <strong>magasabb a jobb</strong>.</p>
+<div class="table-wrap"><table>
+<tr><th>$s(i)$</th><th>jelentés</th></tr>
+<tr><td>1-hez közeli</td><td>a pont jól elkülönülő klaszterben, jó helyen van ($a\ll b$)</td></tr>
+<tr><td>0 körüli</td><td>a pont két klaszter határán van ($a\approx b$)</td></tr>
+<tr><td>negatív</td><td>kedvezőtlen besorolás: a szomszéd klaszterhez közelebb van ($a&gt;b$)</td></tr>
+</table></div>
+<p><strong>Miért ez a képlet?</strong> A $b-a$ különbség méri, mennyivel van közelebb a pont a sajátjaihoz; a $\max(a,b)$-vel osztás teszi skálafüggetlenné és szorítja $[-1;1]$ közé. Ha $a&lt;b$, akkor $s=1-a/b$.</p>
+<p>$k=1$ esetén nem értelmezhető (nincs „másik” klaszter).</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – a 4-es pont</span>
+<p>$a=2{,}5$, $b=5{,}5$. $s(4)=?$</p>
+<details class="solution"><summary>Megoldás</summary><p>$s=\dfrac{5{,}5-2{,}5}{5{,}5}=\dfrac{3}{5{,}5}\approx 0{,}545$.</p></details>
+</div>
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – az egész felosztás</span>
+<p>Számold ki az A = {1, 2, 4}, B = {9, 10} felosztás átlagos sziluettjét!</p>
+<details class="solution"><summary>Megoldás</summary>
+<div class="table-wrap"><table>
+<tr><th>pont</th><th class="num">$a$</th><th class="num">$b$</th><th class="num">$s$</th></tr>
+<tr><td>1</td><td class="num">(1+3)/2 = 2</td><td class="num">(8+9)/2 = 8,5</td><td class="num">6,5/8,5 ≈ 0,765</td></tr>
+<tr><td>2</td><td class="num">(1+2)/2 = 1,5</td><td class="num">(7+8)/2 = 7,5</td><td class="num">6/7,5 = 0,800</td></tr>
+<tr><td>4</td><td class="num">2,5</td><td class="num">5,5</td><td class="num">≈ 0,545</td></tr>
+<tr><td>9</td><td class="num">1</td><td class="num">(8+7+5)/3 ≈ 6,67</td><td class="num">≈ 0,850</td></tr>
+<tr><td>10</td><td class="num">1</td><td class="num">(9+8+6)/3 ≈ 7,67</td><td class="num">≈ 0,870</td></tr>
+</table></div>
+<p>Átlag: $(0{,}765+0{,}800+0{,}545+0{,}850+0{,}870)/5\approx 0{,}766$. Jó klaszterezés.</p></details>
+</div>
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – rossz helyen lévő pont</span>
+<p>A = {1, 2, 7}, B = {8, 9}. Mennyi a 7-es pont sziluettje?</p>
+<details class="solution"><summary>Megoldás</summary><p>$a=(6+5)/2=5{,}5$; $b=(1+2)/2=1{,}5$. $s=\dfrac{1{,}5-5{,}5}{5{,}5}\approx-0{,}727$. Negatív: a 7-es a B klaszterbe valóbb.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – a jegyzetbeli $d_{belső}/d_{szomszéd}$ képlet</span>
+<p>Ha a sziluettet $\dfrac{d_{belső}}{d_{szomszéd}}=\dfrac{a}{b}$ alakban írod fel, az a <em>fordítottját</em> méri: ez annál <strong>kisebb</strong>, minél jobb a pont helye (a 4-esnél $2{,}5/5{,}5\approx 0{,}45$, miközben $s\approx 0{,}55$), és sosem negatív, tehát a rossz besorolást sem jelzi. A helyes forma:</p>
+<p>$$s=\frac{b-a}{\max(a,b)}\qquad(\text{ha } a&lt;b:\ s=1-\tfrac{a}{b})$$</p>
+<p>További gyakori hibák: $a$-ba a pont önmagától vett 0 távolságát is beleszámolni; $b$-t a szomszéd klaszter <em>középpontjától</em> mérni (a definíció a szomszéd klaszter <em>pontjaitól</em> vett átlagos távolság); vagy $\max(a,b)$ helyett mindig $b$-vel osztani (negatív esetben ez $-2{,}67$-et adna a 7-esre, ami kilóg a $[-1;1]$-ből).</p>
+</div>
+
+<div class="box example"><span class="box-title">A gyakorlat sziluettértékei</span>
+<div class="table-wrap"><table>
+<tr><th>$k$</th><th class="num">átlagos sziluett</th></tr>
+<tr><td>1</td><td class="num">nem értelmezhető</td></tr>
+<tr><td>2</td><td class="num"><strong>0,7155</strong></td></tr>
+<tr><td>3</td><td class="num">0,7144</td></tr>
+<tr><td>4</td><td class="num">0,6834</td></tr>
+<tr><td>5</td><td class="num">0,6190</td></tr>
+<tr><td>6</td><td class="num">0,5916</td></tr>
+<tr><td>7</td><td class="num">0,5519</td></tr>
+<tr><td>8</td><td class="num">0,5345</td></tr>
+</table></div>
+<figure><svg viewBox="0 0 300 230" width="300" role="img" aria-label="Átlagos sziluettérték a klaszterszám függvényében" font-family="Inter, sans-serif" font-size="11">
+<line x1="48" y1="190.0" x2="288" y2="190.0" stroke="currentColor" stroke-opacity=".15"/><text x="42" y="194.0" text-anchor="end" fill="currentColor">0,50</text>
+<line x1="48" y1="155.0" x2="288" y2="155.0" stroke="currentColor" stroke-opacity=".15"/><text x="42" y="159.0" text-anchor="end" fill="currentColor">0,55</text>
+<line x1="48" y1="120.0" x2="288" y2="120.0" stroke="currentColor" stroke-opacity=".15"/><text x="42" y="124.0" text-anchor="end" fill="currentColor">0,60</text>
+<line x1="48" y1="85.0" x2="288" y2="85.0" stroke="currentColor" stroke-opacity=".15"/><text x="42" y="89.0" text-anchor="end" fill="currentColor">0,65</text>
+<line x1="48" y1="50.0" x2="288" y2="50.0" stroke="currentColor" stroke-opacity=".15"/><text x="42" y="54.0" text-anchor="end" fill="currentColor">0,70</text>
+<line x1="48" y1="15.0" x2="288" y2="15.0" stroke="currentColor" stroke-opacity=".15"/><text x="42" y="19.0" text-anchor="end" fill="currentColor">0,75</text>
+<text x="48.0" y="204" text-anchor="middle" fill="currentColor">1</text>
+<text x="82.3" y="204" text-anchor="middle" fill="currentColor">2</text>
+<text x="116.6" y="204" text-anchor="middle" fill="currentColor">3</text>
+<text x="150.9" y="204" text-anchor="middle" fill="currentColor">4</text>
+<text x="185.1" y="204" text-anchor="middle" fill="currentColor">5</text>
+<text x="219.4" y="204" text-anchor="middle" fill="currentColor">6</text>
+<text x="253.7" y="204" text-anchor="middle" fill="currentColor">7</text>
+<text x="288.0" y="204" text-anchor="middle" fill="currentColor">8</text>
+<rect x="48" y="15" width="240" height="175" fill="none" stroke="currentColor" stroke-opacity=".4"/>
+<line x1="82.3" y1="15" x2="82.3" y2="190" stroke="var(--warn)" stroke-dasharray="4 3"/>
+<polyline points="82.3,39.1 116.6,39.9 150.9,61.6 185.1,106.7 219.4,125.8 253.7,153.7 288.0,165.8" fill="none" stroke="var(--ex)" stroke-width="2"/>
+<circle cx="82.3" cy="39.1" r="3.5" fill="var(--ex)"/>
+<circle cx="116.6" cy="39.9" r="3.5" fill="var(--ex)"/>
+<circle cx="150.9" cy="61.6" r="3.5" fill="var(--ex)"/>
+<circle cx="185.1" cy="106.7" r="3.5" fill="var(--ex)"/>
+<circle cx="219.4" cy="125.8" r="3.5" fill="var(--ex)"/>
+<circle cx="253.7" cy="153.7" r="3.5" fill="var(--ex)"/>
+<circle cx="288.0" cy="165.8" r="3.5" fill="var(--ex)"/>
+<text x="168.0" y="224" text-anchor="middle" fill="currentColor">klaszterszám (k)</text>
+<text transform="translate(12 102.5) rotate(-90)" text-anchor="middle" fill="currentColor">átlagos sziluett</text></svg><figcaption>Átlagos sziluett. A legmagasabb $k=2$-nél van, de $k=3$ szinte ugyanannyi.</figcaption></figure>
+<p>Formálisan $k=2$ a legjobb, de a különbség $k=3$-hoz képest elhanyagolható (0,0011). A könyökmódszerrel együtt: mindkettő jó jelölt. A döntő érv az <strong>értelmezhetőség</strong>: a $k=3$ (alkalmi – átlagos – törzsvásárló) jól leírható, $k=4$-nél viszont az egyik csoport kettévágását (19 + 21 vásárló) már nehéz megmagyarázni.</p>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés (nem szerepelt a gyakorlaton)</span>
+<p>Egyelemű klaszter pontjára a scikit-learn $s=0$-t ad (nincs „többi pont”, $a$ nem értelmezhető). A <code>silhouette_samples</code> függvény a pontonkénti értékeket adja; ezekből „sziluettdiagram” rajzolható, amelyen a negatív értékű pontok azonnal látszanak.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Sziluett (5 feladat)</summary>
+<ol>
+  <li><p>$a=2$, $b=8$. $s=?$</p>
+    <details class="solution"><summary>Megoldás</summary><p>$(8-2)/8=0{,}75$.</p></details></li>
+  <li><p>$a=5$, $b=4$. $s=?$ Mit jelent?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$(4-5)/5=-0{,}2$. Negatív: a pont a szomszéd klaszterhez közelebb van, valószínűleg rossz helyen.</p></details></li>
+  <li><p>Klaszterek {0, 2} és {6, 8}. Számold ki minden pont sziluettjét és az átlagot!</p>
+    <details class="solution"><summary>Megoldás</summary><p>0: $a=2$, $b=(6+8)/2=7$, $s=5/7\approx 0{,}714$. 2: $a=2$, $b=(4+6)/2=5$, $s=3/5=0{,}6$. A 6 és a 8 szimmetrikusan 0,6 és 0,714. Átlag $\approx 0{,}657$.</p></details></li>
+  <li><p>Ha $a=b$, mennyi $s$, és hol van a pont?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$s=0$: a pont pont a két klaszter határán van.</p></details></li>
+  <li><p>Egy hallgató a 4-es pontra (A = {1, 2, 4}, B = {9, 10}) $a$-t így számolta: $(3+2+0)/3\approx 1{,}67$. Mi a hiba, és mennyi lett volna így $s$?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A pont önmagától vett 0 távolságát is beleszámolta; $a$ a <em>többi</em> pontra átlagol: 2,5. A hibás $a$-val $s=(5{,}5-1{,}67)/5{,}5\approx 0{,}70$ jönne ki a helyes 0,545 helyett – túl jónak mutatná a klaszterezést.</p></details></li>
+</ol>
+</details>
+
+<h4>Mini-kvíz</h4>
+<div class="quiz" data-quiz="l03-lepes9"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="alkalmazas">
+<h2>Alkalmazás – a gyakorlat teljes munkafolyamata</h2>
+<p>A PDF öt feladata: (1) vásárlónkénti összesítő tábla, (2) standardizálás, (3) K-means $k=3$-mal, (4) más klaszterszámok, könyök és sziluett, (5) a csoportok jellemzése eredeti mértékegységben. Az 1–2. lépés kódját már láttad (<a href="#lepes2">2.</a> és <a href="#lepes4">4. lépés</a>).</p>
+
+<h3>3. feladat – K-means $k=3$-mal (<code>02_kmeans_k3.py</code>)</h3>
+<pre><code class="language-python">from sklearn.cluster import KMeans
+
+customers_scaled = pd.read_csv("retail_customers_standardized.csv", sep=";", encoding="utf-8-sig")
+X_scaled = customers_scaled[["purchase_count", "total_spent"]]
+
+model = KMeans(n_clusters=3, n_init=10, random_state=42)   # k=3, 10 indítás, rögzített mag
+labels = model.fit_predict(X_scaled)                       # 0, 1, 2 címkék
+customers_scaled["cluster"] = labels + 1                   # megjelenítéshez 1, 2, 3
+
+print(model.inertia_)          # 17.0242  (standardizált térben)
+print(model.n_iter_)           # 3        (iterációk a legjobb futásban)
+print(model.cluster_centers_)  # középpontok, standardizált értékek</code></pre>
+
+<div class="table-wrap"><table>
+<tr><th>klaszter</th><th class="num">vásárlók</th><th class="num">purchase_count (z)</th><th class="num">total_spent (z)</th></tr>
+<tr><td>1</td><td class="num">40</td><td class="num">−0,0408</td><td class="num">−0,4321</td></tr>
+<tr><td>2</td><td class="num">40</td><td class="num">1,1921</td><td class="num">1,3443</td></tr>
+<tr><td>3</td><td class="num">40</td><td class="num">−1,1513</td><td class="num">−0,9122</td></tr>
+</table></div>
+<figure><svg viewBox="0 0 440 330" width="440" role="img" aria-label="A 120 vásárló a standardizált térben, három klaszterrel" font-family="Inter, sans-serif" font-size="11">
+<line x1="111.7" y1="15" x2="111.7" y2="285" stroke="currentColor" stroke-opacity=".15"/><text x="111.7" y="299" text-anchor="middle" fill="currentColor">−1</text>
+<line x1="50" y1="269.1" x2="420" y2="269.1" stroke="currentColor" stroke-opacity=".15"/><text x="44" y="273.1" text-anchor="end" fill="currentColor">−1</text>
+<line x1="214.4" y1="15" x2="214.4" y2="285" stroke="currentColor" stroke-opacity=".15"/><text x="214.4" y="299" text-anchor="middle" fill="currentColor">0</text>
+<line x1="50" y1="189.7" x2="420" y2="189.7" stroke="currentColor" stroke-opacity=".15"/><text x="44" y="193.7" text-anchor="end" fill="currentColor">0</text>
+<line x1="317.2" y1="15" x2="317.2" y2="285" stroke="currentColor" stroke-opacity=".15"/><text x="317.2" y="299" text-anchor="middle" fill="currentColor">1</text>
+<line x1="50" y1="110.3" x2="420" y2="110.3" stroke="currentColor" stroke-opacity=".15"/><text x="44" y="114.3" text-anchor="end" fill="currentColor">1</text>
+<line x1="420.0" y1="15" x2="420.0" y2="285" stroke="currentColor" stroke-opacity=".15"/><text x="420.0" y="299" text-anchor="middle" fill="currentColor">2</text>
+<line x1="50" y1="30.9" x2="420" y2="30.9" stroke="currentColor" stroke-opacity=".15"/><text x="44" y="34.9" text-anchor="end" fill="currentColor">2</text>
+<rect x="50" y="15" width="370" height="270" fill="none" stroke="currentColor" stroke-opacity=".4"/>
+<path d="M67.6 264.9L72.6 273.9L62.6 273.9Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M125.6 252.2L130.6 261.2L120.6 261.2Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M67.6 264.6L72.6 273.6L62.6 273.6Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M86.9 254.5L91.9 263.5L81.9 263.5Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M67.6 261.7L72.6 270.7L62.6 270.7Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M86.9 265.8L91.9 274.8L81.9 274.8Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M106.3 253.2L111.3 262.2L101.3 262.2Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M86.9 260.7L91.9 269.7L81.9 269.7Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M106.3 248.9L111.3 257.9L101.3 257.9Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M106.3 244.5L111.3 253.5L101.3 253.5Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M125.6 248.3L130.6 257.3L120.6 257.3Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M125.6 248.3L130.6 257.3L120.6 257.3Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M67.6 262.6L72.6 271.6L62.6 271.6Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M125.6 255.0L130.6 264.0L120.6 264.0Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M86.9 260.8L91.9 269.8L81.9 269.8Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M106.3 254.7L111.3 263.7L101.3 263.7Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M86.9 252.6L91.9 261.6L81.9 261.6Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M67.6 260.9L72.6 269.9L62.6 269.9Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M106.3 256.0L111.3 265.0L101.3 265.0Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M125.6 256.6L130.6 265.6L120.6 265.6Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M125.6 253.0L130.6 262.0L120.6 262.0Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M86.9 265.5L91.9 274.5L81.9 274.5Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M106.3 258.7L111.3 267.7L101.3 267.7Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M86.9 257.4L91.9 266.4L81.9 266.4Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M86.9 258.2L91.9 267.2L81.9 267.2Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M106.3 256.3L111.3 265.3L101.3 265.3Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M125.6 253.4L130.6 262.4L120.6 262.4Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M86.9 263.5L91.9 272.5L81.9 272.5Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M67.6 264.9L72.6 273.9L62.6 273.9Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M106.3 251.0L111.3 260.0L101.3 260.0Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M106.3 256.9L111.3 265.9L101.3 265.9Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M86.9 260.6L91.9 269.6L81.9 269.6Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M86.9 259.2L91.9 268.2L81.9 268.2Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M67.6 265.6L72.6 274.6L62.6 274.6Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M106.3 255.5L111.3 264.5L101.3 264.5Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M125.6 248.5L130.6 257.5L120.6 257.5Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M86.9 258.2L91.9 267.2L81.9 267.2Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M106.3 249.4L111.3 258.4L101.3 258.4Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M67.6 262.3L72.6 271.3L62.6 271.3Z" fill="var(--ex)" fill-opacity=".75"/>
+<path d="M86.9 261.0L91.9 270.0L81.9 270.0Z" fill="var(--ex)" fill-opacity=".75"/>
+<circle cx="241.7" cy="217.3" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="203.0" cy="214.5" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="164.3" cy="239.3" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="164.3" cy="242.2" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="222.3" cy="221.0" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="241.7" cy="208.5" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="222.3" cy="223.8" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="203.0" cy="230.6" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="241.7" cy="232.9" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="241.7" cy="212.6" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="183.7" cy="237.8" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="183.7" cy="218.9" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="164.3" cy="228.8" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="222.3" cy="227.1" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="164.3" cy="233.8" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="241.7" cy="209.4" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="222.3" cy="226.6" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="241.7" cy="214.7" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="183.7" cy="233.0" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="241.7" cy="225.6" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="203.0" cy="221.1" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="203.0" cy="215.5" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="183.7" cy="234.4" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="241.7" cy="223.3" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="222.3" cy="221.6" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="222.3" cy="223.3" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="222.3" cy="224.7" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="203.0" cy="223.9" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="241.7" cy="208.6" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="203.0" cy="233.0" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="203.0" cy="215.8" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="241.7" cy="205.1" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="203.0" cy="225.5" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="241.7" cy="217.9" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="183.7" cy="234.1" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="203.0" cy="224.3" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="183.7" cy="232.8" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="164.3" cy="249.5" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="203.0" cy="212.0" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<circle cx="241.7" cy="215.9" r="4" fill="var(--accent)" fill-opacity=".75"/>
+<rect x="392.5" y="20.6" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="373.1" y="62.5" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="353.8" y="64.2" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="315.1" y="105.6" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="295.7" y="94.0" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="353.8" y="66.8" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="373.1" y="22.6" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="373.1" y="27.7" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="276.4" y="130.6" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="315.1" y="89.3" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="353.8" y="65.3" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="334.4" y="64.6" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="276.4" y="126.1" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="392.5" y="62.7" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="276.4" y="123.0" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="315.1" y="88.6" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="353.8" y="78.8" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="334.4" y="68.4" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="334.4" y="83.3" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="392.5" y="23.0" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="315.1" y="66.1" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="334.4" y="97.9" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="315.1" y="99.4" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="315.1" y="111.6" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="295.7" y="102.5" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="276.4" y="85.9" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="315.1" y="89.5" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="392.5" y="28.3" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="353.8" y="61.5" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="295.7" y="103.2" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="276.4" y="131.8" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="353.8" y="49.1" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="392.5" y="57.7" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="315.1" y="109.7" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="373.1" y="43.8" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="276.4" y="108.4" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="392.5" y="49.3" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="295.7" y="114.0" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="276.4" y="114.9" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<rect x="373.1" y="65.7" width="8" height="8" fill="var(--warn)" fill-opacity=".75"/>
+<path d="M203.3 217.0L217.3 231.0M203.3 231.0L217.3 217.0" stroke="currentColor" stroke-width="3.5"/><path d="M203.3 217.0L217.3 231.0M203.3 231.0L217.3 217.0" stroke="var(--accent)" stroke-width="2"/><text x="220.3" y="216.0" fill="currentColor" font-weight="700">1.</text>
+<path d="M330.0 76.0L344.0 90.0M330.0 90.0L344.0 76.0" stroke="currentColor" stroke-width="3.5"/><path d="M330.0 76.0L344.0 90.0M330.0 90.0L344.0 76.0" stroke="var(--warn)" stroke-width="2"/><text x="347.0" y="75.0" fill="currentColor" font-weight="700">2.</text>
+<path d="M89.1 255.1L103.1 269.1M89.1 269.1L103.1 255.1" stroke="currentColor" stroke-width="3.5"/><path d="M89.1 255.1L103.1 269.1M89.1 269.1L103.1 255.1" stroke="var(--ex)" stroke-width="2"/><text x="106.1" y="254.1" fill="currentColor" font-weight="700">3.</text>
+<text x="235.0" y="322" text-anchor="middle" fill="currentColor">vásárlások száma (z)</text>
+<text transform="translate(13 150.0) rotate(-90)" text-anchor="middle" fill="currentColor">összes költés (z)</text>
+</svg><figcaption>A 120 vásárló a standardizált térben (kör: 1., négyzet: 2., háromszög: 3. klaszter; X: középpont).</figcaption></figure>
+<p><strong>Értelmezés a z-értékekből:</strong> az 1-es klaszter vásárlásszáma kb. átlagos ($z\approx 0$), költése kissé átlag alatti; a 2-es mindkettőben jóval átlag fölötti (kb. +1,2 és +1,3 szórás); a 3-as mindkettőben átlag alatti.</p>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – a 40–40–40 nem a K-means tulajdonsága</span>
+<p>Az órán elhangzott, hogy a K-means „egyenletesen osztja el” a vásárlókat. Ez nem így van: a K-means a négyzetes távolságokat minimalizálja, a klaszterméretekre nincs feltétele. Itt a szintetikus adathalmaz eleve három 40 fős csoportból készült. Ugyanezen az adaton $k=2$ → 80 + 40, $k=4$ → 40 + 19 + 40 + 21 vásárló.</p>
+</div>
+
+<h3>4. feladat – több klaszterszám (<code>03_kmeans.py</code>)</h3>
+<pre><code class="language-python">from sklearn.metrics import silhouette_score
+
+results = []
+for k in range(1, 9):
+    model = KMeans(n_clusters=k, n_init=10, random_state=42)   # csak k változik
+    labels = model.fit_predict(X_scaled)
+    score = silhouette_score(X_scaled, labels) if k &gt;= 2 else np.nan   # k=1: nem értelmezhető
+    results.append({"k": k, "inertia": model.inertia_, "silhouette": score})
+comparison = pd.DataFrame(results)</code></pre>
+<p>Az eredményt a <a href="#lepes8">8.</a> és <a href="#lepes9">9. lépés</a> táblázatai mutatják. A szkript végi megbeszélés kérdései és válaszai:</p>
+<ol>
+<li><em>Hol látható könyök? Egyértelmű-e?</em> – $k=2$-nél nagy, $k=3$-nál kisebb törés; nem teljesen egyértelmű.</li>
+<li><em>Egybevág-e a könyök és a sziluett javaslata?</em> – Igen, mindkettő a $k=2$ / $k=3$ párt jelöli; a sziluett $k=2$-nél csak 0,001-gyel magasabb.</li>
+<li><em>Miért nem a legkisebb inertiát választjuk?</em> – Mert az $k$-val mindig csökken ($k=n$-nél 0).</li>
+<li><em>Hogyan változnak a csoportok $k=2,3,4$ mellett?</em> – $k=2$: az alkalmi és átlagos vásárlók egy 80 fős csoportban; $k=3$: három értelmes csoport; $k=4$: a 2-es (nagy költők) csoport kettéesik 19 + 21 főre, ezt nehéz megmagyarázni.</li>
+</ol>
+
+<h3>5. feladat – jellemzés eredeti mértékegységben</h3>
+<p>A z-értékek („1,19 szórással az átlag fölött”) üzleti döntéshez nehezen használhatók. Két út van:</p>
+<ol>
+<li><strong>Visszaskálázás:</strong> $x=\mu+z\sigma$, pl. a 2-es klaszter középpontja: $9{,}5917+1{,}1921\cdot 5{,}3127\approx 15{,}93$ vásárlás és $82\,427{,}83+1{,}3443\cdot 75\,913{,}26\approx 184\,480$ Ft. (Ehhez mentette el a szkript a <code>retail_scaling_parameters.csv</code>-t; a <code>scaler.inverse_transform()</code> ugyanezt csinálja.)</li>
+<li><strong>Klaszterprofil:</strong> a címkéket visszakapcsoljuk az eredeti (nem standardizált) vásárlói táblához, és klaszterenként átlagolunk – így a modellben nem szereplő változók (darab, különböző termék, kosárérték) is jellemezhetők.</li>
+</ol>
+<pre><code class="language-python">customers = customers.merge(customers_scaled[["customer_id", "cluster"]],
+                            on="customer_id", how="left", validate="one_to_one")
+cluster_profile = customers.groupby("cluster").agg(
+    customer_count=("customer_id", "count"),
+    mean_purchase_count=("purchase_count", "mean"),
+    mean_total_spent_huf=("total_spent", "mean"),
+    mean_total_items=("total_items", "mean"),
+    mean_unique_products=("unique_products", "mean"),
+    mean_basket_value_huf=("average_basket_value", "mean"))</code></pre>
+<div class="table-wrap"><table>
+<tr><th>klaszter</th><th class="num">vásárlók</th><th class="num">átl. vásárlásszám</th><th class="num">átl. összköltés (Ft)</th><th class="num">átl. darab</th><th class="num">átl. különböző termék</th><th class="num">átl. kosárérték (Ft)</th><th>javasolt név</th></tr>
+<tr><td>1</td><td class="num">40</td><td class="num">9,38</td><td class="num">49 626</td><td class="num">52,7</td><td class="num">15,75</td><td class="num">5 299</td><td>átlagos vásárlók</td></tr>
+<tr><td>2</td><td class="num">40</td><td class="num">15,93</td><td class="num">184 480</td><td class="num">197,3</td><td class="num">17,98</td><td class="num">11 562</td><td>törzsvásárlók, nagy költők</td></tr>
+<tr><td>3</td><td class="num">40</td><td class="num">3,48</td><td class="num">13 178</td><td class="num">13,5</td><td class="num">8,05</td><td class="num">3 758</td><td>alkalmi vásárlók</td></tr>
+</table></div>
+<p>A teljes minta átlaga 9,59 vásárlás és 82 428 Ft. A K-means-hez használt két változó középpontjai (visszaskálázva) pontosan egyeznek a profil első két átlagoszlopával – mert a középpont a klaszter átlaga, és az átlag „átmegy” a lineáris visszaalakításon. A további oszlopok ráadás: a törzsvásárlók nemcsak többször jönnek, hanem kosaranként is többet költenek: kb. kétszer annyit, mint az átlagosak, és háromszor annyit, mint az alkalmiak.</p>
+
+<div class="box tip"><span class="box-title">💡 Hüvelykujjszabály – a K-means munkafolyamat</span>
+<p>aggregálás (egy sor = egy objektum) → változók kiválasztása → standardizálás → K-means több $k$-val (<code>n_init</code>, <code>random_state</code> rögzítve) → könyök + sziluett + pontdiagram → a választott $k$ klasztereinek jellemzése <strong>eredeti mértékegységben</strong> → nevek adása.</p>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés – mi lett volna standardizálás nélkül?</span>
+<p>Ezen az adaton a nyers futás szinte ugyanazt adja (egyetlen vásárló kerül máshová), mert a két változó erősen együtt mozog (korreláció 0,95), és a csoportok a költésben is jól elkülönülnek. Ez szerencse, nem szabály: a nyers távolságban a vásárlásszám gyakorlatilag nem számít, és ha a csoportok csak abban különböznének, a nyers K-means nem találná meg őket.</p>
+</div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia (angol – magyar)</span>
+<ul>
+<li><em>supervised / unsupervised learning</em> – felügyelt / felügyelet nélküli tanulás</li>
+<li><em>cluster, clustering</em> – klaszter, klaszterezés; <em>label</em> – (klaszter)címke</li>
+<li><em>centroid, cluster center</em> (<code>cluster_centers_</code>) – klaszterközéppont</li>
+<li><em>Euclidean distance</em> – euklideszi távolság</li>
+<li><em>standardization, z-score</em> (<code>StandardScaler</code>) – standardizálás, z-pontszám; <em>mean</em> – átlag, <em>scale</em> – itt: szórás</li>
+<li><em>inertia, within-cluster sum of squares (WCSS)</em> (<code>inertia_</code>) – klaszteren belüli négyzetösszeg</li>
+<li><em>elbow method</em> – könyökmódszer</li>
+<li><em>silhouette score</em> (<code>silhouette_score</code>) – sziluettmutató</li>
+<li><em>initialization</em> (<code>n_init</code>, <code>init</code>) – inicializálás, kezdőpontválasztás; <em>random state / seed</em> – véletlenmag</li>
+<li><em>iteration</em> (<code>n_iter_</code>, <code>max_iter</code>) – iteráció; <em>local optimum</em> – lokális optimum</li>
+<li><em>scatter plot</em> – pontdiagram (pontfelhő)</li>
+</ul>
+</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="osszefoglalas">
+<h2>Összefoglalás</h2>
+<ul>
+<li>Nincs címke → <strong>felügyelet nélküli</strong> tanulás → klaszterezés: hasonlók egy csoportba, különbözők külön.</li>
+<li>Előkészítés: <strong>egy sor = egy vásárló</strong> (vásárlásszám = különböző tranzakciók száma, összköltés = tételértékek összege).</li>
+<li>Hasonlóság = <strong>euklideszi távolság</strong>; ezt a nagy nagyságrendű változó uralja, ezért <strong>standardizálunk</strong>: $z=(x-\mu)/\sigma$ – átlag 0, szórás 1, de nem normális eloszlás és nem $[-1;1]$.</li>
+<li><strong>K-means</strong>: $k$ kezdő középpont → hozzárendelés a legközelebbihez → középpont = átlag → ismétlés, amíg nem változik. Lokális optimum.</li>
+<li><strong>Inertia</strong>: négyzetes távolságok összege a saját középponttól; $k$-val csökken, ezért önmagában nem választ $k$-t.</li>
+<li><code>n_init</code>: több indítás, a legkisebb inertiájú marad; <code>random_state</code>: reprodukálhatóság.</li>
+<li><strong>Könyökmódszer</strong>: ahol az inertia csökkenése lelassul. <strong>Sziluett</strong>: $s=(b-a)/\max(a,b)$, $-1..1$, magasabb jobb.</li>
+<li>A klasztereket <strong>eredeti mértékegységben</strong> jellemezzük, és mi adunk nekik nevet.</li>
+</ul>
+
+<div class="table-wrap"><table>
+<tr><th>Ha a feladatban ez áll…</th><th>…ezt használd</th></tr>
+<tr><td>„csoportosítsd …, előzetes csoportok nélkül”</td><td>felügyelet nélküli tanulás, klaszterezés (K-means)</td></tr>
+<tr><td>„jósold meg …, ismert kimenetű múltbeli adatból”</td><td>felügyelt tanulás (osztályozás)</td></tr>
+<tr><td>tranzakciós tábla, de vásárlókat kell csoportosítani</td><td><code>groupby("customer_id")</code>; vásárlásszám: <code>nunique</code> a tranzakció-azonosítóra</td></tr>
+<tr><td>„milyen messze van … két pont”</td><td>$d=\sqrt{\sum (x_j-y_j)^2}$</td></tr>
+<tr><td>változók eltérő mértékegységben / nagyságrendben</td><td>standardizálás: $z=(x-\mu)/\sigma$ (populációs szórás)</td></tr>
+<tr><td>„hány szórással tér el …”</td><td>z-pontszám</td></tr>
+<tr><td>standardizált középpontot kell forintra / darabra váltani</td><td>$x=\mu+z\sigma$ (<code>inverse_transform</code>)</td></tr>
+<tr><td>„sorold be a pontokat / frissítsd a középpontokat”</td><td>legközelebbi középpont (négyzetes távolság) / klaszter koordinátánkénti átlaga</td></tr>
+<tr><td>„mennyire tömörek a klaszterek”</td><td>inertia $W=\sum_j\sum_{x\in C_j}\lVert x-\mu_j\rVert^2$</td></tr>
+<tr><td>„a kezdőpontok befolyásolják az eredményt”</td><td><code>n_init</code> (legkisebb inertia marad), <code>random_state</code> (reprodukálhatóság)</td></tr>
+<tr><td>inertiák több $k$-ra, „válassz $k$-t”</td><td>könyökmódszer: ahol a csökkenés lelassul</td></tr>
+<tr><td>adott $a$, $b$, vagy „mennyire jó helyen van a pont”</td><td>sziluett: $s=(b-a)/\max(a,b)$</td></tr>
+<tr><td>sziluettértékek több $k$-ra</td><td>a legmagasabbat keresd, de nézd az értelmezhetőséget is</td></tr>
+<tr><td>„jellemezd a klasztereket”</td><td>klaszterprofil eredeti mértékegységben, nevek adása</td></tr>
+</table></div>
+</section>
+
+<section id="kviz">
+<h2>Ellenőrző kvíz</h2>
+<p>Vegyes kérdések a teljes leckéből. Ha elakadsz, használd a tippet.</p>
+<div class="quiz" data-quiz="l03-vegso"></div>
+</section>
+
+<nav class="pager">
+  <a href="02-kosarelemzes.html">← 2. Kosárelemzés</a>
+  <a href="04-hierarchikus-klaszterezes.html">4. Hierarchikus klaszterezés →</a>
+</nav>
+</main>
+</body>
+</html>

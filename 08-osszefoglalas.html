@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Összefoglalás</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script defer src="assets/common.js"></script>
+</head>
+<body>
+<nav class="topnav"><div class="inner">
+  <a href="index.html">← Tartalom</a>
+  <span>8. · Összefoglalás</span>
+  <span class="spacer"></span>
+  <button id="theme-toggle" type="button" title="Világos/sötét téma">◐</button>
+</div></nav>
+<main>
+<p class="kicker">8. · Ismétlés és vizsgafelkészülés</p>
+<h1>Összefoglalás és döntési táblázat</h1>
+<p class="lead">Az egész félév egy oldalon: melyik módszer mire való, melyik képlet mit mér, és mire figyelj a féléves feladatnál. A vegyes kérdéseket a <a href="09-vizsgagyakorlo.html">Vizsgagyakorló</a> fejezetben találod.</p>
+
+<section id="motivacio">
+<h2>Motiváció</h2>
+<p>A vizsgán és a féléves feladatban sem az a kérdés, hogy egy képletet fel tudsz-e írni. Az a kérdés, hogy egy adott adathalmaznál és kérdésnél <strong>ki tudod-e választani a megfelelő módszert</strong>, és értelmezni tudod-e az eredményét.</p>
+<p>Ennek az oldalnak a végén erre kell tudnod válaszolni: <em>„Egy webáruház adatai alapján szeretnénk (a) csoportosítani a vásárlókat, (b) megjósolni, ki mondja le az előfizetését, (c) ajánlani termékeket a kosár alapján. Melyik feladathoz melyik módszer kell, és mivel méred a jóságát?”</em></p>
+</section>
+
+<section id="utiterv">
+<h2>Útiterv</h2>
+<ol class="roadmap">
+  <li><a href="#folyamat">A teljes adatbányászati folyamat</a></li>
+  <li><a href="#dontes">Döntési táblázat: kérdés → módszer → mérőszám</a></li>
+  <li><a href="#kepletek">Képletgyűjtemény</a></li>
+  <li><a href="#parok">Gyakran összekevert fogalompárok</a></li>
+  <li><a href="#feleves">A féléves feladat ellenőrzőlistája</a></li>
+  <li><a href="#vegyes">Vegyes gyakorló feladatok</a></li>
+  <li><a href="#kviz">Tovább a Vizsgagyakorlóhoz</a></li>
+</ol>
+</section>
+
+<section id="folyamat">
+<h2>1. A teljes adatbányászati folyamat</h2>
+<p>Mind a hat gyakorlat ugyanazt a láncot járta végig, csak más-más ponton mélyült el.</p>
+<figure>
+<svg viewBox="0 0 820 150" role="img" aria-label="Az adatbányászati folyamat lépései" font-family="Inter, system-ui, sans-serif" font-size="13">
+  <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+  <g fill="none" stroke="var(--accent)" stroke-width="1.5">
+    <rect x="5" y="30" width="115" height="60" rx="8"/><rect x="145" y="30" width="115" height="60" rx="8"/>
+    <rect x="285" y="30" width="115" height="60" rx="8"/><rect x="425" y="30" width="115" height="60" rx="8"/>
+    <rect x="565" y="30" width="115" height="60" rx="8"/><rect x="705" y="30" width="110" height="60" rx="8"/>
+  </g>
+  <g fill="currentColor" text-anchor="middle">
+    <text x="62" y="56" font-weight="700">Adatgyűjtés</text><text x="62" y="74">forrás, leírás</text>
+    <text x="202" y="56" font-weight="700">Tisztítás</text><text x="202" y="74">1. lecke</text>
+    <text x="342" y="56" font-weight="700">Feltáró elemzés</text><text x="342" y="74">1. lecke</text>
+    <text x="482" y="56" font-weight="700">Előkészítés</text><text x="482" y="74">aggregálás, skálázás</text>
+    <text x="622" y="56" font-weight="700">Modellezés</text><text x="622" y="74">2–6. lecke</text>
+    <text x="760" y="56" font-weight="700">Értékelés</text><text x="760" y="74">mutatók, értelmezés</text>
+  </g>
+  <g stroke="currentColor" stroke-width="1.3" marker-end="url(#arr)">
+    <line x1="120" y1="60" x2="143" y2="60"/><line x1="260" y1="60" x2="283" y2="60"/><line x1="400" y1="60" x2="423" y2="60"/>
+    <line x1="540" y1="60" x2="563" y2="60"/><line x1="680" y1="60" x2="703" y2="60"/>
+  </g>
+  <path d="M760,92 C760,135 202,135 202,94" fill="none" stroke="var(--muted)" stroke-dasharray="4 3" stroke-width="1.2" marker-end="url(#arr)"/>
+  <text x="480" y="140" text-anchor="middle" fill="var(--muted)" font-size="12">ha az eredmény rossz vagy furcsa: vissza az adatokhoz</text>
+</svg>
+<figcaption>A folyamat nem egyirányú: egy rossz értékelés után gyakran a tisztításhoz vagy a változók kiválasztásához kell visszalépni.</figcaption>
+</figure>
+<div class="box tip"><span class="box-title">💡 Hüvelykujjszabály</span>
+<p>Az oktató a záró részben ezt hangsúlyozta: <strong>„a siker záloga egy jó adathalmaz”</strong>, és a kód minőségénél sokkal fontosabb az eredmények <strong>értelmezése</strong>. Egy mutató csak akkor ér valamit, ha meg is mondod, mit jelent az adott adatokra.</p>
+</div>
+</section>
+
+<section id="dontes">
+<h2>2. Döntési táblázat</h2>
+<div class="table-wrap"><table>
+<tr><th>Ha a feladatban ez áll…</th><th>Feladattípus</th><th>Módszer</th><th>Mivel méred?</th><th>Lecke</th></tr>
+<tr><td>„hiányzó érték”, „duplikátum”, „eltérő írásmód”, „kiugró érték”</td><td>adattisztítás</td><td>drop_duplicates, egységesítés, to_numeric(errors='coerce'), pótlás/törlés, IQR-szabály</td><td>hibák száma előtte/utána</td><td><a href="01-adattisztitas.html">1</a></td></tr>
+<tr><td>„milyen az eloszlása?”, „mi a jellemző érték?”</td><td>egyváltozós elemzés</td><td>átlag, medián, módusz, szórás, kvartilisek; hisztogram, boxplot</td><td>–</td><td><a href="01-adattisztitas.html">1</a></td></tr>
+<tr><td>„van-e kapcsolat két változó között?”</td><td>kétváltozós elemzés</td><td>korreláció, csoportosított összehasonlítás; szórásdiagram</td><td>korrelációs együttható</td><td><a href="01-adattisztitas.html">1</a></td></tr>
+<tr><td>„mit vesznek együtt?”, „kosár”, „ajánlás”</td><td>asszociációs szabályok</td><td>Apriori + szabálygenerálás</td><td>támogatottság, megbízhatóság, lift</td><td><a href="02-kosarelemzes.html">2</a></td></tr>
+<tr><td>„csoportosítsuk”, „szegmentáljuk”, nincs címke, <strong>k nagyjából adott</strong>, sok adat</td><td>klaszterezés</td><td>K-means (előtte standardizálás!)</td><td>inertia (könyök), silhouette</td><td><a href="03-kmeans.html">3</a></td></tr>
+<tr><td>„csoportosítsuk”, <strong>k nem ismert</strong>, látni akarjuk a hierarchiát, kevés adat</td><td>klaszterezés</td><td>HAC + dendrogram (Ward / single / complete / average)</td><td>legnagyobb ugrás a dendrogramon, silhouette</td><td><a href="04-hierarchikus-klaszterezes.html">4</a></td></tr>
+<tr><td>„jósoljuk meg, melyik kategóriába esik”, van címke, <strong>értelmezhető szabály kell</strong></td><td>osztályozás</td><td>döntési fa</td><td>konfúziós mátrix, accuracy, precision, recall, F1</td><td><a href="05-dontesi-fa.html">5</a></td></tr>
+<tr><td>„jósoljuk meg…”, összetett nemlineáris kapcsolat, az értelmezhetőség kevésbé fontos</td><td>osztályozás</td><td>MLP neurális háló (előtte standardizálás a tanítóhalmazon!)</td><td>ugyanazok + veszteséggörbe</td><td><a href="06-neuralis-halo.html">6</a></td></tr>
+<tr><td>„halmozott összeg”, „előző hónaphoz képest”, „rangsor csoporton belül”, „mozgóátlag”</td><td>SQL-elemzés</td><td>ablakfüggvények: SUM/AVG … OVER, LAG/LEAD, RANK, DENSE_RANK</td><td>–</td><td><a href="07-sql-ablakfuggvenyek.html">7</a></td></tr>
+</table></div>
+
+<div class="two-col">
+<div class="box def"><span class="box-title">Felügyelt tanulás</span>
+<p>A tanítóadatokban <strong>ismert a célváltozó</strong> ($y$). A modell az $X \to y$ hozzárendelést tanulja meg, és új adatokra megbecsüli $y$-t.</p>
+<p>Ide tartozik: döntési fa, MLP (osztályozás).</p></div>
+<div class="box def"><span class="box-title">Felügyelet nélküli tanulás</span>
+<p><strong>Nincs célváltozó.</strong> A módszer a jellemzők hasonlósága alapján maga talál szerkezetet az adatokban.</p>
+<p>Ide tartozik: K-means, HAC (klaszterezés), és tágabb értelemben a kosárelemzés.</p></div>
+</div>
+</section>
+
+<section id="kepletek">
+<h2>3. Képletgyűjtemény</h2>
+<div class="table-wrap"><table>
+<tr><th>Mutató</th><th>Képlet</th><th>Értelmezés</th></tr>
+<tr><td>IQR-szabály</td><td>$\mathrm{IQR}=Q_3-Q_1$; kiugró, ha $x&lt;Q_1-1{,}5\,\mathrm{IQR}$ vagy $x&gt;Q_3+1{,}5\,\mathrm{IQR}$</td><td>robusztus, nem érzékeny a kiugró értékekre</td></tr>
+<tr><td>Támogatottság</td><td>$\mathrm{supp}(A)=\dfrac{\#\{\text{kosár} \supseteq A\}}{N}$</td><td>a kosarak hányadában fordul elő $A$</td></tr>
+<tr><td>Megbízhatóság</td><td>$\mathrm{conf}(A\to B)=\dfrac{\mathrm{supp}(A\cup B)}{\mathrm{supp}(A)}$</td><td>az $A$-t tartalmazó kosarak hányadában van $B$ is; <strong>irányfüggő</strong></td></tr>
+<tr><td>Lift</td><td>$\mathrm{lift}(A\to B)=\dfrac{\mathrm{conf}(A\to B)}{\mathrm{supp}(B)}=\dfrac{\mathrm{supp}(A\cup B)}{\mathrm{supp}(A)\,\mathrm{supp}(B)}$</td><td>&gt;1: gyakrabban együtt, mint függetlenül; =1: független; &lt;1: ritkábban; <strong>szimmetrikus</strong></td></tr>
+<tr><td>Standardizálás</td><td>$z_i=\dfrac{x_i-\mu}{\sigma}$</td><td>hány szórással tér el az átlagtól; nem teszi normálissá az eloszlást</td></tr>
+<tr><td>Euklideszi távolság</td><td>$d(x,y)=\sqrt{\sum_j (x_j-y_j)^2}$</td><td>a K-means és a HAC alapja</td></tr>
+<tr><td>Inertia</td><td>$\sum_{k}\sum_{x\in C_k}\lVert x-\mu_k\rVert^2$</td><td>klaszteren belüli négyzetösszeg; $k$ növelésével mindig csökken → könyök</td></tr>
+<tr><td>Silhouette</td><td>$s=\dfrac{b-a}{\max(a,b)}$</td><td>$a$: átlagos távolság a saját klaszterben, $b$: a legközelebbi másik klaszterben; $-1\ldots1$, nagyobb a jobb</td></tr>
+<tr><td>Gini-index</td><td>$G=1-\sum_{i=1}^{C}p_i^2$</td><td>0: tiszta csomópont; két osztálynál max. 0,5</td></tr>
+<tr><td>Entrópia</td><td>$H=-\sum_{i=1}^{C}p_i\log_2 p_i$</td><td>0: tiszta; két osztálynál max. 1</td></tr>
+<tr><td>Pontosság</td><td>$\dfrac{TP+TN}{TP+TN+FP+FN}$</td><td>az összes előrejelzés hányada helyes</td></tr>
+<tr><td>Precizitás</td><td>$\dfrac{TP}{TP+FP}$</td><td>a pozitívnak jósoltak közül mennyi valóban pozitív</td></tr>
+<tr><td>Érzékenység</td><td>$\dfrac{TP}{TP+FN}$</td><td>a valódi pozitívak közül mennyit talált meg</td></tr>
+<tr><td>F1</td><td>$\dfrac{2PR}{P+R}$</td><td>a precizitás és az érzékenység harmonikus átlaga</td></tr>
+<tr><td>Perceptron</td><td>$\hat y = \begin{cases}1 &amp; \text{ha } \sum_i w_ix_i+b\ge 0\\ 0 &amp; \text{különben}\end{cases}$</td><td>lineáris döntési határ</td></tr>
+<tr><td>Szigmoid, ReLU</td><td>$\sigma(z)=\dfrac{1}{1+e^{-z}}$, $\ \mathrm{ReLU}(z)=\max(0,z)$</td><td>nemlineáris aktiváció</td></tr>
+<tr><td>Log-loss (egy példára)</td><td>$-\big[y\ln \hat p+(1-y)\ln(1-\hat p)\big]$</td><td>magabiztos rossz becslésért nagy büntetés</td></tr>
+</table></div>
+</section>
+
+<section id="parok">
+<h2>4. Gyakran összekevert fogalompárok</h2>
+<div class="two-col">
+<div class="box warn"><span class="box-title">⚠ Megbízhatóság vs. lift</span><p>A magas megbízhatóság önmagában semmit nem bizonyít. Ha $B$-t amúgy is szinte mindenki megveszi, a $\mathrm{conf}(A\to B)$ magas lesz akkor is, ha $A$-nak semmi köze hozzá. Ezt a lift mutatja meg.</p></div>
+<div class="box warn"><span class="box-title">⚠ Precizitás vs. érzékenység</span><p>A <strong>precizitás</strong> a jóslatokból indul ki (a pozitívnak jósoltak közül mennyi jó), az <strong>érzékenység</strong> a valóságból (a valódi pozitívak közül mennyit találtunk meg). Más a nevező!</p></div>
+<div class="box warn"><span class="box-title">⚠ Alultanulás vs. túltanulás</span><p>Alultanulásnál a tanító- és a teszteredmény is gyenge. Túltanulásnál a tanítóeredmény kiváló, a teszteredmény viszont romlik: a modell „bemagolta” a tanítóadatokat.</p></div>
+<div class="box warn"><span class="box-title">⚠ K-means vs. HAC</span><p>A K-means-nek előre meg kell adni $k$-t, és az eredménye függ a kezdőpontoktól. A HAC determinisztikus, a dendrogramból választható $k$, de a korábbi összevonásokat nem bontja vissza, és nagy adaton lassú.</p></div>
+<div class="box warn"><span class="box-title">⚠ Pontosság kiegyensúlyozatlan osztályoknál</span><p>Ha az esetek 72%-a „sikeres”, a mindig „sikeres”-t mondó alapmodell is 72%-os pontosságú. Ezért kell mindig összevetni az alapmodellel, és nézni a precizitást, az érzékenységet és a balanced accuracy-t is.</p></div>
+<div class="box warn"><span class="box-title">⚠ RANK vs. DENSE_RANK</span><p>Holtverseny után a <code>RANK()</code> kihagy sorszámot (1, 2, 2, 4), a <code>DENSE_RANK()</code> nem (1, 2, 2, 3). A <code>ROW_NUMBER()</code> mindig egyedi sorszámot ad.</p></div>
+</div>
+<div class="box warn"><span class="box-title">⚠ Adatszivárgás – két alakja</span>
+<ul>
+<li><strong>Célváltozóból képzett bemenet:</strong> ha a <code>passed</code> az <code>exam_score ≥ 50</code> szabályból készült, az <code>exam_score</code> nem lehet bemenet. A modell különben „csal”: tökéletes lesz a teszten, de a valóságban használhatatlan.</li>
+<li><strong>Standardizálás a teljes adaton:</strong> az átlagot és a szórást csak a tanítóhalmazon szabad kiszámolni, és ugyanazzal az átalakítással kell skálázni a tesztet.</li>
+</ul></div>
+</section>
+
+<section id="feleves">
+<h2>5. A féléves feladat ellenőrzőlistája</h2>
+<p>A féléves feladat az <strong>aláírás feltétele</strong>. Leadás a Teams-feladatban <strong>2026. november 20-ig</strong>, a társértékelés határideje <strong>december 4.</strong> Feltöltendő három fájl, tömörítés nélkül: a Python-forráskód, az adathalmaz (CSV) és egy PDF-jelentés. Feltöltés után a feladatnál a „Turn in” (Beadás) gombot is meg kell nyomni.</p>
+<div class="table-wrap"><table>
+<tr><th>Rész</th><th>Mit kell tartalmaznia</th><th class="num">Pont</th></tr>
+<tr><td>Adathalmaz leírása és tisztítása</td><td>forrás (link), rövid leírás, változók és típusaik; a tisztítás lépései, hány hibát találtál, hogyan pótoltad a hiányokat</td><td class="num">1 + 3</td></tr>
+<tr><td>Feltáró elemzés</td><td>egyváltozós elemzés (eloszlások), kétváltozós elemzés (két változó kapcsolata), ábrák, rövid értelmezés</td><td class="num">2 + 2 + 2</td></tr>
+<tr><td>Osztályozás <em>vagy</em> klaszterezés</td><td><strong>két</strong> modell; teljesítménymutatók; összehasonlítás és indoklás, melyik a jobb; a választott modell alkalmazása új adatokra (ha a módszer engedi)</td><td class="num">4 + 2</td></tr>
+<tr><td>Jelentés minősége</td><td>kerek, átlátható PDF; a fő következtetések a végén</td><td class="num">4</td></tr>
+<tr><td>Társ értékelése / társtól kapott értékelés</td><td>egy másik hallgató munkájának kritikus véleményezése</td><td class="num">5 + 5</td></tr>
+<tr><th colspan="2">Összesen</th><th class="num">30</th></tr>
+</table></div>
+<div class="box tip"><span class="box-title">💡 Az oktató tanácsai (az óráról)</span>
+<ul>
+<li>Adatot pl. a <strong>kaggle.com</strong>-ról lehet szerezni, de bárhonnan jöhet. Nézd meg a <em>Discussion</em> fület: ha nulla a hozzászólás, az gyanús, mert senki nem próbálta még ki. Ott derül ki, ha egy adathalmaz mesterségesen generált vagy használhatatlan.</li>
+<li>Osztályozáshoz olyan adathalmaz kell, amiben <strong>van célváltozó</strong>.</li>
+<li>Az értékelés az eredmények <strong>értelmezésére</strong> és az összefoglalásra koncentrál, nem a kód minőségére. A kódnak futnia kell; a Google Colab AI-segédjével lépésenként meg lehet írni.</li>
+<li>Ne erőltess olyan elemzést, aminek az adott adaton nincs értelme.</li>
+<li>Menet közben mentsd ki az ábrákat, és a Colab-cellák kódját egy <code>.py</code> fájlba.</li>
+</ul></div>
+<div class="box warn"><span class="box-title">⚠ Klaszterezésnél: „alkalmazás új adatokra”</span>
+<p>A K-means-szel egy új vásárlót egyszerűen a legközelebbi középponthoz rendelhetsz (<code>predict</code>, a tanításkor használt skálázással). A sklearn HAC-implementációjának (<code>AgglomerativeClustering</code>) nincs <code>predict</code> metódusa. Ha a HAC-ot választod, ezt indokold meg a jelentésben, ahogy a feladatkiírás is engedi („amennyiben a módszer ezt lehetővé teszi”).</p></div>
+</section>
+
+<section id="vegyes">
+<h2>6. Vegyes gyakorló feladatok</h2>
+<p>Itt nem mondjuk meg, melyik leckéhez tartozik a feladat. Először döntsd el, melyik eszköz kell.</p>
+<details class="box practice"><summary>✏️ Gyakorlás – Vegyes feladatok (8 feladat)</summary>
+<ol>
+<li><p>10 kosárból 6-ban van kenyér, 5-ben tej, 4-ben mindkettő. Mennyi a $\{\text{kenyér}\}\to\{\text{tej}\}$ szabály megbízhatósága és liftje? Érdemes-e foglalkozni vele?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p><em>Eszköz: asszociációs szabályok (2. lecke).</em> $\mathrm{supp}(K\cup T)=4/10=0{,}4$, $\mathrm{supp}(K)=0{,}6$, $\mathrm{supp}(T)=0{,}5$.</p>
+<p>$\mathrm{conf}=0{,}4/0{,}6\approx0{,}667$, $\mathrm{lift}=0{,}4/(0{,}6\cdot0{,}5)\approx1{,}333$.</p>
+<p>A lift &gt; 1, vagyis a kenyeret vevők körülbelül harmadával gyakrabban vesznek tejet, mint általában a vásárlók. Érdemes vele foglalkozni.</p></details></li>
+<li><p>Egy modell konfúziós mátrixa: TP = 40, FP = 10, FN = 20, TN = 30. Számold ki a pontosságot, a precizitást, az érzékenységet és az F1-et.</p>
+<details class="solution"><summary>Megoldás</summary>
+<p><em>Eszköz: osztályozási mérőszámok (5. lecke).</em> Összesen 100 eset.</p>
+<p>Pontosság $=(40+30)/100=0{,}70$; precizitás $=40/50=0{,}80$; érzékenység $=40/60\approx0{,}667$; $F1=2\cdot0{,}8\cdot0{,}667/(0{,}8+0{,}667)\approx0{,}727$.</p></details></li>
+<li><p>Egy vásárló havi költése 70 ezer Ft, az átlag 50 ezer Ft, a szórás 8 ezer Ft. Mennyi a standardizált értéke, és mit jelent?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p><em>Eszköz: standardizálás (3. lecke).</em> $z=(70-50)/8=2{,}5$. A vásárló 2,5 szórással költ többet az átlagnál.</p></details></li>
+<li><p>Egy döntési fa csomópontjában 6 „igen” és 2 „nem” példa van. Mennyi a Gini-index és az entrópia?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p><em>Eszköz: döntési fa (5. lecke).</em> $p_{\text{igen}}=0{,}75$, $p_{\text{nem}}=0{,}25$.</p>
+<p>$G=1-(0{,}75^2+0{,}25^2)=1-0{,}625=0{,}375$; $H=-(0{,}75\log_2 0{,}75+0{,}25\log_2 0{,}25)\approx0{,}811$.</p></details></li>
+<li><p>Egy pont átlagos távolsága a saját klaszterének pontjaitól 2, a legközelebbi másik klaszter pontjaitól 5. Mennyi a silhouette-értéke? Jól van-e besorolva?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p><em>Eszköz: silhouette (3–4. lecke).</em> $s=(5-2)/\max(2,5)=0{,}6$. Pozitív és viszonylag nagy, vagyis a pont közelebb van a saját klaszteréhez, mint a szomszédoshoz: jól van besorolva.</p></details></li>
+<li><p>A mennyiségek: 2, 4, 5, 7, 9, 12, 30. A pandas alapértelmezése szerint $Q_1=4{,}5$, $Q_3=10{,}5$. Van-e kiugró érték az IQR-szabály szerint?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p><em>Eszköz: IQR-szabály (1. lecke).</em> $\mathrm{IQR}=6$, az alsó határ $4{,}5-9=-4{,}5$, a felső $10{,}5+9=19{,}5$. A 30 a felső határ fölött van, tehát kiugró érték.</p>
+<p>Ellenőrzésképp: az átlag ($\approx9{,}86$) a 30 miatt jóval nagyobb, mint a medián (7).</p></details></li>
+<li><p>Egy perceptron súlyai $w=(0{,}5;\,-1)$, az eltolás $b=0{,}2$, a bemenet $x=(2;\,1)$. Melyik osztályba sorolja a pontot?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p><em>Eszköz: perceptron (6. lecke).</em> $0{,}5\cdot2+(-1)\cdot1+0{,}2=0{,}2&gt;0$, tehát az 1-es osztályba.</p></details></li>
+<li><p>A havi árbevételek: 100, 90, 90, 80. Milyen sorszámot ad a <code>RANK()</code> és a <code>DENSE_RANK()</code> csökkenő sorrendben?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p><em>Eszköz: SQL rangsoroló ablakfüggvények (7. lecke).</em> <code>RANK()</code>: 1, 2, 2, 4. <code>DENSE_RANK()</code>: 1, 2, 2, 3.</p></details></li>
+</ol>
+</details>
+</section>
+
+<section id="valasz">
+<h2>Válasz a motiváló kérdésre</h2>
+<ul>
+<li><strong>(a) Vásárlók csoportosítása:</strong> klaszterezés (K-means vagy HAC), standardizált változókon. Mérőszám: silhouette, könyökmódszer vagy dendrogram. A klasztereket a végén eredeti mértékegységben kell jellemezni.</li>
+<li><strong>(b) Lemondás előrejelzése:</strong> osztályozás, mert van célváltozó (lemondott: igen/nem). Döntési fa vagy MLP, rétegzett tanító/teszt felosztással. Mérőszám: konfúziós mátrix, precizitás, érzékenység, F1, összevetve a többségi alapmodellel.</li>
+<li><strong>(c) Termékajánlás a kosár alapján:</strong> asszociációs szabályok (Apriori). Mérőszám: támogatottság, megbízhatóság, és főleg a lift.</li>
+</ul>
+</section>
+
+<section id="kviz">
+<h2>7. Vizsgagyakorlás</h2>
+<p>A vegyes vizsgakérdések önálló fejezetbe kerültek. A <strong><a href="09-vizsgagyakorlo.html">Vizsgagyakorló</a></strong> a teljes tananyagot lefedi, témakör és nehézség szerint szűrhető, és gyakorló, illetve vizsga módban is használható.</p>
+<p><a class="btn primary" href="09-vizsgagyakorlo.html" style="text-decoration:none;display:inline-block">Tovább a Vizsgagyakorlóhoz →</a></p>
+</section>
+
+<nav class="pager">
+  <a href="07-sql-ablakfuggvenyek.html">← 7. SQL ablakfüggvények</a>
+  <a href="09-vizsgagyakorlo.html">9. Vizsgagyakorló →</a>
+</nav>
+</main>
+</body>
+</html>
