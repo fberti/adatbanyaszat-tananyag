@@ -384,5 +384,100 @@ BANK.push(
     answer: 2,
     hint: "Egy Python-szöveg is bejárható (iterálható). Mit kap a TransactionEncoder, ha egy kosár helyén szöveg áll?",
     explain: R`A TransactionEncoder minden „kosarat” bejár. Egy szöveg bejárva karaktereket ad, így a mátrix oszlopai '[', "'", ',', 'a', 'b'… lesznek, és nem jön hibaüzenet, ami még alattomosabb. A javítás: <code>df["product"].apply(ast.literal_eval).tolist()</code>, amely a szöveget valódi listává alakítja. A notebookban ez azért nem jött elő, mert ott az előző cellából megvolt a <code>product_lists</code> változó.`
+  },
+  {
+    id: "b02-026",
+    topic: "02",
+    level: 1,
+    ref: "02-kosarelemzes.html#lepes3",
+    type: "match",
+    q: "Párosítsd a gyakori halmazokat kereső eljárást a lényegével!",
+    pairs: [
+      ["nyers erő", "minden részhalmaz támogatottságát megszámolja"],
+      ["Apriori", "a ritka halmazok bővítéseit számolás nélkül elhagyja (metszés)"],
+      ["Eclat", "termékenként tid-listát tárol, a támogatottság a listák metszetének mérete"],
+      ["FP-growth", "a kosarakat előtagfába tömöríti, és jelöltgenerálás nélkül olvassa ki a halmazokat"]
+    ],
+    hint: "Melyik számol mindent, melyik a jelöltek számát csökkenti, és melyik ügyesebb adatszerkezettel spórol?",
+    explain: "A nyers erő 18 terméknél is 262 143 halmazt számolna. Az Apriori a jelöltek számát csökkenti, de szintenként újraolvassa a kosarakat. Az Eclat (függőleges formátum) és az FP-growth (FP-fa) az összehasonlítások számát csökkenti. Mindegyik ugyanazokat a gyakori halmazokat adja."
+  },
+  {
+    id: "b02-027",
+    topic: "02",
+    level: 2,
+    ref: "02-kosarelemzes.html#lepes3",
+    type: "single",
+    q: "A demó kosarai: T1 = {Kenyér, Tej, Vaj}, T2 = {Kenyér, Tej, Vaj}, T3 = {Kenyér, Tej}, T4 = {Kenyér, Sajt}, T5 = {Kenyér, Sajt, Tea}. Az Eclat tid-listáival mennyi a {Kenyér, Tej, Vaj} támogatottsága?",
+    options: ["2/5 – a metszet {T1, T2}", "3/5 – a metszet {T1, T2, T3}", "5/5 – az unió {T1, …, T5}", "1/5 – a metszet {T1}"],
+    answer: 0,
+    hint: "Kenyér: {T1…T5}, Tej: {T1, T2, T3}, Vaj: {T1, T2}. Metszet vagy unió kell?",
+    explain: R`Az együttes előfordulás a tid-listák <strong>metszete</strong>: $\{T1..T5\} \cap \{T1,T2,T3\} \cap \{T1,T2\} = \{T1,T2\}$, támogatottság $2/5 = 0{,}4$ – ugyanaz, amit az Apriori a 3. szinten kapott. A 3/5 a {Kenyér, Tej} értéke (a Vaj kimaradt), az 5/5 az unió, ami azt adná meg, hány kosárban van <em>legalább egy</em> a három közül.`
+  },
+  {
+    id: "b02-028",
+    topic: "02",
+    level: 2,
+    ref: "02-kosarelemzes.html#lepes7",
+    type: "single",
+    q: "A niu öt kosarán a kenyér 4, a tej 3 kosárban van, együtt 2-ben. Mennyi a tej → kenyér megbízhatósága és liftje, és mit jelent?",
+    options: [
+      "conf ≈ 0,667, lift ≈ 0,83: a tejet vevők többsége kenyeret is vesz, de ritkábban, mint az átlagvásárló – negatív kapcsolat.",
+      "conf = 0,5, lift ≈ 0,83: negatív kapcsolat.",
+      "conf ≈ 0,667, lift ≈ 1,67: erős pozitív kapcsolat.",
+      "conf ≈ 0,667, lift = 1: a két termék független."
+    ],
+    answer: 0,
+    hint: R`conf = σ(A∪B)/σ(A), ahol A a bal oldal (tej). A lifthez osztd el a megbízhatóságot support(kenyér)-rel.`,
+    explain: R`conf(tej → kenyér) $= 2/3 \approx 0{,}667$; support(kenyér) $= 0{,}8$; lift $= 0{,}667/0{,}8 \approx 0{,}83 < 1$. A 0,5 a fordított irány (kenyér → tej) megbízhatósága, a nevező felcserélése a tipikus hiba. Az 1,67 akkor jön ki, ha a megbízhatóságot a szabály támogatottságával ($0{,}4$) osztod support(kenyér) helyett. A lift = 1 a függetlenséget jelentené. A 2/3 önmagában magasnak tűnik, de a kenyér a kosarak 80%-ában amúgy is ott van.`
+  },
+  {
+    id: "b02-029",
+    topic: "02",
+    level: 3,
+    ref: "02-kosarelemzes.html#lepes7",
+    type: "single",
+    q: "A gyakorlat adatán a vevő kosarában vaj és kávé van. Illő szabályok: butter → bread (conf 0,737, lift 1,33; support(bread) = 0,553) és coffee → biscuits (conf 0,607, lift 1,40; support(biscuits) = 0,434). Melyik állítás a helyes?",
+    options: [
+      "Megbízhatóság szerint a kenyér, lift szerint a keksz az első; a választás az üzleti céltól függ (minél többször célba érjen az ajánlat, vagy olyat ajánljunk, amit magától kevésbé venne meg).",
+      "Csak a keksz ajánlható, mert a kenyér liftje 1,4 alatt van.",
+      "Csak a kenyér ajánlható, mert a megbízhatóság az egyetlen releváns mutató.",
+      "Egyik sem ajánlható, mert a két szabály ellentmond egymásnak."
+    ],
+    answer: 0,
+    hint: "Mindkét szabály liftje 1 fölött van. Mit mér a megbízhatóság, és mit a lift?",
+    explain: R`Mindkét szabály érdekes (lift > 1). A megbízhatóság azt mondja meg, milyen arányban veszik meg az ajánlott terméket; a lift azt, hogy a kosár mennyivel emeli ezt az alapszinthez képest. A többletvalószínűség is közel azonos: $0{,}737-0{,}553 = 0{,}184$, illetve $0{,}607-0{,}434 = 0{,}173$. Nincs egyetlen „helyes” mutató – a szabály rangsorol, a döntést a cél hozza meg. A két szabály nem mond ellent egymásnak, mert más termékről szólnak.`
+  },
+  {
+    id: "b02-030",
+    topic: "02",
+    level: 1,
+    ref: "02-kosarelemzes.html#lepes7",
+    type: "match",
+    q: "Párosítsd az alkalmazási területet azzal, mi a „tétel” és mi a „kosár”!",
+    pairs: [
+      ["bank", "banki termék; egy ügyfél portfóliója"],
+      ["szövegbányászat", "szó, kifejezés; egy dokumentum"],
+      ["biztosítás", "kárigénytípus; egy ügyfél vagy esemény kárigényei"],
+      ["egészségügy", "tünet, diagnózis; egy beteg vagy vizit"]
+    ],
+    hint: "A módszer csak tételeket és tételek halmazait (tranzakciókat) kíván. Mi kerül együtt egy „kosárba” az egyes területeken?",
+    explain: "A kosárelemzés bármilyen tétel–tranzakció adaton működik. A bankban keresztértékesítésre, a szövegbányászatban együtt előforduló szavak keresésére, a biztosításban szokatlan kárigény-kombinációk (csalásgyanú) felderítésére, az egészségügyben tünetek és betegségek együttes előfordulásának vizsgálatára használják."
+  },
+  {
+    id: "b02-031",
+    topic: "02",
+    level: 3,
+    ref: "02-kosarelemzes.html#lepes7",
+    type: "multi",
+    q: "A biscuits → coffee szabály (support 0,285, conf 0,657, lift 1,40) alapján melyik következtetés helytálló? (Több helyes válasz is lehet.)",
+    options: [
+      "A kekszes kosarakban a kávé 1,4-szer gyakoribb, mint az összes kosár átlagában.",
+      "A szabály a kosarak 28,5%-át érinti, ezért termékelhelyezésre (egymás mellé polcozás, csomag) is alkalmas.",
+      "Egy kekszakció biztosan növeli a kávé forgalmát.",
+      "A vevők előbb kekszet, aztán kávét tesznek a kosárba."
+    ],
+    answer: [0, 1],
+    hint: "Mit mond a szabály az okságról és a sorrendről?",
+    explain: "A lift a kekszes kosarak kávéarányát (65,7%) veti össze az átlagos aránnyal (46,9%): 1,4-szeres. A 28,5%-os támogatottság sok kosarat jelent, így a tömeges intézkedés is indokolt. Az asszociáció viszont nem okság: egy akció hatását kísérlettel kell mérni. A kosár halmaz, a sorrendről semmit nem tudunk – ahhoz időbélyeg és szekvenciális mintakeresés kellene."
   }
 );

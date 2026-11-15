@@ -94,6 +94,20 @@ QUIZZES["l03-lepes7"] = {
       answer: 0,
       hint: "A kezdőpontok véletlenszerűek; hogyan lehet csökkenteni a rossz lokális optimum esélyét?",
       explain: "Több indítás, a legjobb (legkisebb inertiájú) marad. Átlagolni nem lehet (a klasztersorszámok futásonként felcserélődhetnek) – az órán elhangzott „átlag” pontatlan. Az iterációs korlát a max_iter."
+    },
+    {
+      type: "multi",
+      q: "Egy K-means eredmény gyenge: a klaszterek mérete nagyon eltér, néhány kiugró rekord elhúzza a középpontokat, és a futások eltérő megoldást adnak. Mely beavatkozások segíthetnek? (Kiegészítés az előadásanyagból.)",
+      options: [
+        "Több futtatás különböző kezdőpontokkal, a legkisebb SSE-jű megtartása.",
+        "A kiugró rekordok eltávolítása és a jellemzők standardizálása előfeldolgozásként.",
+        "Utófeldolgozás: a nagy SSE-jű klaszterek felosztása, a túl kicsik összevonása.",
+        "A random_state elhagyása, hogy minden futás más legyen.",
+        "A k növelése egészen addig, amíg az SSE 0 nem lesz."
+      ],
+      answer: [0, 1, 2],
+      hint: "Melyik probléma ellen véd a több indítás, melyik ellen az előfeldolgozás, és melyik ellen az utófeldolgozás?",
+      explain: "A több futtatás a rossz kezdőpontok ellen, az előfeldolgozás (standardizálás, kiugrók eltávolítása) a torzított távolságok és középpontok ellen, az utófeldolgozás az eltérő méretek ellen hat. A random_state elhagyása csak a reprodukálhatóságot rontja, az SSE = 0 pedig k = n-nél jön ki, ami értelmetlen felosztás."
     }
   ]
 };

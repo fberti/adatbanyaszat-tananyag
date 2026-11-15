@@ -11,15 +11,22 @@ window.R = String.raw;
 
 (function () {
   const TOPICS = {
+    "10": { name: "BI és adatbányászat alapfogalmai", file: "10-bi-adatbanyaszat-alapok.html" },
     "01": { name: "Adattisztítás és feltáró elemzés", file: "01-adattisztitas.html" },
     "02": { name: "Kosárelemzés (Apriori)", file: "02-kosarelemzes.html" },
+    "11": { name: "Python adatkezelés", file: "11-python-adatkezeles.html" },
+    "12": { name: "Adattárolás, adattárház, ETL", file: "12-adattarolas-adattarhaz.html" },
+    "13": { name: "MD modell és MDX", file: "13-md-modell-mdx.html" },
+    "07": { name: "SQL ablakfüggvények", file: "07-sql-ablakfuggvenyek.html" },
     "03": { name: "K-means", file: "03-kmeans.html" },
     "04": { name: "Hierarchikus klaszterezés", file: "04-hierarchikus-klaszterezes.html" },
+    "14": { name: "Sűrűség alapú klaszterezés, validálás, kiugrók", file: "14-suruseg-validalas-kiugrok.html" },
     "05": { name: "Döntési fa, mérőszámok", file: "05-dontesi-fa.html" },
     "06": { name: "Neurális háló (MLP)", file: "06-neuralis-halo.html" },
-    "07": { name: "SQL ablakfüggvények", file: "07-sql-ablakfuggvenyek.html" },
     "mix": { name: "Vegyes: módszerválasztás", file: "08-osszefoglalas.html" }
   };
+  // A számszerű kulcsokat ("10"…) a JS objektum előre sorolná, ezért a sorrendet (ütemterv) külön tartjuk.
+  const ORDER = ["10", "01", "02", "11", "12", "13", "07", "03", "04", "14", "05", "06", "mix"];
   const LEVELS = { 1: "fogalom", 2: "alkalmazás", 3: "értelmezés", 0: "lecke-kvíz" };
   const K_STATS = "adatb-bank-stats", K_HIST = "adatb-bank-history", K_SET = "adatb-bank-settings";
 
@@ -148,8 +155,11 @@ window.R = String.raw;
 
   /* ---------- alkalmazás ---------- */
   const app = $("#app");
-  const defaults = { topics: Object.keys(TOPICS), levels: ["1", "2", "3"], count: "20", mode: "practice", lesson: false, weak: false, timer: false };
+  const defaults = { topics: ORDER.slice(), levels: ["1", "2", "3"], count: "20", mode: "practice", lesson: false, weak: false, timer: false };
   let settings = Object.assign({}, defaults, store.get(K_SET, {}));
+  // korábban mentett beállításnál az azóta bekerült témakörök alapból legyenek bejelölve
+  if (!settings.knownTopics) settings.knownTopics = ["01", "02", "03", "04", "05", "06", "07", "mix"];
+  ORDER.forEach((t) => { if (!settings.knownTopics.includes(t)) { settings.knownTopics.push(t); if (!settings.topics.includes(t)) settings.topics.push(t); } });
   let session = null;
   let timerId = null;
 
@@ -173,7 +183,7 @@ window.R = String.raw;
     tools.append(bAll, bNone);
     topicBox.appendChild(tools);
     const tlist = el("div", "pr-topics");
-    Object.entries(TOPICS).forEach(([t, info]) => {
+    ORDER.map((t) => [t, TOPICS[t]]).forEach(([t, info]) => {
       const qs = all.filter((q) => q.topic === t);
       const bankN = qs.filter((q) => !q.fromLesson).length;
       const seen = qs.filter((q) => stats[q.id]);
@@ -257,7 +267,7 @@ window.R = String.raw;
     wrap.addEventListener("change", sync);
     sync();
     bStart.onclick = () => {
-      settings = read();
+      settings = Object.assign(read(), { knownTopics: ORDER.slice() });
       store.set(K_SET, settings);
       let pool = poolFor(settings);
       if (settings.weak) {
@@ -437,7 +447,7 @@ window.R = String.raw;
       b.n++; if (x.ok) b.ok++;
     });
     const tt = el("div", "table-wrap");
-    tt.innerHTML = `<table class="pr-topic-table"><tr><th>Témakör</th><th class="num">Helyes</th><th></th></tr>${Object.keys(TOPICS).filter((t) => byTopic[t]).map((t) =>
+    tt.innerHTML = `<table class="pr-topic-table"><tr><th>Témakör</th><th class="num">Helyes</th><th></th></tr>${ORDER.filter((t) => byTopic[t]).map((t) =>
       `<tr><td><a href="${TOPICS[t].file}">${t === "mix" ? "Vegyes" : t + ". " + TOPICS[t].name}</a></td><td class="num">${byTopic[t].ok} / ${byTopic[t].n}</td>
        <td style="width:40%"><span class="pr-bar ${pct(byTopic[t].ok, byTopic[t].n) < 60 ? "weak" : ""}"><span style="width:${pct(byTopic[t].ok, byTopic[t].n)}%"></span></span></td></tr>`).join("")}</table>`;
     card.appendChild(el("h3", "", "Témakörönként"));

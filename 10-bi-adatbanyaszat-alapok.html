@@ -1,0 +1,1018 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BI és adatbányászat alapjai</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script defer src="assets/quiz.js"></script>
+<script defer src="quiz/10.js"></script>          <!-- a lecke kvízei -->
+<script defer src="assets/common.js"></script>    <!-- MINDIG az utolsó -->
+</head>
+<body>
+<nav class="topnav"><div class="inner">
+  <a href="index.html">← Tartalom</a>
+  <span>10. lecke · BI és adatbányászat</span>
+  <span class="spacer"></span>
+  <button id="theme-toggle" type="button" title="Világos/sötét téma">◐</button>
+</div></nav>
+<main>
+<p class="kicker">10. lecke · 1. témakör · előadás</p>
+<h1>Üzleti intelligencia és adatbányászat alapfogalmai, a gépi tanulás fogalma</h1>
+<p class="lead">Az előadás bevezető anyaga egy kis webáruház példáján: mi az üzleti intelligencia (BI), milyen kérdésekre felel, hogyan mérjük KPI-kkal,
+milyen rétegekből áll, mit tesz hozzá az adatbányászat, milyen lépésekben és milyen feladattípusokkal dolgozik, mik a buktatói, és hol jön be a gépi tanulás és a neurális háló.</p>
+
+<section id="motivacio">
+<h2>Motiváció</h2>
+<p>A <strong>Babszem</strong> egy kis online kávébolt. A tulajdonos minden hónap elején megnézi a webshop adminfelületét. Ezt látja:</p>
+<div class="table-wrap"><table>
+<tr><th>Hónap</th><th class="num">Látogatók</th><th class="num">Rendelések</th><th class="num">Bevétel (Ft)</th><th class="num">Beszerzési költség (Ft)</th></tr>
+<tr><td>október</td><td class="num">2&nbsp;000</td><td class="num">50</td><td class="num">400&nbsp;000</td><td class="num">260&nbsp;000</td></tr>
+<tr><td>november</td><td class="num">2&nbsp;500</td><td class="num">60</td><td class="num">450&nbsp;000</td><td class="num">279&nbsp;000</td></tr>
+</table></div>
+<p>Novemberben 12,5%-kal nőtt a bevétel. <strong>Jó hónap volt?</strong> Mit kellene még tudni, hogy erre felelősen válaszolj?
+És mit kellene tenni ahhoz, hogy azt is megmondd, <em>miért</em> alakult így, és <em>mi várható</em> decemberben?</p>
+<p>A lecke végére látni fogod: a válaszhoz <strong>mutatók</strong> (KPI-k), egy <strong>rendszer</strong>, ami ezeket megbízhatóan előállítja (BI),
+és olyan <strong>módszerek</strong> kellenek, amelyek a táblázatban nem látható mintázatokat is megtalálják (adatbányászat, gépi tanulás).</p>
+</section>
+
+<section id="utiterv">
+<h2>Útiterv</h2>
+<ol class="roadmap">
+  <li><a href="#lepes1">1. lépés – Adat, információ, üzleti intelligencia</a></li>
+  <li><a href="#lepes2">2. lépés – A BI négy kérdése és az analitika szintjei</a></li>
+  <li><a href="#lepes3">3. lépés – KPI: mit mérünk, és hogyan számoljuk?</a></li>
+  <li><a href="#lepes4">4. lépés – A BI-rendszer rétegei, ETL és az adatforrás-szintek</a></li>
+  <li><a href="#lepes5">5. lépés – Az adatbányászat fogalma és helye a BI-ban</a></li>
+  <li><a href="#lepes6">6. lépés – Hogyan működik az adatbányászat? Feladat, modell, tanítás, tesztelés</a></li>
+  <li><a href="#lepes7">7. lépés – Az adatbányászat 6 lépéses folyamata</a></li>
+  <li><a href="#lepes8">8. lépés – Adatbányászati feladattípusok: felügyelt és nem felügyelt</a></li>
+  <li><a href="#lepes9">9. lépés – Kihívások: GIGO, szakterület, skálázhatóság, dimenzió, adatvédelem</a></li>
+  <li><a href="#lepes10">10. lépés – Gépi tanulás és neurális hálók a BI-ban</a></li>
+  <li><a href="#alkalmazas">Alkalmazás – a Babszem BI-projektje elejétől a végéig</a></li>
+  <li><a href="#tovabbi">További témák az előadásból (Q1–Q11)</a></li>
+  <li><a href="#osszefoglalas">Összefoglalás és döntési táblázat</a></li>
+  <li><a href="#kviz">Ellenőrző kvíz (benne az előadás K1–K6 kérdései)</a></li>
+</ol>
+<div class="box tip"><span class="box-title">💡 Kapcsolat az 1. leckével</span>
+<p>Az <a href="01-adattisztitas.html#lepes1">1. lecke 1. lépése</a> röviden már bemutatta a BI, az adatbányászat és a gépi tanulás fogalmát.
+Ez a lecke ugyanezt bontja ki részletesen, az előadás alapján. Ha ott azt olvastad, hogy „a BI főleg azt mutatja meg, mi történt”, az a BI
+<em>hagyományos, riportoló</em> részére igaz. Az előadás tágabban fogalmaz: a BI-rendszernek része az adatbányászat is, ez adja a „miért?” és a „mi fog történni?” választ.</p>
+</div>
+</section>
+
+<!-- ============================================================ 1 -->
+<section id="lepes1">
+<h2>1. lépés – Adat, információ, üzleti intelligencia</h2>
+
+<h4>Kis eset</h4>
+<p>A webshop adatbázisában ez a hat sor áll november első hetéből:</p>
+<div class="table-wrap"><table>
+<tr><th>rendelés</th><th>vevő</th><th>dátum</th><th class="num">összeg (Ft)</th></tr>
+<tr><td>R1</td><td>Anna</td><td>11.02.</td><td class="num">6&nbsp;000</td></tr>
+<tr><td>R2</td><td>Bence</td><td>11.02.</td><td class="num">9&nbsp;000</td></tr>
+<tr><td>R3</td><td>Anna</td><td>11.04.</td><td class="num">4&nbsp;500</td></tr>
+<tr><td>R4</td><td>Csilla</td><td>11.05.</td><td class="num">12&nbsp;000</td></tr>
+<tr><td>R5</td><td>Dóra</td><td>11.06.</td><td class="num">7&nbsp;500</td></tr>
+<tr><td>R6</td><td>Bence</td><td>11.07.</td><td class="num">3&nbsp;000</td></tr>
+</table></div>
+<p>Egy-egy sor (pl. „R4, Csilla, 12 000 Ft”) <strong>adat</strong>: nyers tény, egy rögzített <strong>esemény</strong> (egy vásárlás). Önmagában nem mond semmit a bolt helyzetéről.
+Ha viszont összeadod és értelmezed: „a héten 6 rendelésből 42 000 Ft jött, 4 különböző vevőtől, ketten kétszer is vásároltak”, az már <strong>információ</strong>:
+ebből döntést lehet hozni (pl. érdemes-e hűségkedvezményt adni a visszatérőknek).</p>
+
+<div class="box def"><span class="box-title">Definíció – Adat, információ, üzleti intelligencia</span>
+<ul>
+<li><strong>Adat:</strong> nyers tény, rögzített érték. Az adat egysége az <strong>esemény</strong> (pl. egy vásárlás, egy rendelés).</li>
+<li><strong>Információ:</strong> feldolgozott, értelmezett adat, amely újdonságot vagy döntési jelentést hordoz.</li>
+<li><strong>Üzleti intelligencia (Business Intelligence, BI):</strong> olyan technikák és eszközök összessége, amelyek a <em>nyers adatokat értelmes és hasznos
+információvá alakítják</em> üzleti elemzési célokra. Feladata, hogy a döntéshozóknak hozzáférést és elemzési lehetőséget adjon az információkhoz,
+ezzel javítva a döntéseket és a teljesítményt. Segít megérteni, <em>mi történt</em>, <em>mi az aktuális helyzet</em>, és <em>milyen trendek</em> látszanak.</li>
+</ul>
+<p><strong>Miért kell külön rendszer?</strong> Hat sort fejben is összeadsz. Hatmillió sort, öt különböző rendszerből (webshop, raktár, könyvelés, hírlevél), minden hónapban – már nem.
+A BI ezt a lépést (adat → információ) teszi megbízhatóvá és ismételhetővé.</p>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – A BI előnyei (az előadás öt pontja)</span>
+<ol>
+<li><strong>Adatvezérelt döntéshozatal</strong> – megalapozott döntések megérzés helyett.</li>
+<li><strong>Javított hatékonyság</strong> – automatizálja az adatelemzést és a jelentéskészítést.</li>
+<li><strong>Jobb ügyfélmegértés</strong> – az ügyfelek viselkedése és preferenciái.</li>
+<li><strong>Versenyelőny</strong> – trendek és piaci lehetőségek felismerése.</li>
+<li><strong>Költségcsökkentés</strong> – a működés optimalizálása, kevesebb pazarlás.</li>
+</ol>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Adat vagy információ?</span>
+<p>Melyik adat, melyik információ? (a) „Bence 11.07-én 3 000 Ft-ért vásárolt.” (b) „A visszatérő vevők rendelései átlagosan kisebbek, mint az első rendelések.”</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>(a) <strong>adat</strong>: egyetlen rögzített esemény. (b) <strong>információ</strong>: több adat összevetéséből születik, és döntési jelentése van
+(pl. a visszatérőknek nagyobb kosárra ösztönző ajánlatot érdemes adni). A határ nem a mondat hossza, hanem az, hogy van-e benne feldolgozás és értelmezés.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Milyen döntési problémát támogat a BI?</span>
+<p>A tananyag háromféle döntési problémát különít el: <strong>strukturált</strong> (ismétlődő, algoritmizálható), <strong>félig strukturált</strong> (ismert folyamat, változó paraméterek)
+és <strong>nem strukturált</strong> (új, egyedi helyzet). Hová tartozik a Babszem decemberi kávébeszerzése, ha a karácsonyi kereslet évről évre más?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p><strong>Félig strukturált.</strong> A folyamat ismert (havonta rendelnek a pörkölőtől), de a mennyiség a szezontól, az akcióktól és a trendektől függ, ezért elemzés és mérlegelés kell.
+A BI elsősorban az ilyen problémákban segít. (A „minden hétfőn rendelj 10 kg-ot” strukturált lenne – ahhoz nem kell BI; egy teljesen új termékvonal bevezetése inkább nem strukturált.)</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<p>A BI <strong>nem egy szoftver</strong> és nem csak „szép grafikon”. Az előadás szerint több szoftver integrációja (adattárház, adatbetöltő, feldolgozó, megjelenítő, <a href="#lepes4">4. lépés</a>).
+És nem is a cég informatikai infrastruktúrája (szerverek, hálózat) vagy a könyvelési rendszer – ezek <em>adatforrásai</em> lehetnek a BI-nak, de nem azonosak vele.</p>
+</div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia</span>
+<p><em>business intelligence (BI)</em> = üzleti intelligencia · <em>data</em> = adat · <em>information</em> = információ · <em>event</em> = esemény ·
+<em>data-driven decision making</em> = adatvezérelt döntéshozatal · <em>structured / semi-structured / unstructured</em> = strukturált / félig strukturált / strukturálatlan.
+Népszerű BI-eszközök: Power BI, Tableau, Qlik Sense, Looker, SAP BusinessObjects.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Adat, információ, BI (5 feladat)</summary>
+<ol>
+  <li><p>A kis eset táblájából: hány különböző vevő vásárolt, és mennyi volt a heti bevétel?</p>
+    <details class="solution"><summary>Megoldás</summary><p>4 vevő (Anna, Bence, Csilla, Dóra), a bevétel $6\,000+9\,000+4\,500+12\,000+7\,500+3\,000 = 42\,000$ Ft.</p></details></li>
+  <li><p>Adat vagy információ? „A 11.05-i rendelés összege 12 000 Ft.”</p>
+    <details class="solution"><summary>Megoldás</summary><p>Adat: egyetlen esemény rögzített értéke, nincs benne összevetés vagy értelmezés.</p></details></li>
+  <li><p>Sorolj fel a BI öt előnye közül hármat, és mondj mindegyikre egy Babszem-példát!</p>
+    <details class="solution"><summary>Megoldás</summary><p>Pl. <em>hatékonyság</em>: a havi riport magától elkészül, nem kell Excelben összemásolni; <em>ügyfélmegértés</em>: kiderül, ki a visszatérő vevő;
+    <em>költségcsökkentés</em>: kevesebb romlandó (régi pörkölésű) kávé marad a raktárban. Versenyelőny: észreveszik, hogy nő a kapszulás kávé iránti kereslet; adatvezérelt döntés: a hírlevél időpontját az eladási adatok alapján választják.</p></details></li>
+  <li><p>Strukturált, félig strukturált vagy nem strukturált? (a) Ha egy termék készlete 5 db alá esik, automatikus utánrendelés. (b) Belépjen-e a Babszem a teaüzletbe?</p>
+    <details class="solution"><summary>Megoldás</summary><p>(a) Strukturált: rögzített szabály, algoritmizálható. (b) Nem strukturált: új, egyedi döntés, nincs bevált megoldási mód – a BI itt csak részinformációt adhat.</p></details></li>
+  <li><p>Egy kolléga szerint „a BI az, hogy van egy Power BI licencünk”. Mi a hiba?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A Power BI csak a megjelenítő réteg egy eszköze. A BI technikák és eszközök összessége: adatforrások, betöltés (ETL), tárolás (adattárház), elemzés és megjelenítés együtt.
+    Megbízható adat nélkül a legszebb dashboard is rossz döntéshez vezet.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ 2 -->
+<section id="lepes2">
+<h2>2. lépés – A BI négy kérdése és az analitika szintjei</h2>
+
+<h4>Kis eset</h4>
+<p>A Babszem tulajdonosa négy kérdést tesz fel ugyanarról a novemberi adatról:</p>
+<ol>
+<li>„Mennyi volt a novemberi bevétel?” – <em>450 000 Ft.</em></li>
+<li>„Miért nőtt? A kampány miatt?” – <em>A látogatók 25%-kal nőttek, de a vásárlók kisebb kosarat vettek.</em></li>
+<li>„Hány rendelés jött ma eddig, és nincs-e baj a fizetési oldallal?” – <em>Ma 3 rendelés, a fizetés működik.</em></li>
+<li>„Mennyi kávét rendeljek decemberre?” – <em>A tavalyi szezon és a mostani trend alapján kb. 30%-kal többet.</em></li>
+</ol>
+<p>Ugyanaz az adat, de négy különböző idősík és mélység: múlt, ok, jelen, jövő. Pontosan ez a BI négy funkciója.</p>
+
+<div class="box def"><span class="box-title">Definíció – A BI funkciói</span>
+<div class="table-wrap"><table>
+<tr><th>Funkció</th><th>Alapkérdés</th><th>Mit csinál?</th><th>Babszem-példa</th></tr>
+<tr><td><strong>Riportkészítés</strong></td><td>Mi történt?</td><td>a múltbeli adatok összesítése, bemutatása</td><td>havi bevételi kimutatás</td></tr>
+<tr><td><strong>Elemzés</strong></td><td>Miért történt?</td><td>összefüggések, a változások okainak feltárása</td><td>a bevétel nőtt, de az átlagos kosár csökkent</td></tr>
+<tr><td><strong>Monitorozás</strong></td><td>Mi történik most?</td><td>aktuális folyamatok, KPI-k folyamatos követése</td><td>élő dashboard a mai rendelésekről</td></tr>
+<tr><td><strong>Predikció, adatbányászat</strong></td><td>Mi fog történni?</td><td>jövőbeli események előrejelzése a korábbi mintázatokból</td><td>decemberi kereslet becslése</td></tr>
+</table></div>
+<p><strong>Miért négy?</strong> Mert a döntéshez nem elég tudni, mi volt: az okot is érteni kell (különben rossz helyen avatkozol be), a jelent is figyelni kell (hogy időben reagálj), és a jövőre kell tervezni.</p>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés – Az analitika négy szintje (szakirodalmi felosztás)</span>
+<p>A szakirodalom ugyanezt az „egyre mélyebb kérdés” logikát négy analitikai szintként írja le. A BI funkcióival így feleltethető meg:</p>
+<div class="table-wrap"><table>
+<tr><th>Analitika</th><th>Kérdés</th><th>BI-funkció</th><th>Tipikus eszköz</th></tr>
+<tr><td><strong>leíró</strong> (descriptive)</td><td>Mi történt?</td><td>riport, monitorozás</td><td>összesítés, KPI, dashboard, SQL</td></tr>
+<tr><td><strong>diagnosztikai</strong> (diagnostic)</td><td>Miért történt?</td><td>elemzés</td><td>lefúrás (drill-down), összehasonlítás, korreláció</td></tr>
+<tr><td><strong>prediktív</strong> (predictive)</td><td>Mi fog történni?</td><td>predikció, adatbányászat</td><td>osztályozás, regresszió, idősor-előrejelzés</td></tr>
+<tr><td><strong>előíró</strong> (prescriptive)</td><td>Mit tegyünk?</td><td>a predikció + döntési szabályok</td><td>optimalizálás, ajánlás, szimuláció</td></tr>
+</table></div>
+<p>Minél lejjebb haladsz a táblázatban, annál nagyobb az üzleti érték, de annál bonyolultabb módszer kell hozzá. A tananyag szerint a BI fejlődésének egyik iránya éppen az, hogy az eszközök egyre inkább előrejelző és előíró elemzést is adnak.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Melyik funkció?</span>
+<p>„A kávékapszulák eladása 40%-kal visszaesett. Kiderült, hogy a visszaesés teljes egészében egyetlen terméken, a »Reggeli« kapszulán jelentkezett, amely október 20. óta nem volt raktáron.” Melyik BI-funkció ez?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p><strong>Elemzés</strong> (diagnosztikai analitika): nem csak azt mondja meg, mi történt (−40%), hanem lefúr a termékekig, és megtalálja az <em>okot</em> (készlethiány).</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Leíró vagy prediktív? (Q3)</span>
+<p>(a) „Novemberben a vevők 80%-a maradt meg októberből.” (b) „Ez a vevő 70% valószínűséggel nem vásárol decemberben.”</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>(a) <strong>leíró</strong>: megtörtént dolgot összesít, kiszámolható, nincs benne bizonytalanság. (b) <strong>prediktív</strong>: jövőbeli, ismeretlen kimenetet becsül egy modell alapján –
+ehhez tanítani kell egy modellt múltbeli példákon, és az eredménynek bizonytalansága van.</p></details>
+</div>
+
+<div class="two-col">
+  <div class="box example"><span class="box-title">Riport (report) – Q4</span>
+  <ul>
+  <li>„Mi történt?” – egy lezárt időszak</li>
+  <li>periodikus (havi, negyedéves), rögzített szerkezet</li>
+  <li>részletes, sok táblázat, nyomtatható</li>
+  <li>pl. havi értékesítési jelentés a vezetésnek</li>
+  </ul></div>
+  <div class="box example"><span class="box-title">Dashboard (irányítópult) – Q4</span>
+  <ul>
+  <li>„Mi történik most?” – áttekintés egy pillantásra</li>
+  <li>(közel) valós idejű, folyamatosan frissül</li>
+  <li>néhány kulcsmutató (KPI) vizuálisan, interaktív szűréssel</li>
+  <li>pl. a mai rendelések és a raktárkészlet élő kijelzése</li>
+  </ul></div>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<p>A riport és a dashboard <strong>nem a kinézetben</strong> különbözik (egy riportban is lehet grafikon), hanem a <em>céljában</em>: a riport egy múltbeli időszakot dokumentál, a dashboard a jelen követését (monitorozást) szolgálja.
+A másik gyakori hiba: a „predikció” nem jóslás a semmiből – mindig múltbeli adatokon tanult modellre épül.</p>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Hüvelykujjszabály</span>
+<p>Nézd meg az ige idejét a kérdésben: <em>történt</em> → riport; <em>miért</em> → elemzés; <em>történik</em> → monitorozás; <em>fog történni</em> → predikció; <em>mit tegyünk</em> → előíró analitika.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – BI-funkciók és analitikai szintek (5 feladat)</summary>
+<ol>
+  <li><p>„Az elmúlt 12 hónap bevétele havonta, oszlopdiagramon.” Melyik funkció?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Riportkészítés (leíró analitika): lezárt múltbeli időszak összesítése.</p></details></li>
+  <li><p>„Riasztás, ha a weboldal fizetési hibáinak aránya az utolsó órában 2% fölé megy.” Melyik funkció?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Monitorozás: a jelen folyamatos követése, beavatkozási küszöbbel. Tipikusan dashboardon vagy riasztásként jelenik meg.</p></details></li>
+  <li><p>„Melyik vevőnek küldjünk kupont, hogy a legtöbb visszatérő vásárlást érjük el a keretből?” Melyik analitikai szint?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Előíró (prescriptive): nem csak jósol, hanem cselekvést javasol. Ehhez előbb prediktív modell kell (ki milyen valószínűséggel tér vissza), aztán döntési szabály vagy optimalizálás.</p></details></li>
+  <li><p>Riport vagy dashboard? (a) Negyedéves jelentés a bank felé a forgalomról. (b) A raktáros képernyője, ami mutatja, mely rendelések várnak csomagolásra.</p>
+    <details class="solution"><summary>Megoldás</summary><p>(a) Riport: rögzített időszak, rögzített formátum, dokumentáló cél. (b) Dashboard: élő, a jelen követésére, azonnali cselekvéshez.</p></details></li>
+  <li><p>Miért nem elég a Babszemnek csak riport? Indokold a motivációs táblázattal!</p>
+    <details class="solution"><summary>Megoldás</summary><p>A riport csak azt mutatja, hogy a bevétel 400 000 Ft-ról 450 000 Ft-ra nőtt. Abból nem derül ki, hogy a látogatók 25%-kal nőttek, de a vásárlási arány és a kosárérték csökkent (<a href="#lepes3">3. lépés</a>).
+    Ehhez elemzés kell, a decemberi tervezéshez pedig predikció.</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l10-lepes2"></div>
+</section>
+
+<!-- ============================================================ 3 -->
+<section id="lepes3">
+<h2>3. lépés – KPI: mit mérünk, és hogyan számoljuk?</h2>
+
+<h4>Kis eset</h4>
+<p>Vissza a motivációhoz. A bevétel 12,5%-kal nőtt: $\tfrac{450\,000-400\,000}{400\,000}=0{,}125$. De a bevétel csak egy szám. Számoljunk még hármat mindkét hónapra:</p>
+<div class="table-wrap"><table>
+<tr><th>Mutató</th><th>Képlet</th><th class="num">október</th><th class="num">november</th></tr>
+<tr><td>Konverziós arány</td><td>rendelések / látogatók</td><td class="num">50 / 2&nbsp;000 = 2,5%</td><td class="num">60 / 2&nbsp;500 = 2,4%</td></tr>
+<tr><td>Átlagos rendelési érték (AOV)</td><td>bevétel / rendelések</td><td class="num">400&nbsp;000 / 50 = 8&nbsp;000 Ft</td><td class="num">450&nbsp;000 / 60 = 7&nbsp;500 Ft</td></tr>
+<tr><td>Bruttó árrés (GPM)</td><td>(bevétel − beszerzési költség) / bevétel</td><td class="num">140&nbsp;000 / 400&nbsp;000 = 35%</td><td class="num">171&nbsp;000 / 450&nbsp;000 = 38%</td></tr>
+</table></div>
+<p>Most már árnyaltabb a kép: <strong>több látogató jött</strong> (a kampány működött), de <strong>kisebb arányban vásároltak</strong>, és <strong>kisebb kosarat vettek</strong>.
+Viszont <strong>jobb árrésű</strong> termékek fogytak. Ezek a számok a <strong>KPI-k</strong>.</p>
+
+<div class="box def"><span class="box-title">Definíció – KPI (kulcsfontosságú teljesítménymutató)</span>
+<p>A <strong>KPI</strong> (Key Performance Indicator) egy üzleti folyamathoz kapcsolódó, <strong>számszerűsíthető teljesítménymutató</strong>, amely egy stratégiai cél elérését méri.
+A KPI-k segítségével a szervezet különböző területeken (értékesítés, marketing, pénzügy, működés) értékelheti a teljesítményét.</p>
+<p><strong>A jó KPI négy tulajdonsága:</strong></p>
+<ol>
+<li><strong>Mérhető</strong> – számszerűen kifejezhető.</li>
+<li><strong>Stratégiai célhoz kapcsolódik</strong> – megmutatja az előrehaladást egy fontos cél felé.</li>
+<li><strong>Értelmezhető</strong> – mindenki érti, mit jelez a változása.</li>
+<li><strong>Cselekvést támogat</strong> – kiderül belőle, kell-e beavatkozni.</li>
+</ol>
+<p><strong>Miért fontosak?</strong> A KPI-k a célokhoz igazítják a működést, adatalapú döntést tesznek lehetővé, időbeli trendjük megmutatja a sikeres mintázatokat és a problémás területeket
+(folyamatos fejlesztés), egyértelmű elvárást adnak (felelősség, motiváció), és ezekre épülnek a dashboardok és riportok.</p>
+</div>
+
+<div class="box def"><span class="box-title">Képletek – a tananyag KPI-példái</span>
+<ul>
+<li><strong>Értékesítési bevétel:</strong> a teljes bevétel egy időszakban.</li>
+<li><strong>Átlagos rendelési érték:</strong> $\text{AOV}=\dfrac{\text{bevétel}}{\text{rendelések száma}}$</li>
+<li><strong>Bruttó árrés:</strong> $\text{GPM}=\dfrac{\text{bevétel}-\text{beszerzési költség}}{\text{bevétel}}$</li>
+<li><strong>Ügyfélmegtartási arány:</strong> $\text{CRR}=\dfrac{E-N}{S}$, ahol $S$ az időszak eleji, $E$ az időszak végi vevőszám, $N$ az időszakban szerzett új vevők száma.</li>
+<li><strong>Készletforgási sebesség:</strong> $\dfrac{\text{az eladott áruk beszerzési költsége}}{\text{átlagos készletérték}}$ – hányszor „cserélődik ki” a készlet az időszak alatt.</li>
+<li>(Webshopnál gyakori még:) <strong>konverziós arány</strong> $=\dfrac{\text{rendelések}}{\text{látogatók}}$.</li>
+</ul>
+<p>A CRR és a készletforgás pontos képlete a szakirodalomban így szokásos; a tananyag szövegesen adja meg őket („azon ügyfelek aránya, akik továbbra is vásárlók maradnak”, „a készlet teljes cserélődésének gyakorisága”).</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Átlagos rendelési érték</span>
+<p>Az <a href="#lepes1">1. lépés</a> heti táblájában 6 rendelés, 42 000 Ft. Mennyi az AOV? És mennyit költött átlagosan egy vevő?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>$\text{AOV}=42\,000/6=7\,000$ Ft. Egy vevőre: $42\,000/4=10\,500$ Ft, mert 4 vevő volt (Anna és Bence kétszer vásárolt).
+A kettő nem ugyanaz: az AOV <em>rendelésre</em>, a vevőnkénti költés <em>vevőre</em> vetít. Mindig nézd meg, mi a nevező.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Ügyfélmegtartási arány</span>
+<p>Október elején a Babszemnek 40 aktív vevője volt, október végén 44. Októberben 12 új vevő jött. Mennyi a CRR?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>A 44 végső vevőből 12 új, tehát $44-12=32$ a régiek közül maradt meg. $\text{CRR}=32/40=0{,}8=80\%$. A lemorzsolódási arány ennek kiegészítője: $20\%$ (8 vevő ment el).
+Ha tévesen $44/40$-et számolnál, 110% jönne ki – ez nyilván nem lehet megtartási arány, mert az új vevők is benne vannak.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – Készletforgás</span>
+<p>Novemberben az eladott áruk beszerzési költsége 279 000 Ft. A készlet értéke a hónap elején 100 000 Ft, a végén 86 000 Ft volt. Mennyi a készletforgási sebesség?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Átlagos készlet: $(100\,000+86\,000)/2=93\,000$ Ft. Készletforgás: $279\,000/93\,000=3$. A készlet egy hónap alatt háromszor „fordult meg”. Kávénál ez jó hír, mert a pörkölt kávé gyorsan veszít a minőségéből.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – százalék vs. százalékpont</span>
+<p>A konverzió 2,5%-ról 2,4%-ra csökkent. Ez <strong>0,1 százalékpontos</strong> csökkenés, ami <strong>relatíve 4%</strong> ($0{,}1/2{,}5=0{,}04$). Ha két arányt hasonlítasz, mondd meg, melyikről beszélsz.</p>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – nem minden szám KPI</span>
+<p>„A kiküldött e-mailek száma”, „a megtartott értekezletek száma” mérhető, de önmagában <strong>nem KPI</strong>: nem mutatja, közelebb kerültünk-e egy célhoz (sok e-mail lehet haszontalan is).
+Ugyanígy: egyetlen KPI-ből ne vonj le következtetést. A Babszemnél a bevétel nőtt, de a konverzió és az AOV romlott – együtt adják a képet.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – KPI-k (5 feladat)</summary>
+<ol>
+  <li><p>Decemberben 3 200 látogató, 96 rendelés, 816 000 Ft bevétel, 530 400 Ft beszerzési költség. Számold ki a konverziót, az AOV-t és a bruttó árrést!</p>
+    <details class="solution"><summary>Megoldás</summary><p>Konverzió: $96/3\,200=0{,}03=3\%$. AOV: $816\,000/96=8\,500$ Ft. Árrés: $(816\,000-530\,400)/816\,000=285\,600/816\,000=0{,}35=35\%$.
+    Decemberben mindhárom vásárlói mutató javult novemberhez képest, csak az árrés esett vissza 38%-ról 35%-ra (a karácsonyi akciók miatt).</p></details></li>
+  <li><p>Év elején 200 vevő, év végén 210, közben 30 új vevő. Mennyi a CRR és a lemorzsolódás?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Megmaradt régi vevő: $210-30=180$. $\text{CRR}=180/200=90\%$, lemorzsolódás $10\%$.</p></details></li>
+  <li><p>A konverzió 2%-ról 3%-ra nőtt. Hány százalékpont, és hány százalék a növekedés?</p>
+    <details class="solution"><summary>Megoldás</summary><p>1 százalékpont, ami relatíve $1/2=50\%$-os növekedés.</p></details></li>
+  <li><p>Melyik KPI-t választanád? (a) A vevők hosszabb távú megtartása. (b) Az egy vásárlásból származó bevétel növelése. (c) A jövedelmezőség. (d) A készletgazdálkodás hatékonysága.</p>
+    <details class="solution"><summary>Megoldás</summary><p>(a) ügyfélmegtartási arány (CRR); (b) átlagos rendelési érték (AOV); (c) bruttó árrés (GPM); (d) készletforgási sebesség.</p></details></li>
+  <li><p>Jó KPI-e önmagában? (a) a hibás termékek aránya; (b) az elkészült jelentések oldalszáma; (c) az ügyfélmegtartási arány. Indokold a négy tulajdonsággal!</p>
+    <details class="solution"><summary>Megoldás</summary><p>(a) Igen: mérhető, a minőségi célhoz kapcsolódik, érthető, és ha nő, be kell avatkozni. (b) Nem: mérhető, de nem kapcsolódik stratégiai célhoz, és nem derül ki belőle, mit kell tenni.
+    (c) Igen: a megtartási célhoz kötődik, és a csökkenése cselekvésre (pl. hűségprogram) ösztönöz.</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l10-lepes3"></div>
+</section>
+
+<!-- ============================================================ 4 -->
+<section id="lepes4">
+<h2>4. lépés – A BI-rendszer rétegei, ETL és az adatforrás-szintek</h2>
+
+<h4>Kis eset</h4>
+<p>A KPI-khez a Babszemnek négy helyről kell adat: a webshopból (rendelések), a Google Analyticsből (látogatók), a könyvelőprogramból (beszerzési költség) és egy Excel-táblából (a pörkölő szállításai).
+Mind más formátum: a webshop dátuma <code>2026-11-02</code>, az Excelé <code>11.02.</code>; a webshopban „Anna Kiss”, a könyvelésben „Kiss Anna”.
+Ha ezeket csak „összemásolod”, a számok nem fognak egyezni. Kell egy <em>út</em>, amelyen az adat a forrásból a dashboardig megbízhatóan eljut.</p>
+
+<div class="box def"><span class="box-title">Definíció – A BI moduljai és rétegei</span>
+<p>Egy BI-rendszer <strong>nem egyetlen szoftver, hanem több szoftver integrációja</strong>: adattárház, adatbetöltő (ETL), feldolgozó és megjelenítő.
+Feladata az adatok gyűjtése, tárolása, feldolgozása és értelmezhető megjelenítése. Rétegenként:</p>
+<p style="text-align:center"><strong>Adatforrások</strong> → <strong>Adatintegráció (ETL)</strong> → <strong>Adattárolás</strong> (adattárház / adattó) → <strong>Adatmodellezés</strong> → <strong>Üzleti analitika</strong> (elemzés, adatbányászat) → <strong>Megjelenítés</strong> (riport, dashboard)</p>
+<ol>
+<li><strong>Adatforrás réteg:</strong> belső rendszerek (ERP, CRM, webshop) és külső források (közösségi média, piackutatás, API-k).</li>
+<li><strong>Adatintegrációs réteg:</strong> egyesítés, tisztítás ETL-lel.</li>
+<li><strong>Adattárolási réteg:</strong> adattárház vagy adattó.</li>
+<li><strong>Adatmodellezési réteg:</strong> logikai szerkezet, pl. dimenzionális modell (dimenziók és mérőszámok – <a href="13-md-modell-mdx.html">13. lecke</a>).</li>
+<li><strong>Üzleti analitika réteg:</strong> statisztika, adatbányászat, gépi tanulás.</li>
+<li><strong>Megjelenítési réteg:</strong> dashboardok, riportok (Power BI, Tableau, Qlik, Looker).</li>
+</ol>
+<p><strong>Miért rétegek?</strong> Mert így egy-egy réteg külön cserélhető és fejleszthető (pl. új dashboard-eszköz) anélkül, hogy az egész rendszert újra kellene építeni.</p>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – ETL</span>
+<p><strong>ETL (Extract, Transform, Load)</strong>: az adatbetöltési folyamat.</p>
+<ul>
+<li><strong>Extract – kinyerés:</strong> az adatok átvétele a forrásrendszerekből.</li>
+<li><strong>Transform – átalakítás:</strong> tisztítás, egységesítés, ellenőrzés, az elemzési célnak megfelelő formára hozás (dátumformátum, névsorrend, duplikátumok, hiányok).</li>
+<li><strong>Load – betöltés:</strong> az előkészített adatok betöltése az adattárházba (vagy más elemzési tárolóba).</li>
+</ul>
+<p>Az ETL biztosítja, hogy az adattárházba <strong>már egységes, konzisztens</strong> adat kerüljön (ez az előadás K2 kérdése). Eszközök: Informatica, Talend, Apache NiFi, Microsoft SSIS.</p>
+</div>
+
+<div class="two-col">
+  <div class="box example"><span class="box-title">ETL – előbb átalakít, aztán tölt</span>
+  <p>Forrás → <strong>átalakítás</strong> egy köztes rétegben → betöltés a célba.</p>
+  <ul><li>a célba csak tiszta, strukturált adat kerül</li><li>klasszikus adattárház, <em>schema-on-write</em> (a séma a tárolás előtt rögzített)</li><li>lassabb betöltés, de megbízható riportok</li></ul></div>
+  <div class="box example"><span class="box-title">ELT – előbb tölt, aztán átalakít (Q2)</span>
+  <p>Forrás → betöltés <strong>nyersen</strong> a célba → átalakítás <strong>a célrendszerben</strong>, amikor kell.</p>
+  <ul><li>a nyers adat is megmarad, később másképp is feldolgozható</li><li>adattó, felhős adattárház, <em>schema-on-read</em></li><li>gyors betöltés, de a minőségért a felhasználáskor kell felelni</li></ul></div>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Adatforrás-szintek (röviden; részletesen a <a href="12-adattarolas-adattarhaz.html">12. leckében</a>)</span>
+<div class="table-wrap"><table>
+<tr><th>Szint</th><th>Jellemző</th><th>Példa</th></tr>
+<tr><td><strong>Állomány</strong></td><td>egyedi, izolált, lokális; egyfelhasználós; kis adatmennyiség</td><td>Excel-tábla, CSV, szövegfájl</td></tr>
+<tr><td><strong>Adatbázis</strong></td><td>központosított, nagyobb adatmennyiség; többfelhasználós; szabványos adatmodell; <strong>tranzakcióorientált</strong></td><td>relációs (SQL Server, PostgreSQL), gráf</td></tr>
+<tr><td><strong>Adattárház</strong></td><td>központosított, <strong>strukturált</strong>, feldolgozott adat; riportolásra, elemzésre optimalizált; ETL, schema-on-write; egységes vállalati nézet, historikus adat</td><td>Amazon Redshift, Snowflake, Google BigQuery</td></tr>
+<tr><td><strong>Adattó</strong></td><td><strong>nyers</strong>, strukturálatlan is (szöveg, kép, szenzor); rugalmas, jól skálázható; schema-on-read; gépi tanuláshoz is</td><td>Azure Data Lake, AWS Lake Formation</td></tr>
+</table></div>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Melyik ETL-lépés?</span>
+<p>(a) A rendelések lekérdezése a webshop adatbázisából. (b) „Kiss Anna” és „Anna Kiss” egy vevővé vonása. (c) A kész tábla beírása az adattárház ténytáblájába.</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>(a) Extract, (b) Transform (egységesítés, duplikátum-kezelés), (c) Load. A K2 kérdés lényege: a konzisztenciát a <strong>Transform</strong> lépés biztosítja, nem az adattárház „magától”, és nem a megjelenítő.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Operatív adatbázis vagy adattárház? (K3)</span>
+<p>A webshop adatbázisa minden kattintásra új rendelést ír be, módosítja a kosarat, törli a lemondott tételt. A havi riport viszont 3 év összes rendelését összesíti termék és hónap szerint. Miért nem futtatjuk a riportot közvetlenül a webshop adatbázisán?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Az <strong>operatív adatbázis</strong> a napi tranzakciók gyors rögzítésére és módosítására (CRUD: létrehozás, olvasás, módosítás, törlés) van optimalizálva, és jellemzően az aktuális állapotot tartja.
+Az <strong>adattárház</strong> nagy mennyiségű, <strong>historikus</strong> adat lekérdezésére és elemzésére. Egy 3 éves összesítő lekérdezés lelassítaná a webshopot – és a régi, már módosított adatok ott meg sem lennének.
+Nem arról van szó, hogy az egyik „régebbi” vagy „lassabb” technológia – másra valók.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<p>Az adattárház <strong>nem javítja ki</strong> magától a beérkező adatot – a tisztítás az ETL dolga. A dashboard sem „egységesít”: ha rossz adat jön, szép formában mutatja a rossz adatot.
+És az adattó sem „rendetlen adattárház”: tudatosan nyers formában tárol, hogy később többféle célra is fel lehessen dolgozni.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Rétegek, ETL, tárolás (5 feladat)</summary>
+<ol>
+  <li><p>Melyik rétegbe tartozik? (a) a Babszem Power BI dashboardja; (b) a könyvelőprogram; (c) egy havi bevétel-előrejelző modell.</p>
+    <details class="solution"><summary>Megoldás</summary><p>(a) megjelenítési réteg; (b) adatforrás réteg (belső rendszer); (c) üzleti analitika réteg.</p></details></li>
+  <li><p>ETL melyik lépése? A dátumok átírása <code>11.02.</code> formátumról <code>2026-11-02</code>-re.</p>
+    <details class="solution"><summary>Megoldás</summary><p>Transform: formátumok egységesítése, mielőtt betöltenénk.</p></details></li>
+  <li><p>Adattárház vagy adattó? (a) A szabványos havi pénzügyi riport adatai. (b) A vásárlói értékelések szövege és a termékfotók, későbbi szövegbányászathoz.</p>
+    <details class="solution"><summary>Megoldás</summary><p>(a) Adattárház: strukturált, ellenőrzött adat, riportoláshoz. (b) Adattó: strukturálatlan, nyers adat, amelynek a felhasználási módja még nem rögzített.</p></details></li>
+  <li><p>Mikor választanál ELT-t ETL helyett?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Ha sok, változatos nyers adat jön (log, szenzor, szöveg), és még nem tudod, mire fogod használni, vagy a célrendszer (felhős adattárház, adattó) elég erős ahhoz, hogy ott alakítsd át.
+    ETL-t akkor, ha a cél egy stabil szerkezetű, megbízható riportolási adattárház.</p></details></li>
+  <li><p>Egy kolléga szerint „az Excel-tábla is adattárház, hiszen abban is tárolunk adatot”. Mi a különbség?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Az Excel <em>állomány</em>: lokális, egyfelhasználós, kis adatmennyiségre. Az adattárház központosított, több forrás egységesített, historikus adatát tárolja, elemzésre optimalizálva, ETL-lel feltöltve.</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l10-lepes4"></div>
+</section>
+
+<!-- ============================================================ 5 -->
+<section id="lepes5">
+<h2>5. lépés – Az adatbányászat fogalma és helye a BI-ban</h2>
+
+<h4>Kis eset</h4>
+<p>A Babszem adattárházában már ott van két év összes rendelése (kb. 1 500 rendelés, 600 vevő). Két kérdés:</p>
+<ol>
+<li>„Mi Csilla telefonszáma?” – ezt egy lekérdezés <em>megkeresi</em>. Az információ már benne volt az adatbázisban.</li>
+<li>„Vannak-e a vevőink között jól elkülönülő csoportok, és melyik csoport kezd elmaradni?” – ezt <em>senki nem írta be</em> az adatbázisba. A választ elő kell állítani, egy algoritmussal.</li>
+</ol>
+<p>Az első <strong>információkeresés</strong>, a második <strong>adatbányászat</strong>.</p>
+
+<div class="box def"><span class="box-title">Definíció – Adatbányászat (Data Mining, DM)</span>
+<p>Az <strong>adatbányászat</strong> az a folyamat, amellyel fejlett analitikai módszerekkel <strong>új információt</strong> nyernek ki <strong>nagy tömegű adatból</strong>.
+Magas szintű algoritmusokat nyújt a BI-rendszerek üzleti analitika rétegéhez. Segítségével rejtett, üzletileg hasznos információk (kapcsolatok, trendek, mintázatok) tárhatók fel <strong>(félig) automatikus</strong> módon.</p>
+<p>A definíció négy eleme:</p>
+<div class="table-wrap"><table>
+<tr><th>Elem</th><th>Szerepe</th><th>Jelentése</th></tr>
+<tr><td><strong>Nagyméretű adatállomány</strong></td><td>a DM <em>tárgya</em></td><td>több ezer rekordtól milliárdokig; minél több adat, annál pontosabb az eredmény</td></tr>
+<tr><td><strong>Magas szintű módszerek</strong></td><td>a DM <em>eszköze</em></td><td>programkönyvtárakban, szoftverekben megvalósított matematikai, statisztikai, gépi tanulási algoritmusok</td></tr>
+<tr><td><strong>Új információ</strong></td><td>a DM <em>eredménye</em></td><td>nem puszta adat: új tudás, ami cselekvésre ösztönöz</td></tr>
+<tr><td><strong>Automatikus folyamat</strong></td><td>a DM <em>végrehajtási módja</em></td><td>az adatok és a környezet változnak, a modellt újra kell igazítani; jó BI-rendszerben emberi beavatkozás nélkül is fut, amíg a modell jól leírja a valóságot</td></tr>
+</table></div>
+<p><strong>Miért „bányászat”?</strong> A hasonlat: a kevés gyémánthoz rengeteg kőzetet kell kitermelni és átvizsgálni. Kicsit félrevezető: az adatbányászat nem egy meglévő információt „ás ki”, hanem olyat állít elő, ami eddig nem létezett.</p>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Elő- és utófeldolgozás</span>
+<p style="text-align:center">Adatforrás (adattárház, adattó) → <strong>előfeldolgozás</strong> → <strong>adatbányászat</strong> → <strong>utófeldolgozás</strong> → döntéshozók</p>
+<ul>
+<li><strong>Előfeldolgozás:</strong> az adatforrás adatát megfelelő formára alakítja a bányászathoz (tisztítás, kiválasztás, átalakítás). Kell, mert a forrás sokszor túl nagy ahhoz, hogy egészében bányásszuk,
+és az adat nem közvetlenül tartalmazza a keresett mintázatot (pl. rendelésekből vevőnkénti összesítés kell – ez volt a <a href="03-kmeans.html#lepes2">3. lecke aggregálása</a>).</li>
+<li><strong>Utófeldolgozás:</strong> a bányászat eredményét, ami sokszor csak a szakembernek érthető (pl. klaszterközéppontok standardizált értékei), olyan <em>tudássá</em> alakítja, amely szélesebb körnek is közvetíthető (pl. „hűséges nagyvásárlók”, „alkalmi akcióvadászok”).</li>
+</ul>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Információkeresés vagy adatbányászat?</span>
+<p>(a) Egy konkrét számla megkeresése. (b) A beérkező ügyfélszolgálati e-mailek automatikus sorolása témák szerint. (c) A legközelebbi kávézó megkeresése a térképen.</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>(a) és (c) <strong>információkeresés</strong>: egy már létező adatot kell előkeresni (ehhez is kellhet okos algoritmus, de az eredmény nem új tudás).
+(b) <strong>adatbányászat</strong> (osztályozás): a besorolás szabályait a modell tanulja meg, az eredmény új információ.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – BI vagy DM? (Q5)</span>
+<p>Mi a viszonya a BI-nak és az adatbányászatnak? Egymás alternatívái?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Nem alternatívák: a <strong>DM a BI része</strong>, annak üzleti analitika rétege. A BI a teljes láncot jelenti (forrás → ETL → tárolás → elemzés → megjelenítés), és sok kérdésre
+egyszerű összesítéssel is felel (riport, monitorozás). A DM azokra a kérdésekre kell, amelyekre az összesítés nem elég: rejtett mintázat, ok, előrejelzés.
+Egy rövid megfogalmazás vizsgára: <em>a BI előre ismert kérdésekre ad pontos választ; a DM olyan kérdésekre talál választ, amelyeket előre meg sem tudtunk volna fogalmazni.</em></p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató (K4)</span>
+<p>Az adatbányászat <strong>nem</strong> az adatok tárolása (az adattárház dolga), <strong>nem</strong> a tranzakciók rögzítése (operatív adatbázis), és <strong>nem</strong> szoftverfejlesztés.
+Ami megkülönbözteti az egyszerű adatelemzéstől: fejlett algoritmusokkal <em>rejtett</em> mintákat, összefüggéseket és trendeket fedez fel nagy adathalmazokban, amelyek szabad szemmel nem láthatók.</p>
+</div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia – három tudományterület, háromféle szó</span>
+<p>Az adatbányászat a statisztikából, a gépi tanulásból és az adatbázis-kezelésből nőtt ki. Ezért ugyanarra több szó is van:</p>
+<div class="table-wrap"><table>
+<tr><th>Terület</th><th>A tábla sora</th><th>A tábla oszlopa</th></tr>
+<tr><td>Statisztika és alakfelismerés</td><td>mintaelem</td><td>változó</td></tr>
+<tr><td>Gépi tanulás és mesterséges intelligencia</td><td>eset, példa</td><td>jellemző</td></tr>
+<tr><td>Adatbázisok és algoritmusok</td><td>rekord</td><td>attribútum</td></tr>
+</table></div>
+<p><em>KDD (Knowledge Discovery in Databases)</em> = tudásfeltárás adatbázisokból; ennek elemző lépését is adatbányászatnak hívják. <em>information retrieval</em> = információ(vissza)keresés.
+Eszközök: Altair AI Studio (RapidMiner), KNIME, Orange, MS Analysis Services, SAS Enterprise Miner, scikit-learn (a gyakorlaton ezt használjuk).</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Az adatbányászat fogalma (5 feladat)</summary>
+<ol>
+  <li><p>Nevezd meg az adatbányászat definíciójának négy elemét, és azt, hogy melyik a tárgy, az eszköz, az eredmény és a végrehajtási mód!</p>
+    <details class="solution"><summary>Megoldás</summary><p>Nagyméretű adatállomány (tárgy), magas szintű módszerek (eszköz), új információ (eredmény), automatikus folyamat (végrehajtási mód).</p></details></li>
+  <li><p>Információkeresés vagy adatbányászat? „Az internetes keresés találatainak csoportosítása tartalom szerint: az »Amazon« mint cég, folyó, régió.”</p>
+    <details class="solution"><summary>Megoldás</summary><p>Adatbányászat (klaszterezés): a csoportok nincsenek előre megadva, a tartalmi hasonlóságból áll elő az új szerkezet.</p></details></li>
+  <li><p>Miért kell előfeldolgozás, ha az adattárházban már tiszta adat van?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Mert az adattárház riportolásra van szervezve, nem az adott bányászati feladatra. Ki kell választani a releváns részt (a teljes forrás gyakran túl nagy),
+    és át kell alakítani (pl. rendelésekből vevőnkénti sor, kategóriák kódolása, standardizálás), mert a keresett mintázat nem közvetlenül van benne.</p></details></li>
+  <li><p>A K-means eredménye: „1. klaszter középpontja: (1,2; −0,4; 0,9)”. Mi kell ahhoz, hogy a marketingvezető is használni tudja?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Utófeldolgozás: visszaszámolni eredeti mértékegységre, összevetni a többi klaszterrel, és nevet, leírást adni (pl. „gyakran és sokat vásárló törzsvevők”), plusz egy javasolt intézkedést.</p></details></li>
+  <li><p>Miért nevezi a tananyag az adatbányászatot „automatikus folyamatnak”, ha egy emberi elemző építi fel a modellt?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Mert a felépített modell utána emberi beavatkozás nélkül fut és frissül (pl. minden éjjel újratanul az új adatokon), egészen addig, amíg jól leírja az üzleti valóságot. Ha már nem, akkor kell újra emberi munka. Ezért mondja a definíció: „(félig) automatikus”.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ 6 -->
+<section id="lepes6">
+<h2>6. lépés – Hogyan működik az adatbányászat? Feladat, modell, tanítás, tesztelés</h2>
+
+<h4>Kis eset</h4>
+<p>A Babszem azt szeretné tudni, mely vevők nem fognak a következő hónapban vásárolni (hogy kupont küldjön nekik). 1 000 múltbeli vevő-hónapról tudja, hogy utána vásárolt-e a vevő.
+Ezt az 1 000 sort szétosztja: 800 sorból <em>tanul</em> egy modell, a maradék 200-at félreteszi. A tanítás után a modell a 800 tanítósorból 784-et talál el (98%), a 200 félretettből 170-et (85%).
+Melyik számot mondja el a tulajdonosnak? Hogy erre felelni tudj, kell néhány alapfogalom.</p>
+
+<div class="box def"><span class="box-title">Definíció – A DM működésének alapfogalmai</span>
+<ul>
+<li><strong>Adatbányászati feladat:</strong> a BI-on belüli probléma, amit adatbányászattal akarunk megoldani (mit kell megoldani?). Itt: lemorzsolódás előrejelzése.</li>
+<li><strong>Modell:</strong> matematikai módszer, algoritmus, amely az adatállományból és a probléma paramétereiből előállítja a keresett információt (mivel oldjuk meg?). Itt pl. döntési fa.</li>
+<li><strong>Adatállomány:</strong> az adatok táblázatos formában; <strong>sor = objektum</strong>, <strong>oszlop = változó</strong>. Két részre bontjuk: <strong>tanító</strong> és <strong>tesztelő</strong> állományra.</li>
+<li><strong>Tanítás:</strong> a modell paramétereinek meghatározása (becslése) a <em>tanító</em> állományon (a megoldás folyamata).</li>
+<li><strong>Teljesítménymutatók:</strong> megmutatják, mennyire sikerült a tanítás, és milyen lesz a modell <strong>általánosító képessége</strong> – mennyire működik majd jól új adaton, az üzleti alkalmazásban (mennyire jó a megoldás?).
+Ezt a <em>tesztelő</em> állományon mérjük.</li>
+</ul>
+<p><strong>Miért kell félretenni adatot?</strong> Mert a modell a tanítóadatot „látta”, azon könnyű jónak lenni. Az üzletet az érdekli, mit tud <em>új</em> vevőkön – ezt csak olyan adat mutatja meg, amelyet a modell tanítás közben nem látott.</p>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – A modell két része</span>
+<ul>
+<li><strong>Kvalitatív rész:</strong> a modell <em>szerkezete</em> és <strong>hiperparaméterei</strong> – ezeket mi választjuk meg tanítás előtt (pl. a döntési fa maximális mélysége, a neurális háló rejtett rétegeinek és neuronjainak száma).</li>
+<li><strong>Kvantitatív rész:</strong> a <strong>paraméterek</strong>, amelyeket a tanítás határoz meg (pl. a döntési fa vágási értékei, a neurális háló súlyai).</li>
+</ul>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Tanító és teszt felosztás</span>
+<p>1 000 sor, 80/20 arányú felosztás. Hány sor kerül a tanító, hány a tesztállományba?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Tanító: $0{,}8\cdot 1\,000=800$, teszt: $200$. (A gyakorlaton 75/25 volt, lásd az <a href="05-dontesi-fa.html#lepes2">5. lecke 2. lépését</a>; a tipikus tesztarány 15–30%.)</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Melyik számot mondjuk el?</span>
+<p>A kis esetben a tanítón 784/800, a teszten 170/200 a találat. Mennyi a két pontosság, és melyik jellemzi a modellt?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Tanító: $784/800=0{,}98$, teszt: $170/200=0{,}85$. A tulajdonosnak a <strong>85%-ot</strong> kell mondani: ez becsli az általánosító képességet.
+A 98% túl optimista, mert a modell ezeket a sorokat már látta. A nagy különbség (98% vs. 85%) a <strong>túltanulás</strong> jele lehet – erről az <a href="05-dontesi-fa.html#lepes8">5. lecke 8. lépése</a> és a <a href="06-neuralis-halo.html#lepes9">6. lecke 9. lépése</a> szól.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – Hiperparaméter vagy paraméter?</span>
+<p>(a) A döntési fa <code>max_depth=3</code> beállítása. (b) A fa gyökerében kiszámolt vágás: „vásárlások száma ≤ 2,5”. (c) A neurális háló egy élének súlya: 0,73.</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>(a) hiperparaméter (kvalitatív rész, mi adjuk meg); (b) és (c) paraméter (kvantitatív rész, a tanítás határozza meg).</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<p>A teljesítményt <strong>nem a tanítóállományon</strong> mérjük – az „ZH a gyakorlófeladatokból” lenne. És a tesztállományt <strong>nem használjuk tanításra</strong>, különben már nem mondja meg, mit tud a modell új adaton.
+A teszten mért jó eredmény sem garancia örökre: ha változik a vevők viselkedése, a modell romlik – ezért kell monitorozni (<a href="#lepes7">7. lépés</a>).</p>
+</div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia</span>
+<p><em>training set</em> = tanító(adat)állomány · <em>test set</em> = tesztelő állomány · <em>model</em> = modell · <em>parameter</em> = paraméter · <em>hyperparameter</em> = hiperparaméter ·
+<em>generalization</em> = általánosító képesség · <em>performance metric</em> = teljesítménymutató (pl. accuracy, precision, recall, F1 – <a href="05-dontesi-fa.html#lepes6">5. lecke 6. lépés</a>).</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Feladat, modell, tanítás, teszt (5 feladat)</summary>
+<ol>
+  <li><p>5 000 sor, 70/30 felosztás. Hány sor a tanító- és hány a tesztállomány?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Tanító $0{,}7\cdot5\,000=3\,500$, teszt $1\,500$.</p></details></li>
+  <li><p>A teszten 300 sorból 255-öt talált el a modell. Mennyi a teszt-pontosság?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$255/300=0{,}85=85\%$.</p></details></li>
+  <li><p>Két modell: A tanító 99%, teszt 71%; B tanító 86%, teszt 84%. Melyiket választanád, és miért?</p>
+    <details class="solution"><summary>Megoldás</summary><p>B-t. Az új adaton (teszt) jobb, és a két szám közel van egymáshoz, vagyis jól általánosít. A bemagolta a tanítóadatot (túltanulás): 28 százalékpontos rés.</p></details></li>
+  <li><p>Párosítsd a Babszem-projekt elemeit: „lemorzsolódás előrejelzése”, „döntési fa”, „1 000 vevő-hónap táblája”, „a vágások kiszámítása a 800 soron”, „85% a teszten”.</p>
+    <details class="solution"><summary>Megoldás</summary><p>Feladat; modell; adatállomány; tanítás; teljesítménymutató.</p></details></li>
+  <li><p>Mi a hiperparaméter és mi a paraméter egy 3 rejtett neuronos neurális hálónál?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Hiperparaméter: a rejtett rétegek száma (1) és a neuronok száma (3), az aktivációs függvény választása. Paraméterek: az élek súlyai és az eltolások – ezeket a tanítás határozza meg.</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l10-lepes6"></div>
+</section>
+
+<!-- ============================================================ 7 -->
+<section id="lepes7">
+<h2>7. lépés – Az adatbányászat 6 lépéses folyamata</h2>
+
+<h4>Kis eset</h4>
+<p>A Babszem lemorzsolódás-modellje két hónap után elkészült, 85%-os teszt-pontossággal. A tulajdonos mégis elégedetlen: kiderült, hogy a modell a <em>havi</em> lemorzsolódást jósolja,
+ő viszont azt akarta tudni, ki <em>nem tér vissza a karácsonyi szezon után</em>. A modell technikailag jó, üzletileg haszontalan. A hiba nem a modellezésben volt, hanem az <em>első</em> lépésben: a probléma megértésében.</p>
+
+<div class="box def"><span class="box-title">Definíció – Az adatbányászat 6 lépcsős folyamata</span>
+<ol>
+<li><strong>Megértés:</strong> az üzleti probléma megértése, a célok és a siker mérési módjának (KPI-k) megfogalmazása, egyeztetés a megrendelővel.</li>
+<li><strong>Adatfeltárás:</strong> a nyers adatok leválogatása a forrásokból; szerkezetük, minőségük, jelentésük megismerése; összefüggések, mintázatok keresése (feltáró elemzés – <a href="01-adattisztitas.html">1. lecke</a>).</li>
+<li><strong>Adatelőkészítés:</strong> egységes, elemzésre alkalmas adatállomány létrehozása: tisztítás, hiánypótlás, duplikátumok, új változók, források egyesítése.</li>
+<li><strong>Modellezés:</strong> algoritmus kiválasztása, tanító/teszt felosztás, a modell(ek) illesztése. Ez a folyamat „szíve”.</li>
+<li><strong>Kiértékelés:</strong> a modell(ek) teljesítményének mérése (accuracy, precision, recall, F-érték; keresztvalidáció), bemutatás a döntéshozóknak.</li>
+<li><strong>Alkalmazás:</strong> a kiválasztott modell éles környezetbe telepítése, integrálása (pl. Python, SQL) és <strong>monitorozása</strong>.</li>
+</ol>
+<p><strong>A folyamat ciklikus:</strong> az alkalmazás tapasztalatai új kérdéseket vetnek fel, ezért újra az 1. lépéshez jutunk. Közben is vissza-vissza lépünk (pl. a modellezés közben kiderül, hogy még tisztítani kell).</p>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Megfeleltetés – CRISP-DM és az 1. lecke lépései</span>
+<div class="table-wrap"><table>
+<tr><th>Előadás (6 lépés)</th><th>CRISP-DM fázis</th><th>Az <a href="01-adattisztitas.html#lepes1">1. lecke</a> lépéslistája</th></tr>
+<tr><td>1. Megértés</td><td>Business Understanding (üzleti megértés)</td><td>üzleti cél és adatmegértés</td></tr>
+<tr><td>2. Adatfeltárás</td><td>Data Understanding (adatmegértés)</td><td>adatgyűjtés, beolvasás + feltáró adatelemzés</td></tr>
+<tr><td>3. Adatelőkészítés</td><td>Data Preparation (adat-előkészítés)</td><td>adatelőkészítés (tisztítás)</td></tr>
+<tr><td>4. Modellezés</td><td>Modeling (modellezés)</td><td>modellezés</td></tr>
+<tr><td>5. Kiértékelés</td><td>Evaluation (kiértékelés)</td><td rowspan="2">értékelés és alkalmazás</td></tr>
+<tr><td>6. Alkalmazás</td><td>Deployment (bevezetés)</td></tr>
+</table></div>
+<p>A CRISP-DM (Cross-Industry Standard Process for Data Mining) a legismertebb ipari folyamatmodell; az előadás 6 lépése lényegében ugyanez magyarul. Az 1. lecke a gyakorlathoz igazított, kicsit másképp tagolt változat – a tartalom ugyanaz.
+Egy apró eltérés: az 1. lecke a feltáró elemzést a tisztítás <em>után</em> sorolja, mert tisztítatlan adaton félrevezető a statisztika; az előadás „adatfeltárása” az első ismerkedést jelenti az adattal. A gyakorlatban mindkettő kell, és a kettő váltakozik.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Melyik lépés?</span>
+<p>Egy bank hitelkockázati projektje: (a) „A demográfiai és a hiteltörténeti adatokat egy táblába egyesítjük.” (b) „Bemutatjuk a vezetésnek, hogy a modell a nemfizetőket 78%-ban felismeri.” (c) „A modell bekerül az ügyintézők rendszerébe, és havonta ellenőrizzük a pontosságát.”</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>(a) Adatelőkészítés (3.); (b) Kiértékelés (5.); (c) Alkalmazás (6.) – a monitorozás is ide tartozik.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Hány szakértő kell? (Q6)</span>
+<p>Hány ember dolgozzon egy DM–BI megoldáson?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p><strong>Kiegészítés</strong> (az előadás csak felteszi a kérdést): nincs „helyes” létszám, de a <em>szerepek</em> adottak a folyamatból.
+Kell <strong>üzleti / szakterületi szakértő</strong> (1. és 5. lépés: mi a kérdés, értelmes-e az eredmény), <strong>adatmérnök</strong> (adatforrások, ETL, adattárház), <strong>adatelemző / adatbányász</strong> (2–5. lépés),
+<strong>informatikus / üzemeltető</strong> (6. lépés: integráció, futtatás), és személyes adatoknál <strong>adatvédelmi felelős</strong>. Kis cégnél egy ember több szerepet visz (a Babszemnél a tulajdonos az üzleti szakértő, egy külsős elemző a többit);
+nagy cégnél szerepenként külön csapat lehet. A lényeg: az üzleti és a módszertani tudás <em>együtt</em> kell (<a href="#lepes9">9. lépés</a>, szakterületi tudás).</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<p>A leggyakoribb hiba a 4. lépéssel kezdeni („van egy jó algoritmusom, keressünk hozzá adatot”). A kis eset mutatja: ha az 1. lépés rossz, a legpontosabb modell is haszontalan.
+A másik: a 6. lépés nem a projekt vége – az éles modellt figyelni kell, mert a világ változik (új termékek, más vevők).</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – A folyamat lépései (5 feladat)</summary>
+<ol>
+  <li><p>Sorold fel a 6 lépést sorrendben!</p>
+    <details class="solution"><summary>Megoldás</summary><p>Megértés → adatfeltárás → adatelőkészítés → modellezés → kiértékelés → alkalmazás (és vissza a megértéshez).</p></details></li>
+  <li><p>Melyik lépés? „Megnézzük, hány hiányzó érték van a születési dátum oszlopban, és milyen az összegek eloszlása.”</p>
+    <details class="solution"><summary>Megoldás</summary><p>Adatfeltárás: az adat minőségének és szerkezetének megismerése. (Ha utána pótoljuk a hiányokat, az már adatelőkészítés.)</p></details></li>
+  <li><p>Melyik lépésben dől el, hogy a projekt sikerét milyen KPI-val mérjük?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Az 1. lépésben (megértés): itt rögzítjük a célt és a siker mérési módját. A 5. lépésben ehhez mérjük az eredményt.</p></details></li>
+  <li><p>Miért ciklikus a folyamat? Mondj egy Babszem-példát!</p>
+    <details class="solution"><summary>Megoldás</summary><p>Mert az alkalmazás tapasztalatai új problémákhoz vezetnek. Pl. a kuponküldés után kiderül, hogy a kupont kapó vevők visszatérnek, de csak akciós terméket vesznek – új kérdés: hogyan mérjük a kupon valódi hasznát? Ez új 1. lépés.</p></details></li>
+  <li><p>Hogyan felel meg a CRISP-DM „Deployment” fázisa az előadás lépéseinek?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A 6. lépésnek, az alkalmazásnak: telepítés éles környezetbe, integráció, monitorozás.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ 8 -->
+<section id="lepes8">
+<h2>8. lépés – Adatbányászati feladattípusok: felügyelt és nem felügyelt</h2>
+
+<h4>Kis eset</h4>
+<p>A Babszem négy kérdése:</p>
+<ol>
+<li>„Ez a vevő visszatér-e jövő hónapban?” (igen / nem)</li>
+<li>„Mennyit fog költeni jövő hónapban?” (Ft)</li>
+<li>„Milyen vevőcsoportjaink vannak?”</li>
+<li>„Mely termékeket veszik gyakran együtt?”</li>
+</ol>
+<p>Az 1–2. kérdésnél van egy kitüntetett változó, amit jósolni akarunk, és a múltból tudjuk az értékét (visszatért-e, mennyit költött). A 3–4. kérdésnél nincs ilyen: az adat szerkezetét keressük.
+Ez a két nagy kategória.</p>
+
+<div class="box def"><span class="box-title">Definíció – Felügyelt és nem felügyelt adatbányászat</span>
+<p><strong>Predikció (felügyelt adatbányászat):</strong> egyes változók segítségével megbecsüljük más változók ismeretlen vagy jövőbeli értékét.
+Az előre jelzendő változó a <strong>cél-, output vagy függő változó</strong>; az előrejelzéshez használtak a <strong>magyarázó, input vagy független változók</strong>. A tanításhoz ismert eredményű (címkézett) példák kellenek.</p>
+<ul>
+<li><strong>osztályozás:</strong> diszkrét címke (pl. visszatér / nem tér vissza) – <a href="05-dontesi-fa.html">5. lecke</a> (döntési fa), <a href="06-neuralis-halo.html">6. lecke</a> (neurális háló);</li>
+<li><strong>regresszió:</strong> folytonos érték (pl. várható költés Ft-ban);</li>
+<li><strong>idősorok elemzése:</strong> időbélyeges adatokon jövőbeli értékek előrejelzése (pl. decemberi kereslet).</li>
+</ul>
+<p><strong>Klaszterezés, jellemzés (nem felügyelt adatbányászat):</strong> az alkalmazó számára fontos és értelmezhető mintázatot keresünk, amely az adatállomány egy részét jellemzi. Nincs kitüntetett célváltozó, minden leíró változó azonos szerepű.</p>
+<ul>
+<li><strong>klaszterezés (szegmentáció):</strong> hasonló objektumok előre nem ismert csoportjai – <a href="03-kmeans.html">3. lecke</a> (K-means), <a href="04-hierarchikus-klaszterezes.html">4. lecke</a> (hierarchikus), <a href="14-suruseg-validalas-kiugrok.html">14. lecke</a> (sűrűség alapú);</li>
+<li><strong>összegzés:</strong> nagy adatállomány tömör, a lényeget megőrző reprezentációja (pl. összegző statisztikák OLAP-kockához, klaszterek reprezentánsai);</li>
+<li><strong>szekvenciális mintázatok bányászata:</strong> rendezett (pl. időben egymást követő) adatokban keresett mintázatok (pl. „aki szemes kávét vett, egy hónapon belül gyakran darálót is vesz”);</li>
+<li><strong>vásárlói kosár elemzése:</strong> gyakran együtt vásárolt termékek és társítási szabályok – <a href="02-kosarelemzes.html">2. lecke</a>.</li>
+</ul>
+<p><strong>Miért fontos a különbség?</strong> Ez dönti el, hogyan értékelsz: felügyelt esetben összevetheted a jóslatot a valós címkével; nem felügyelt esetben nincs „helyes válasz”, belső mutatók (pl. sziluett) és szakmai értelmezés marad.</p>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Melyik feladatot hol tanuljuk?</span>
+<div class="table-wrap"><table>
+<tr><th>Feladat</th><th>Kategória</th><th>Lecke</th></tr>
+<tr><td>Osztályozás</td><td>felügyelt</td><td><a href="05-dontesi-fa.html">5. Döntési fa</a>, <a href="06-neuralis-halo.html">6. Neurális háló</a></td></tr>
+<tr><td>Regresszió</td><td>felügyelt</td><td>csak fogalmi szinten (az 5. leckében Kiegészítésként)</td></tr>
+<tr><td>Idősorok elemzése</td><td>felügyelt (a tananyag szerint vegyes)</td><td>előkészítés: <a href="07-sql-ablakfuggvenyek.html">7. SQL ablakfüggvények</a> (mozgóátlag, LAG); előrejelző modellt nem építünk</td></tr>
+<tr><td>Klaszterezés</td><td>nem felügyelt</td><td><a href="03-kmeans.html">3. K-means</a>, <a href="04-hierarchikus-klaszterezes.html">4. Hierarchikus</a>, <a href="14-suruseg-validalas-kiugrok.html">14. Sűrűség alapú</a></td></tr>
+<tr><td>Összegzés</td><td>nem felügyelt</td><td><a href="01-adattisztitas.html">1. lecke</a> (leíró statisztikák), <a href="13-md-modell-mdx.html">13. lecke</a> (OLAP-kocka)</td></tr>
+<tr><td>Vásárlói kosár elemzése</td><td>nem felügyelt</td><td><a href="02-kosarelemzes.html">2. Kosárelemzés</a></td></tr>
+<tr><td>Rendellenesség-keresés</td><td>mindkettő lehet</td><td><a href="01-adattisztitas.html#lepes7">1. lecke</a> (IQR), <a href="14-suruseg-validalas-kiugrok.html">14. lecke</a></td></tr>
+</table></div>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés – a két besorolás a forrásokban</span>
+<p>Az előadás diáján az <strong>idősor-elemzés a felügyelt</strong> feladatok között van (előrejelzés). A Moodle-tananyag szerint az idősor-elemzés és a <strong>rendellenesség-keresés</strong>
+<em>mindkét</em> kategóriába tartozhat: ha jövőbeli értéket jósolunk vagy címkézett (csalás / nem csalás) példákból tanulunk, felügyelt; ha csak mintázatot vagy szokatlan pontot keresünk címke nélkül, nem felügyelt.
+Vizsgán az előadás besorolását használd, de ha indokolni kell, ez a kettősség a jó válasz.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – A kis eset négy kérdése</span>
+<details class="solution"><summary>Megoldás</summary>
+<p>1. Felügyelt, <strong>osztályozás</strong> (két osztály: bináris). 2. Felügyelt, <strong>regresszió</strong> (folytonos érték). 3. Nem felügyelt, <strong>klaszterezés</strong>. 4. Nem felügyelt, <strong>vásárlói kosár elemzése</strong>.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Osztályozás vagy klaszterezés? (K5)</span>
+<p>„A vevőket előzetes címkék nélkül, csak a hasonlóságuk alapján csoportosítjuk.” Melyik módszer ez?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p><strong>Klaszterezés.</strong> Az osztályozás előre megadott kategóriákba sorol (és ehhez címkézett tanítóadat kell), a kosárelemzés együtt-előfordulást keres, a regresszió számot jósol.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<p>Az osztályozás és a klaszterezés eredménye is „csoport”, ezért könnyű összekeverni. A döntő kérdés: <strong>ismertek-e előre a csoportok és a tanítópéldák címkéi?</strong> Ha igen: osztályozás. Ha nem: klaszterezés.
+A társítási szabály ({pelenka} → {sör}) pedig <em>nem</em> ok-okozati és nem időbeli kapcsolat, csak együttes előfordulás.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Feladattípusok (5 feladat)</summary>
+<ol>
+  <li><p>Egy ingatlan várható eladási árának becslése. Kategória és feladat?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Felügyelt, regresszió: folytonos célváltozó, a múltbeli eladásokból ismert az ár.</p></details></li>
+  <li><p>E-mailek „spam / nem spam” besorolása a felhasználók korábbi jelölései alapján.</p>
+    <details class="solution"><summary>Megoldás</summary><p>Felügyelt, bináris osztályozás.</p></details></li>
+  <li><p>Egy részvény napi záróárfolyamaiból a következő heti árfolyam előrejelzése.</p>
+    <details class="solution"><summary>Megoldás</summary><p>Idősor-elemzés (előrejelzés): az előadás szerint felügyelt feladat – a múltbeli értékekből tanulunk, és a jövőbeli értéket jósoljuk.</p></details></li>
+  <li><p>„A vásárlók, akik szemes kávét vettek, a következő hónapban gyakran darálót is vesznek.” Melyik feladat?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Szekvenciális mintázat bányászata: a sorrend (előbb kávé, aztán daráló) számít. Ha csak az számítana, hogy egy kosárban vannak, kosárelemzés lenne.</p></details></li>
+  <li><p>Egy bank szokatlan tranzakciókat keres. Mikor felügyelt és mikor nem felügyelt ez a feladat?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Felügyelt, ha vannak címkézett múltbeli példák (igazolt csalás / szabályos) – ekkor kiegyensúlyozatlan bináris osztályozás. Nem felügyelt, ha nincs címke, és az algoritmusnak kell megtalálnia, mi tér el a többségtől.</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l10-lepes8"></div>
+</section>
+
+<!-- ============================================================ 9 -->
+<section id="lepes9">
+<h2>9. lépés – Kihívások: GIGO, szakterület, skálázhatóság, dimenzió, adatvédelem</h2>
+
+<h4>Kis eset – egy elgépelt nulla</h4>
+<p>Öt rendelés: 6 000, 9 000, 4 500, 12 000 és 7 500 Ft. Az átlag 7 800 Ft. Most tegyük fel, hogy valaki az utolsót 75 000-nek gépelte be (eggyel több nulla).
+Az átlag hirtelen <strong>21 300 Ft</strong> lesz – közel háromszoros. Ha erre építünk egy kuponstratégiát („aki 20 000 Ft fölött vásárol, kap 10%-ot”), a döntés a hibás adatból indul ki.
+Ez a <strong>„garbage in, garbage out”</strong> (GIGO) elv: rossz adatból a legjobb módszer is rossz eredményt ad.</p>
+
+<div class="box def"><span class="box-title">Definíció – A DM kihívásai (az előadás listája)</span>
+<ol>
+<li><strong>Adatminőség (GIGO):</strong> az adatok minősége, megbízhatósága kritikus, minden későbbi elemzés erre épül. Tapasztalat: egyszerű modell jó adaton gyakran többet ér, mint bonyolult modell rossz adaton.</li>
+<li><strong>Szakterületi ismeretek:</strong> iparági tudás nélkül nehéz jól feltenni a kérdést és helyesen értelmezni az eredményt.</li>
+<li><strong>Skálázhatóság:</strong> a megoldás az egyre növekvő rekordszámot és számítási igényt is kezelje lényeges teljesítményromlás nélkül.</li>
+<li><strong>Dimenzióprobléma:</strong> ha nagyon sok a változó, az adat nehezebben értelmezhető, elemezhető, modellezhető (és gyorsan nő a számítási igény).</li>
+<li><strong>Adatvédelem és diszkriminációmentesség:</strong> a GDPR és hasonló előírások megkövetelik a személyes adatok védelmét és azt, hogy a modell ne diszkrimináljon.</li>
+<li><strong>Összetett, heterogén adatok:</strong> szöveg, kép, videó, eltérő formátumú források – fejlett módszereket és az adatszerkezet mély megértését igénylik.</li>
+<li><strong>Összetett algoritmusok:</strong> a DM-folyamat algoritmusok együttese; a megértéséhez a mögöttes matematika ismerete kell.</li>
+</ol>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Dimenzióprobléma számokkal</span>
+<p>Feltáró elemzésnél minden változópárra rajzolnál egy szórásdiagramot. Hány ábra kell 10, illetve 100 változónál?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>A párok száma $\binom{p}{2}=\tfrac{p(p-1)}{2}$. 10 változónál $\tfrac{10\cdot9}{2}=45$, 100 változónál $\tfrac{100\cdot99}{2}=4\,950$ ábra. A változók száma tízszeres, az ábráké több mint százszoros.
+Ezért kell sok változónál változókiválasztás vagy dimenziócsökkentés.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Adatvédelem: a Target-eset</span>
+<p>Az amerikai Target áruházlánc a vásárlási adatokból (kb. 25 termék vásárlási mintázatából) modellt épített arra, hogy egy vásárló várandós-e, és megközelítőleg mikor szül – majd ennek megfelelő kuponokat küldött. Mi ezzel a gond?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Üzletileg hatásos (korán megszerzett, hűséges vevők), de a modell <strong>érzékeny személyes információt következtet ki</strong>, amit a vevő nem adott meg, és nem is járult hozzá a használatához.
+A kupon ráadásul felfedheti a családnak is. GDPR-szempontból: célhoz kötöttség, hozzájárulás, különleges adatok. Tanulság: az, hogy egy modell <em>képes</em> valamit kitalálni, még nem jelenti, hogy <em>szabad</em> is használni.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – diszkrimináció „rejtett” változón keresztül</span>
+<p>Hiába hagyod ki a nemet vagy az életkort a hitelmodellből, ha bent marad egy olyan változó, ami erősen összefügg vele (pl. lakóhely, bizonyos termékek vásárlása). A modell így is kedvezőtlenebbül sorolhat egy csoportot.
+Ezért a pontosság mellett azt is ellenőrizni kell, hogy a döntések <em>magyarázhatók</em>-e, és nem sújtanak-e rendszeresen egy csoportot.</p>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Honnan legyen adat? (Q7 – Kiegészítés)</span>
+<p>Megfelelő adathalmazt így lehet találni vagy előállítani: (1) <strong>belső rendszerek</strong> (webshop, CRM, ERP, naplófájlok, adattárház); (2) <strong>nyílt adatok</strong> (KSH, Eurostat, data.gov, Kaggle, UCI Machine Learning Repository);
+(3) <strong>vásárolt / partnertől kapott adat</strong> (pl. demográfiai adatok a hitelkockázathoz); (4) <strong>API-k</strong> (időjárás, árfolyam); (5) <strong>saját gyűjtés</strong> (kérdőív, kísérlet, A/B teszt); (6) <strong>szintetikus, generált adat</strong> (szimuláció – a gyakorlatok adathalmazai is ilyenek).
+Mindegyiknél kérdés: jogszerű-e a használat (GDPR), mennyire megbízható, és tényleg arra a kérdésre felel-e, amit az 1. lépésben feltettünk.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Kihívások (5 feladat)</summary>
+<ol>
+  <li><p>Hány változópár van 20 változónál?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\binom{20}{2}=\tfrac{20\cdot19}{2}=190$.</p></details></li>
+  <li><p>A kis esetben mennyi az öt rendelés mediánja a hiba előtt és után? Mit mutat ez?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Előtte: rendezve 4 500, 6 000, 7 500, 9 000, 12 000 → medián 7 500. Utána: 4 500, 6 000, 9 000, 12 000, 75 000 → medián 9 000. A medián alig mozdul (7 500 → 9 000), az átlag majdnem háromszorosára nő (7 800 → 21 300).
+    A medián robusztus a kiugró értékre – erről az <a href="01-adattisztitas.html#lepes6">1. lecke 6. lépése</a> szól. A GIGO ellen mégis a tisztítás a valódi megoldás, nem a mutatócsere.</p></details></li>
+  <li><p>Melyik kihívás? „A modell eddig 10 000 vevőn 2 perc alatt futott, a bővülés után 2 millió vevőn két nap alatt sem fut le.”</p>
+    <details class="solution"><summary>Megoldás</summary><p>Skálázhatóság.</p></details></li>
+  <li><p>Melyik kihívás? „Az elemző szerint a hétfői visszaesés rejtélyes; a boltvezető azonnal tudja: hétfőn zárva a pörkölő, nincs friss kávé.”</p>
+    <details class="solution"><summary>Megoldás</summary><p>Szakterületi ismeretek: a mintázat magyarázata a szakterületi tudásban van. Ezért kell az üzleti szakértő a csapatba.</p></details></li>
+  <li><p>Egy hitelmodell nagyon pontos, de bizonyos lakóhelyű igénylőket rendszeresen elutasít, és senki sem tudja megmondani, miért. Bevezetnéd?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Így nem. Előbb ellenőrizni kell, hogy a lakóhely nem helyettesít-e védett tulajdonságot (diszkrimináció), és a döntéseknek magyarázhatóknak kell lenniük (GDPR, etikus AI). A pontosság nem elég.</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l10-lepes9"></div>
+</section>
+
+<!-- ============================================================ 10 -->
+<section id="lepes10">
+<h2>10. lépés – Gépi tanulás és neurális hálók a BI-ban</h2>
+
+<h4>Kis eset – szabály kézzel vagy adatból?</h4>
+<p>A Babszem kétféleképpen döntheti el, kinek küld kupont. (a) A tulajdonos kitalál egy szabályt: „aki 60 napja nem vásárolt, kap kupont”. (b) Egy algoritmus 1 000 múltbeli példából
+(ki tért vissza, ki nem) maga állítja be, milyen változók és milyen súllyal számítanak. A (b) a <strong>gépi tanulás</strong>: a szabályt nem kézzel programozzuk, hanem az adatból tanulja meg a gép.</p>
+
+<div class="box def"><span class="box-title">Definíció – Gépi tanulás (machine learning)</span>
+<p>A <strong>gépi tanulás</strong> olyan módszerek összessége, amelyek a szabályszerűségeket leíró döntési modelleket <strong>automatikusan, adatokból</strong> építik fel.
+A modell példákból tanul (tanítás), és a tanult összefüggést új adatra alkalmazza. Ez adja a prediktív elemzés alapját, és az adatbányászat egyik fő módszertani forrása.</p>
+<p><strong>Miért „tanulás”?</strong> Mert a modell paramétereit (pl. súlyait) nem mi írjuk be, hanem a tanítóadaton mért hiba alapján a gép állítja be – és több / jobb adattal jobb lesz.</p>
+</div>
+
+<h4>A neurális háló röviden (a részletek a <a href="06-neuralis-halo.html">6. leckében</a>)</h4>
+<div class="box def"><span class="box-title">Definíció – Neurális háló</span>
+<p>A <strong>neurális háló</strong> csomópontokból (<strong>neuronokból</strong>) álló hálózat, ahol a csomópontok egymás utáni <strong>rétegekbe</strong> szerveződnek, és <strong>élek</strong> kötik össze őket. Az élekhez <strong>súlyok</strong> tartoznak.</p>
+<ul>
+<li><strong>Bemeneti (input) réteg:</strong> ide kerülnek a bemeneti változók, változónként egy neuron.</li>
+<li><strong>Rejtett rétegek:</strong> a bemenetből bonyolultabb jellemzőket, mintázatokat vonnak ki; ezeket a háló maga alakítja ki tanulás közben.</li>
+<li><strong>Kimeneti (output) réteg:</strong> a háló eredménye – előrejelzett érték vagy osztály.</li>
+<li><strong>Egy neuron működése:</strong> az előző réteg kimeneteit megszorozza a súlyokkal, összeadja, hozzáadja az <strong>eltolást</strong> (bias; az előadásban „elfogultság”), majd az eredményt egy <strong>aktivációs függvényen</strong> (ReLU, szigmoid, tanh) vezeti át – ez teszi lehetővé a nemlineáris összefüggéseket.</li>
+<li><strong>Tanítás:</strong> előreterjesztés (forward propagation) → a hiba kiszámítása a valódi címkéhez képest → <strong>hibavisszaterjesztés</strong> (backpropagation) → a súlyok és eltolások módosítása gradiens alapú optimalizálóval (SGD, Adam). Ezt ismételjük.</li>
+</ul>
+<p><strong>Kvalitatív rész:</strong> szerkezet, aktivációs és hibafüggvény; hiperparaméterek: a rejtett rétegek és a neuronok száma. <strong>Kvantitatív rész:</strong> a súlyok (és eltolások).</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Egy neuron kiszámolása</span>
+<p>Bemenet $x=(2;\ 1)$, súlyok $w=(0{,}5;\ -1)$, eltolás $b=0{,}5$, aktiváció ReLU ($\max(0,z)$). Mi a neuron kimenete?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Súlyozott összeg: $z=0{,}5\cdot2+(-1)\cdot1+0{,}5=1-1+0{,}5=0{,}5$. ReLU: $\max(0;\ 0{,}5)=0{,}5$. (Szigmoiddal $\tfrac{1}{1+e^{-0{,}5}}\approx0{,}622$ lenne.)</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Hány paramétert tanul a háló?</span>
+<p>Egy háló 3 bemenettel, egy 4 neuronos rejtett réteggel és 1 kimenettel (3–4–1). Hány súlyt és hány eltolást kell megtanulnia?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Minden neuron az előző réteg <em>összes</em> neuronjától kap bemenetet. Súlyok: $3\cdot4+4\cdot1=16$. Eltolás minden nem bemeneti neuronnak: $4+1=5$. Összesen 21 paraméter – ez a kvantitatív rész.
+A „3–4–1” szerkezet viszont hiperparaméter, azt mi választjuk.</p></details>
+</div>
+
+<div class="box def"><span class="box-title">A neurális háló BI-alkalmazásai (az előadás listája)</span>
+<div class="table-wrap"><table>
+<tr><th>Alkalmazás</th><th>Mit tanul a háló?</th><th>Feladattípus</th></tr>
+<tr><td>Csalásfelderítés</td><td>az ügyfél szokásos költését (összeg, hely, idő), és jelzi az eltérést</td><td>rendellenesség-keresés / osztályozás</td></tr>
+<tr><td>Kockázatértékelés</td><td>hiteligénylő hitelképessége sok ezer változóból</td><td>osztályozás</td></tr>
+<tr><td>Tőzsdei előrejelzés</td><td>árfolyammozgás piaci adatokból, hírekből</td><td>idősor / regresszió</td></tr>
+<tr><td>Vevői szegmentáció</td><td>ügyfélcsoportok előre megadott csoportok nélkül</td><td>klaszterezés</td></tr>
+<tr><td>Kereslet-előrejelzés</td><td>kereslet szezonnal, akciókkal, versenytársakkal</td><td>idősor / regresszió</td></tr>
+<tr><td>Ajánlórendszerek</td><td>személyre szabott ajánlat a korábbi viselkedésből (Netflix, Amazon)</td><td>ajánlás (osztályozás / rangsorolás)</td></tr>
+<tr><td>Minőségellenőrzés</td><td>hibás termék felismerése kamerakép alapján, valós időben</td><td>(kép)osztályozás</td></tr>
+<tr><td>Prediktív karbantartás</td><td>meghibásodás előrejelzése szenzoradatokból (rezgés, hő, nyomás)</td><td>osztályozás / idősor</td></tr>
+<tr><td>Útvonal-optimalizálás</td><td>szállítási útvonalak forgalom, időjárás, határidők alapján</td><td>előrejelzés + optimalizálás</td></tr>
+</table></div>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<p>A neurális háló nem „gondolkodik”, és nem mindig a legjobb választás. Kis, táblázatos adaton (mint a gyakorlatoké) egy döntési fa gyakran ugyanolyan jó, és sokkal jobban magyarázható – a <a href="06-neuralis-halo.html#alkalmazas">6. lecke alkalmazása</a> éppen ezt hasonlítja össze.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Gépi tanulás, neurális háló (5 feladat)</summary>
+<ol>
+  <li><p>Bemenet $x=(1;\ 3)$, súlyok $w=(2;\ -0{,}5)$, eltolás $b=-1$, ReLU. Mi a kimenet?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$z=2\cdot1+(-0{,}5)\cdot3-1=2-1{,}5-1=-0{,}5$; ReLU: $\max(0;\ -0{,}5)=0$. A neuron „nem aktiválódik”.</p></details></li>
+  <li><p>Hány súlya és eltolása van egy 4–3–1 hálónak?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Súlyok: $4\cdot3+3\cdot1=15$; eltolások: $3+1=4$; összesen 19 paraméter.</p></details></li>
+  <li><p>Miért nevezzük a neurális hálót gépi tanulási módszernek? (Q10)</p>
+    <details class="solution"><summary>Megoldás</summary><p>Mert a súlyait nem kézzel adjuk meg, hanem a tanítóadatból, a hiba visszaterjesztésével és iteratív javításával tanulja meg. Ugyanaz a szerkezet más adaton más összefüggést tanul.</p></details></li>
+  <li><p>Melyik feladattípus? „A háló a gyártósori kamera képéből megmondja, hibás-e a csomagolás.”</p>
+    <details class="solution"><summary>Megoldás</summary><p>Felügyelt osztályozás (bináris: hibás / jó). A tanításhoz címkézett képek kellenek.</p></details></li>
+  <li><p>Mi a hiperparaméter és mi a paraméter: rejtett neuronok száma, ReLU választása, egy él súlya, egy eltolás értéke?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Hiperparaméter (kvalitatív): rejtett neuronok száma, aktivációs függvény. Paraméter (kvantitatív): súly, eltolás.</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l10-lepes10"></div>
+</section>
+
+<!-- ============================================================ Alkalmazás -->
+<section id="alkalmazas">
+<h2>Alkalmazás – a Babszem BI-projektje elejétől a végéig</h2>
+<p>Most már minden fogalom megvan. Válaszoljunk a motiváció kérdésére, és nézzük meg, hogyan épülne fel a Babszem BI-rendszere.</p>
+
+<h3>1. Jó hónap volt-e a november? (riport + elemzés)</h3>
+<div class="table-wrap"><table>
+<tr><th>KPI</th><th class="num">október</th><th class="num">november</th><th>változás</th></tr>
+<tr><td>Bevétel</td><td class="num">400&nbsp;000 Ft</td><td class="num">450&nbsp;000 Ft</td><td>+12,5%</td></tr>
+<tr><td>Látogatók</td><td class="num">2&nbsp;000</td><td class="num">2&nbsp;500</td><td>+25%</td></tr>
+<tr><td>Rendelések</td><td class="num">50</td><td class="num">60</td><td>+20%</td></tr>
+<tr><td>Konverzió</td><td class="num">2,5%</td><td class="num">2,4%</td><td>−0,1 százalékpont</td></tr>
+<tr><td>AOV</td><td class="num">8&nbsp;000 Ft</td><td class="num">7&nbsp;500 Ft</td><td>−6,25%</td></tr>
+<tr><td>Bruttó árrés</td><td class="num">35% (140&nbsp;000 Ft)</td><td class="num">38% (171&nbsp;000 Ft)</td><td>+3 százalékpont</td></tr>
+</table></div>
+<p><strong>Válasz:</strong> igen, de nem azért, amiért elsőre tűnik. A bevétel a <em>látogatószám</em> miatt nőtt (kampány), miközben a látogatók kisebb arányban vásároltak, és kisebb kosarat vettek.
+A bruttó haszon viszont 140 000 Ft-ról 171 000 Ft-ra nőtt, mert jobb árrésű termékek fogytak. A következő kérdés (elemzés, diagnosztika): <em>melyik</em> termék és <em>melyik</em> látogatói forrás okozza a kisebb kosarat?</p>
+
+<h3>2. A BI-rendszer rétegei a Babszemnél</h3>
+<div class="table-wrap"><table>
+<tr><th>Réteg</th><th>A Babszemnél</th></tr>
+<tr><td>Adatforrások</td><td>webshop adatbázisa (rendelések), Google Analytics (látogatók), könyvelőprogram (költségek), Excel (pörkölő szállításai)</td></tr>
+<tr><td>Adatintegráció (ETL)</td><td>éjszakai betöltés: dátumok, vevőnevek egységesítése, duplikátumok kiszűrése</td></tr>
+<tr><td>Adattárolás</td><td>kis felhős adattárház (rendelések, vevők, termékek, napok); a termékértékelések szövege egy adattóba</td></tr>
+<tr><td>Adatmodellezés</td><td>dimenzionális modell: tény = rendelés tétel; dimenziók = idő, termék, vevő</td></tr>
+<tr><td>Üzleti analitika</td><td>KPI-számítás, kosárelemzés, vevőszegmentáció, lemorzsolódás-modell</td></tr>
+<tr><td>Megjelenítés</td><td>napi dashboard (mai rendelések, készlet), havi riport (KPI-tábla)</td></tr>
+</table></div>
+
+<h3>3. Az első adatbányászati projekt a 6 lépésben</h3>
+<ol>
+<li><strong>Megértés:</strong> cél: csökkenjen a lemorzsolódás; siker-KPI: CRR 80% → 85%. A modell azt jósolja, ki nem vásárol a következő 60 napban.</li>
+<li><strong>Adatfeltárás:</strong> 2 év rendelése; hány vevő, milyen gyakran vásárol, vannak-e hiányzó vagy hibás összegek (GIGO!).</li>
+<li><strong>Adatelőkészítés:</strong> rendelésekből vevőnkénti sor (vásárlásszám, utolsó vásárlás óta eltelt napok, átlagos kosár), tisztítás.</li>
+<li><strong>Modellezés:</strong> felügyelt osztályozás döntési fával, 80/20 felosztás.</li>
+<li><strong>Kiértékelés:</strong> teszt-pontosság, a lemorzsolódók felismerési aránya (recall), összevetés a „mindenki marad” alapmodellel (<a href="05-dontesi-fa.html#lepes7">5. lecke 7. lépés</a>).</li>
+<li><strong>Alkalmazás:</strong> minden hétfőn lista a kockázatos vevőkről → kupon; a CRR havi követése a dashboardon. Ha a kupon hatása elmarad, vissza az 1. lépéshez.</li>
+</ol>
+<p>Az adatvédelem végig szempont: a vevők adatait csak a hozzájárulásuknak megfelelő célra használhatják, és a modell nem következtethet érzékeny tulajdonságra (<a href="#lepes9">9. lépés</a>).</p>
+</section>
+
+<!-- ============================================================ Q1–Q11 -->
+<section id="tovabbi">
+<h2>További témák az előadásból (Q1–Q11)</h2>
+<p>Az előadás végén angolul feltett kérdések – rövid válasszal és hivatkozással arra a lépésre, ahol részletesebben szerepel. Előbb próbálj magad felelni, aztán nyisd ki!</p>
+<details class="box practice"><summary>✏️ Gyakorlás – Q1–Q11 rövid kifejtéssel (11 kérdés)</summary>
+<ol>
+  <li><p><strong>Q1:</strong> Mit jelent a „garbage in, garbage out” probléma?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Rossz minőségű bemenetből (hibás, hiányos, torzított adat) a legjobb módszer is rossz eredményt ad. Az elgépelt 75 000 Ft majdnem megháromszorozta az átlagot (<a href="#lepes9">9. lépés</a>). Ellenszer: ETL-ben és előfeldolgozásban tisztítás, adatminőség-mérés.</p></details></li>
+  <li><p><strong>Q2:</strong> ETL vs. ELT?</p>
+    <details class="solution"><summary>Megoldás</summary><p>ETL: kinyerés → átalakítás → betöltés; a célba (adattárház) már tiszta, strukturált adat kerül (schema-on-write). ELT: kinyerés → nyers betöltés → átalakítás a célrendszerben, ha kell (adattó, felhős adattárház, schema-on-read). <a href="#lepes4">4. lépés</a>.</p></details></li>
+  <li><p><strong>Q3:</strong> Leíró vs. prediktív analitika?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Leíró: mi történt? – összesítés, KPI, riport; kiszámolható, biztos. Prediktív: mi fog történni? – múltbeli adaton tanított modell becsli a jövőbeli / ismeretlen értéket; bizonytalan. <a href="#lepes2">2. lépés</a>.</p></details></li>
+  <li><p><strong>Q4:</strong> Dashboard vs. riport?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Dashboard: néhány KPI egy pillantásra, (közel) valós időben, interaktívan – monitorozás. Riport: egy lezárt időszak részletes, periodikus, rögzített szerkezetű dokumentálása. <a href="#lepes2">2. lépés</a>.</p></details></li>
+  <li><p><strong>Q5:</strong> BI vs. DM?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A DM a BI része (üzleti analitika réteg). A BI az egész lánc forrástól a megjelenítésig, sok kérdésre összesítéssel felel; a DM a rejtett mintázatokat, okokat, előrejelzéseket adja. <a href="#lepes5">5. lépés</a>.</p></details></li>
+  <li><p><strong>Q6:</strong> Hány szakértő dolgozzon együtt egy DM–BI megoldáson?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Nem a létszám, hanem a szerepek számítanak: üzleti / szakterületi szakértő, adatmérnök, adatelemző, üzemeltető, adatvédelmi felelős. Kis cégnél egy ember több szerepet is visz. <a href="#lepes7">7. lépés</a>.</p></details></li>
+  <li><p><strong>Q7:</strong> Hogyan találok / állítok elő megfelelő adathalmazt?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Belső rendszerek, nyílt adatok, vásárolt adat, API-k, saját gyűjtés, szintetikus adat – mindig a jogszerűség, a megbízhatóság és a kérdéshez illés ellenőrzésével. <a href="#lepes9">9. lépés</a>.</p></details></li>
+  <li><p><strong>Q8:</strong> Példák rendellenesség-keresésre a BI-ban?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Bankkártyás csalás (szokatlan összeg, hely, időpont); hálózati behatolás; gép szenzorértékeinek eltérése (prediktív karbantartás); hirtelen bevételesés egy boltban; adatbeviteli hiba (75 000 Ft egy 7 500 Ft-os rendelés helyett); szokatlanul sok visszaküldés egy terméknél. A rendellenesség relatív: egy nagy átutalás lehet csalás, de lehet egy autó jogszerű vétele is.</p></details></li>
+  <li><p><strong>Q9:</strong> Miért olyan hatékonyak a mesterséges neurális hálók?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A rejtett rétegek és a nemlineáris aktiváció miatt nagyon bonyolult, nemlineáris összefüggéseket is meg tudnak tanulni; a jellemzőket maguk alakítják ki (nem kell kézzel megtervezni); sok adattal és modern hardverrel (GPU) jól skálázódnak; strukturálatlan adaton (kép, szöveg, hang) is működnek. <a href="#lepes10">10. lépés</a>.</p></details></li>
+  <li><p><strong>Q10:</strong> Miért gépi tanulási módszer a neurális háló?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Mert a súlyait a tanítóadatból, a hiba visszaterjesztésével, iteratívan tanulja meg; a szabályt nem kézzel programozzuk. <a href="#lepes10">10. lépés</a>.</p></details></li>
+  <li><p><strong>Q11:</strong> Mik a neurális háló alapú módszerek nehézségei?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Sok (címkézett) adat kell; számításigényes; „fekete doboz”, nehezen magyarázható (GDPR, hitelezés!); hajlamos a túltanulásra; sok hiperparamétert kell hangolni (rétegek, neuronok, tanulási ráta); érzékeny a bemenetek skálájára (standardizálás kell); a véletlen kezdősúlyok miatt futtatásonként eltérhet az eredmény. Részletesen: <a href="06-neuralis-halo.html">6. lecke</a>.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ Összefoglalás -->
+<section id="osszefoglalas">
+<h2>Összefoglalás</h2>
+<ul>
+<li><strong>BI</strong>: technikák és eszközök, amelyek a nyers adatot döntéstámogató információvá alakítják. Előnyei: adatvezérelt döntés, hatékonyság, ügyfélmegértés, versenyelőny, költségcsökkentés.</li>
+<li>A BI négy funkciója: <strong>riport</strong> (mi történt?), <strong>elemzés</strong> (miért?), <strong>monitorozás</strong> (mi történik most?), <strong>predikció / adatbányászat</strong> (mi fog történni?). Analitikai szintek: leíró, diagnosztikai, prediktív, előíró.</li>
+<li><strong>KPI</strong>: mérhető, célhoz kötött, értelmezhető, cselekvést támogató mutató. Pl. AOV = bevétel / rendelés, árrés = (bevétel − költség) / bevétel, CRR = (E − N) / S. Mindig több KPI-t nézz együtt, és figyelj a nevezőre.</li>
+<li>BI-rétegek: adatforrás → <strong>ETL</strong> → adattárház / adattó → modellezés → analitika → megjelenítés. Adatforrás-szintek: állomány, adatbázis (tranzakciós), adattárház (historikus, elemzési), adattó (nyers).</li>
+<li><strong>Adatbányászat</strong>: nagy adatból, magas szintű módszerekkel, (félig) automatikusan nyert új információ; a BI üzleti analitika rétege. Előtte előfeldolgozás, utána utófeldolgozás.</li>
+<li>Működés: feladat, modell (kvalitatív: szerkezet, hiperparaméter; kvantitatív: paraméterek), adatállomány (tanító + teszt), tanítás, teljesítménymutatók (általánosító képesség a teszten).</li>
+<li>6 lépés: megértés → adatfeltárás → adatelőkészítés → modellezés → kiértékelés → alkalmazás, ciklikusan (≈ CRISP-DM).</li>
+<li>Felügyelt: osztályozás, regresszió, idősor. Nem felügyelt: klaszterezés, összegzés, szekvenciális minták, kosárelemzés. Rendellenesség-keresés: mindkettő lehet.</li>
+<li>Kihívások: adatminőség (GIGO), szakterületi tudás, skálázhatóság, dimenzió, GDPR és diszkrimináció, heterogén adat, összetett algoritmusok.</li>
+<li><strong>Gépi tanulás</strong>: a modell adatból tanul, nem kézzel programozzuk. <strong>Neurális háló</strong>: rétegek, súlyok, eltolás, aktiváció, hibavisszaterjesztés; sokféle BI-alkalmazás.</li>
+</ul>
+
+<h3>Döntési táblázat</h3>
+<div class="table-wrap"><table>
+<tr><th>Ha a feladatban ez áll…</th><th>…ezt használd</th></tr>
+<tr><td>„Mi történt?” / egy lezárt időszak összesítése</td><td>riport, leíró analitika</td></tr>
+<tr><td>„Miért történt?”, lefúrás az okig</td><td>elemzés, diagnosztikai analitika</td></tr>
+<tr><td>„Mi történik most?”, élő követés, riasztás</td><td>monitorozás, dashboard</td></tr>
+<tr><td>„Mi fog történni?”</td><td>predikció, adatbányászat (prediktív analitika)</td></tr>
+<tr><td>„Mit tegyünk?”</td><td>előíró analitika (predikció + döntési szabály / optimalizálás)</td></tr>
+<tr><td>„Mennyit vesz egy rendelés átlagosan?”</td><td>AOV = bevétel / rendelések száma</td></tr>
+<tr><td>„Mennyi marad a bevételből a beszerzés után?”</td><td>bruttó árrés = (bevétel − beszerzési költség) / bevétel</td></tr>
+<tr><td>„A régi vevők hány százaléka maradt?”</td><td>CRR = (időszak végi − új) / időszak eleji vevők</td></tr>
+<tr><td>Két arány különbsége</td><td>mondd meg: százalékpont vagy relatív százalék</td></tr>
+<tr><td>„Mi biztosítja a konzisztens adatot az adattárházban?”</td><td>ETL, azon belül a Transform lépés</td></tr>
+<tr><td>Napi tranzakciók rögzítése vs. historikus elemzés</td><td>operatív adatbázis vs. adattárház</td></tr>
+<tr><td>Strukturált riportadat vs. nyers szöveg, kép, szenzoradat</td><td>adattárház vs. adattó</td></tr>
+<tr><td>Létező adat előkeresése</td><td>információkeresés (nem adatbányászat)</td></tr>
+<tr><td>Új, rejtett mintázat nagy adatban</td><td>adatbányászat</td></tr>
+<tr><td>„Mennyire jó a modell új adaton?”</td><td>teljesítménymutató a tesztállományon (nem a tanítón)</td></tr>
+<tr><td>Ismert kategória jóslása címkézett példákból</td><td>osztályozás (felügyelt)</td></tr>
+<tr><td>Szám jóslása</td><td>regresszió (felügyelt); időbeli adatnál idősor-előrejelzés</td></tr>
+<tr><td>Csoportok címke nélkül</td><td>klaszterezés (nem felügyelt)</td></tr>
+<tr><td>Együtt vásárolt termékek / sorrendben követő vásárlások</td><td>kosárelemzés / szekvenciális minták</td></tr>
+<tr><td>Szokatlan, ritka esetek</td><td>rendellenesség-keresés (címkével felügyelt, anélkül nem)</td></tr>
+<tr><td>Hibás adat, furcsa eredmény</td><td>GIGO: vissza az adatfeltáráshoz, előkészítéshez</td></tr>
+</table></div>
+</section>
+
+<section id="kviz">
+<h2>Ellenőrző kvíz</h2>
+<p>Az első hat kérdés az előadás K1–K6 ellenőrző kérdése (rövidített válaszlehetőségekkel), a többi a lecke egészéből.</p>
+<div class="quiz" data-quiz="l10-vegso"></div>
+</section>
+
+<nav class="pager">
+  <a href="index.html">← Tartalom</a>
+  <a href="01-adattisztitas.html">1. Adattisztítás →</a>
+</nav>
+</main>
+</body>
+</html>

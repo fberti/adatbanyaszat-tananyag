@@ -167,6 +167,95 @@ QUIZZES["l05-lepes8"] = {
   ]
 };
 
+QUIZZES["l05-lepes9"] = {
+  title: "Mini-kvíz – Specificitás, ROC, AUC, átlagolás",
+  questions: [
+    {
+      type: "single",
+      q: "TP = 17, FN = 4, FP = 4, TN = 4 (pozitív = yes). Mennyi a specificitás?",
+      options: ["0,5", "0,810", "0,190", "0,724"],
+      answer: 0,
+      hint: "A specificitás a valódi negatívok közül számol: mi kerül a nevezőbe?",
+      explain: R`Specificitás $=\frac{TN}{TN+FP}=\frac{4}{8}=0{,}5$. A 0,810 a recall (vagy a precision), a 0,190 az $1-$recall (az elszalasztott pozitívok aránya), a 0,724 az accuracy.`
+    },
+    {
+      type: "single",
+      q: "Mit ábrázol a ROC-görbe?",
+      options: [
+        "Minden küszöbre a hamis pozitív arányt (vízszintes) és a valódi pozitív arányt (függőleges)",
+        "Minden küszöbre a precisiont és a recallt",
+        "Epochonként a tanítási és a validációs veszteséget",
+        "A famélység függvényében a tanító- és a teszt-accuracy-t"
+      ],
+      answer: 0,
+      hint: "A ROC két tengelye két „arány”: az egyik a negatívokra, a másik a pozitívokra vonatkozik.",
+      explain: "A ROC-görbe a (FPR, TPR) pontokat köti össze, miközben a küszöb 1-ről 0-ra csökken. A precision–recall görbe egy másik ábra; a veszteséggörbe és a mélység-táblázat a túltanulás eszközei."
+    },
+    {
+      type: "single",
+      q: "Négy hallgató pontszáma: yes 0,9 és 0,6; no 0,7 és 0,3. Mennyi az AUC?",
+      options: ["0,75", "0,5", "1", "0,25"],
+      answer: 0,
+      hint: "Számold össze, a 2 · 2 = 4 (pozitív, negatív) párból hányban kap nagyobb pontszámot a pozitív.",
+      explain: R`Párok: $0{,}9>0{,}7$, $0{,}9>0{,}3$, $0{,}6>0{,}3$ helyes; $0{,}6<0{,}7$ fordított. $3/4=0{,}75$. A 0,5 a véletlen szint, az 1 akkor lenne, ha minden yes megelőzné az összes no-t; a 0,25 a fordított párok aránya.`
+    },
+    {
+      type: "match",
+      q: "Párosítsd az átlagolási módot a tulajdonságával (egycímkés, többosztályos feladat)!",
+      pairs: [
+        ["Makroátlag", "Minden osztály egyforma súlyú, a kicsi is"],
+        ["Súlyozott átlag", "Az osztályok valódi elemszámával (support) súlyoz"],
+        ["Mikroátlag", "Az összesített TP/FP/FN-ből számol; F1-e az accuracy"]
+      ],
+      hint: "Melyik veszi figyelembe az osztálynagyságot, és melyik nem?",
+      explain: "A makroátlag a kis osztályok gyengeségét is megmutatja; a súlyozott átlag a nagy osztályokhoz húz; a mikroátlag egycímkés feladatban megegyezik az accuracy-vel."
+    }
+  ]
+};
+
+QUIZZES["l05-lepes10"] = {
+  title: "Mini-kvíz – További osztályozók és az osztályozás szerepe",
+  questions: [
+    {
+      type: "match",
+      q: "Párosítsd a modellcsaládot a jellemző algoritmusával!",
+      pairs: [
+        ["A tanítóhalmaz maga a modell", "k legközelebbi szomszéd (kNN)"],
+        ["Valószínűségi modell, független tulajdonságok feltevésével", "Naiv Bayes"],
+        ["Elemi intervallum-döntések hierarchiája", "Döntési fa"],
+        ["Sok fa véletlen mintákon, szavazással", "Véletlen erdő"],
+        ["A legszélesebb elválasztó sáv", "SVM"]
+      ],
+      hint: "Gondold végig, mit „tárol” és mi alapján dönt az egyes modell.",
+      explain: "A kNN a tanítópéldákat tárolja és a szomszédok többsége dönt; a naiv Bayes osztályonkénti valószínűségeket szoroz; a fa küszöbös kérdéseket fűz egymás után; a véletlen erdő sok fa együttese; az SVM a margót maximalizálja."
+    },
+    {
+      type: "single",
+      q: "A 8 hallgatós adaton (2 no, 3 no, 4 yes, 5 no, 6 yes, 7 yes, 8 yes, 9 yes óra) mit mond a 3-NN egy 4,2 órás hallgatóra?",
+      options: ["no", "yes, mert a 8 hallgatóból 5 átment", "döntetlen, nem tud dönteni", "yes, mert a legközelebbi szomszéd yes"],
+      answer: 0,
+      hint: "Keresd meg a 3 legközelebbi óraszámot, és nézd meg a címkéjük többségét.",
+      explain: "Legközelebbiek: 4 (yes), 5 (no), 3 (no) → 2 : 1 a no javára. A „legközelebbi szomszéd yes” az 1-NN válasza lenne – az egyetlen hallgatót magol be, mint a korlátlan fa. Páratlan k mellett két osztálynál nincs döntetlen."
+    },
+    {
+      type: "multi",
+      q: "Melyik modellnél kell (vagy erősen ajánlott) a bemeneteket standardizálni?",
+      options: ["kNN", "SVM", "Logisztikus regresszió", "MLP", "Döntési fa", "Véletlen erdő"],
+      answer: [0, 1, 2, 3],
+      hint: "Melyik modell számol távolságot vagy súlyozott összeget az összes változóból egyszerre?",
+      explain: "A kNN és az SVM távolsággal/geometriával dolgozik, a logisztikus regresszió és az MLP súlyozott összeggel és gradienssel – ezeknél a nagy skálájú változó elnyomja a többit (a gyakorlat adatán a kNN standardizálás nélkül 0,759, vele 0,793). A fa és az erdő egyetlen változón keres küszöböt, nekik a skála közömbös."
+    },
+    {
+      type: "single",
+      q: R`Naiv Bayes: $P(\text{yes})=5/8$, $P(\text{igen}\mid\text{yes})=3/5$, $P(\text{kevés}\mid\text{yes})=1/5$; $P(\text{no})=3/8$, $P(\text{igen}\mid\text{no})=1/3$, $P(\text{kevés}\mid\text{no})=1$. Mit jósol a (házi = igen, óra = kevés) hallgatóra?`,
+      options: ["no, mert 0,125 > 0,075", "yes, mert P(yes) = 5/8 a nagyobb", "yes, mert 3/5 > 1/3", "no, mert P(kevés | no) = 1"],
+      answer: 0,
+      hint: "Osztályonként szorozd össze az a priori valószínűséget és a két feltételes valószínűséget.",
+      explain: R`yes: $\frac58\cdot\frac35\cdot\frac15=0{,}075$; no: $\frac38\cdot\frac13\cdot1=0{,}125$ → no. Csak az a priori, vagy csak egyetlen feltételes valószínűség alapján dönteni a „naiv” szorzat egy-egy tényezőjét hagyja ki.`
+    }
+  ]
+};
+
 QUIZZES["l05-vegso"] = {
   title: "Ellenőrző kvíz – Döntési fa és mérőszámok",
   questions: [

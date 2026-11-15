@@ -397,5 +397,131 @@ BANK.push(
     answer: [1, 3, 4],
     hint: "Nézd meg a <code>drop(columns=[\"passed\"])</code> sort és a „NEM illesztjük újra” megjegyzést.",
     explain: "Az előrejelzéshez a betanított modell és a tanítón illesztett scaler is kell, ezért mindkettőt elmentik. Az azonos felosztás nélkül a fa és a háló eredménye nem lenne összevethető. Az értékelő szkript csak transform-ot hív („Nem illesztjük újra a standardizálót”), a passed pedig a célváltozó – a drop(columns=[\"passed\"]) veszi ki X-ből."
+  },
+  {
+    id: "b06-026",
+    topic: "06",
+    level: 1,
+    ref: "06-neuralis-halo.html#lepes3",
+    type: "match",
+    q: "Az előadás szerint mi tartozik a neurális háló kvalitatív leírásához, mi a hiperparaméter, és mi a kvantitatív rész?",
+    pairs: [
+      ["A hálózat szerkezete, az aktivációs és a hibafüggvény", "Kvalitatív leírás"],
+      ["A rejtett rétegek és azokon belül a neuronok száma", "Hiperparaméter"],
+      ["A hálózat éleihez rendelt súlyok", "Kvantitatív rész"]
+    ],
+    hint: "Melyiket döntjük el mi a tanítás előtt, és melyiket határozza meg a tanítás?",
+    explain: "A kvalitatív leírás a modell „formája” (szerkezet, aktiváció, hibafüggvény); a hiperparaméterek ennek beállítható számai (rétegek, neuronok); a kvantitatív rész a tanítással meghatározott súlyok. A tanítás csak az utóbbit változtatja."
+  },
+  {
+    id: "b06-027",
+    topic: "06",
+    level: 2,
+    ref: "06-neuralis-halo.html#lepes1",
+    type: "single",
+    q: "Mi a szerepe az elfogultság (bias) értéknek egy neuronban?",
+    options: [
+      "Eltolja a súlyozott összeget, így a döntési határnak nem kell átmennie az origón – rugalmasabb illesztést ad",
+      "A modell statisztikai torzítását méri; minél nagyobb, annál rosszabb a háló",
+      "Megszorozza a bemeneteket, mint egy további súly, de csak az első rétegben van",
+      "Az aktivációs függvény helyett áll, ha a neuron lineáris"
+    ],
+    answer: 0,
+    hint: "Nézd meg a perceptron képletét: hol szerepel b, és mi lenne, ha 0 volna?",
+    explain: R`$z=\sum w_ix_i+b$: a $b$ hozzáadódik, nem szoroz, és minden neuronnak van egy. $b=0$ esetén a $z=0$ határ mindig átmenne az origón. A név („elfogultság”) megtévesztő: nem a modell statisztikai torzítása, és nem helyettesíti az aktivációt.`
+  },
+  {
+    id: "b06-028",
+    topic: "06",
+    level: 2,
+    ref: "06-neuralis-halo.html#lepes6",
+    type: "single",
+    q: "Mi a fő különbség az SGD és az Adam optimalizáló között?",
+    options: [
+      "Az SGD minden súlyt ugyanazzal a tanulási rátával frissít; az Adam a korábbi gradiensek mozgóátlagaiból súlyonként saját lépésközt számol",
+      "Az SGD nem használ gradienst, az Adam igen",
+      "Az Adam a teljes adaton egyszerre számol (nincs batch), az SGD batch-enként",
+      "Az SGD csak regresszióra, az Adam csak osztályozásra használható"
+    ],
+    answer: 0,
+    hint: "Mindkettő gradiens alapú (az előadás: „pl. Adam vagy SGD”). Miben más a lépés mérete?",
+    explain: "Mindkettő a hibavisszaterjesztés gradiensével, batch-enként lép. Az Adam adaptív, súlyonkénti lépésközzel dolgozik, ezért kevésbé érzékeny a rátára. A teljes adaton egyszerre számoló módszer az lbfgs. A gyakorlat adatán ugyanazzal a 0,001-es rátával az SGD 949 epoch után 0,407-es, az Adam 1000 epoch után 0,185-ös veszteségnél tartott."
+  },
+  {
+    id: "b06-029",
+    topic: "06",
+    level: 2,
+    ref: "06-neuralis-halo.html#lepes10",
+    type: "single",
+    q: "1000 soros adatot 70% / 15% / 15% arányban bontasz tanító, validációs és teszthalmazra két train_test_split hívással. Mi legyen a test_size a két hívásban?",
+    options: ["0.3, majd 0.5", "0.15, majd 0.15", "0.3, majd 0.15", "0.7, majd 0.5"],
+    answer: 0,
+    hint: "Az első hívás a tanítón kívüli részt választja le; a második ezt osztja ketté.",
+    explain: R`Előbb 30%-ot (300 sor) választunk le, majd ezt felezzük: $150+150$. A második 0.15 a 300 sornak csak 15%-át (45 sort) adná; a 0.7 az első hívásban 70%-ot tenne a „maradékba”.`
+  },
+  {
+    id: "b06-030",
+    topic: "06",
+    level: 3,
+    ref: "06-neuralis-halo.html#lepes10",
+    type: "multi",
+    q: "Melyik eljárás helyes egy MLP hiperparamétereinek kiválasztásakor?",
+    options: [
+      "<code>GridSearchCV</code> a tanítóhalmazon, a scalerrel együtt <code>Pipeline</code>-ban",
+      "A teszthalmazt csak a legvégén, a kiválasztott modellel egyszer használjuk",
+      "Rétegzett foldok (StratifiedKFold) kiegyensúlyozatlan osztályoknál",
+      "A scalert előbb a teljes adaton illesztjük, majd felosztunk és keresztvalidálunk",
+      "Több beállítást a teszten próbálunk ki, és a legjobbat jelentjük végső eredményként"
+    ],
+    answer: [0, 1, 2],
+    hint: "Minden lépésnél kérdezd meg: belelát-e valahogy a validációs vagy a tesztadat a döntésbe?",
+    explain: "A Pipeline foldonként illeszti a scalert, a rétegzés megőrzi az osztályarányt, a teszt egyszeri. A teljes adaton illesztett scaler adatszivárgás (a tananyag Keras-példája így tesz – ez hiba); a teszten válogatott beállítás optimista eredményt ad."
+  },
+  {
+    id: "b06-031",
+    topic: "06",
+    level: 3,
+    ref: "06-neuralis-halo.html#lepes10",
+    type: "single",
+    q: "Keresztvalidálva (5 fold, 85 sor) a gyakorlat hálója ((8, 4), alpha = 0,0001) 0,612, a (16, 8), alpha = 3 beállítás 0,753 CV-pontosságot ér el. A teszten a sorrend fordított: 0,793 vs 0,759. Melyiket választod, és miért?",
+    options: [
+      "A (16, 8), alpha = 3-at: a választás a keresztvalidáció alapján történik, a 29 fős teszt 1 hallgatója 3,4 százalékpont",
+      "A (8, 4)-et, mert a teszten jobb",
+      "Egyiket sem: ha a CV és a teszt ellentmond, a modell hibás",
+      "A (8, 4)-et, mert kisebb háló mindig jobban általánosít"
+    ],
+    answer: 0,
+    hint: "Melyik becslésen hozhatunk döntést anélkül, hogy a végső mérés függetlenségét elrontanánk?",
+    explain: "A hiperparamétert a tanítóhalmazon belül, keresztvalidációval választjuk; a teszt csak a végső becslés. A teszt alapján visszamenőleg választani a teszt függetlenségét rontja el – és a 0,793 vs 0,759 mindössze egy hallgató. Az erős regularizáció 85 sorhoz és 273 paraméterhez illik. A „kisebb háló mindig jobb” nem szabály."
+  },
+  {
+    id: "b06-032",
+    topic: "06",
+    level: 1,
+    ref: "06-neuralis-halo.html#lepes11",
+    type: "single",
+    q: "Az előadás BI-példái közül melyik NEM felügyelt (címkés) osztályozási feladat?",
+    options: ["Vevői szegmentáció előre nem definiált csoportokkal", "Csalásfelderítés tranzakciós adatokból", "Hiteligénylő kockázati besorolása", "Hibás termék felismerése a gyártósori képeken"],
+    answer: 0,
+    hint: "Melyiknél nincs ismert helyes válasz a tanítóadatban?",
+    explain: "A szegmentációnál „a csoportokat nem definiáljuk előre” (előadás): nincs címke, ez klaszterezés. A csalás, a kockázati besorolás és a hibás termék mind ismert kimenetű múltbeli esetekből tanulható osztályozás."
+  },
+  {
+    id: "b06-033",
+    topic: "06",
+    level: 2,
+    ref: "06-neuralis-halo.html#lepes11",
+    type: "multi",
+    q: "Melyek az előadás „Q9” kérdésére (miért hatékonyak a neurális hálók?) adható jó érvek?",
+    options: [
+      "Univerzális függvényközelítők: nemlineáris aktivációval bonyolult kapcsolatot is leírnak",
+      "A rejtett rétegek maguk alakítanak ki új jellemzőket a bemenetből",
+      "Több adattal és számítási kapacitással tovább javulnak; sokféle adattípusra van architektúra (CNN, RNN, Transformer)",
+      "Kevés adaton is mindig jobbak a döntési fánál",
+      "Nincs szükségük előkészítésre (standardizálásra, kódolásra)"
+    ],
+    answer: [0, 1, 2],
+    hint: "Két opciót a gyakorlat számai cáfolnak.",
+    explain: "A nemlineáris aktiváció, az automatikus jellemzőkialakítás (lásd az XOR-háló rejtett neuronjait) és a skálázódás valódi előnyök. Kis adaton a háló nem mindig jobb (keresztvalidálva 0,612 a gyakorlat hálójánál), és standardizálást, one-hot kódolást igényel."
   }
 );

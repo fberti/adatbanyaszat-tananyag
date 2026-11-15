@@ -1,0 +1,1315 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Adattárolás és adattárház</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script defer src="assets/quiz.js"></script>
+<script defer src="quiz/12.js"></script>          <!-- a lecke kvízei -->
+<script defer src="assets/common.js"></script>    <!-- MINDIG az utolsó -->
+</head>
+<body>
+<nav class="topnav"><div class="inner">
+  <a href="index.html">← Tartalom</a>
+  <span>12. lecke · Adattárolás, adattárház</span>
+  <span class="spacer"></span>
+  <button id="theme-toggle" type="button" title="Világos/sötét téma">◐</button>
+</div></nav>
+<main>
+<p class="kicker">12. lecke · 2. témakör · előadás</p>
+<h1>Adattárolási szintek, az adattárház szerkezete, ETL és ELT</h1>
+<p class="lead">Hol éljenek az adatok? A lokális fájltól az adattóig és a NoSQL-ig: mikor melyik tárolás kell, miben más egy elemző rendszer, mint egy tranzakciós,
+hogyan épül fel egy adattárház, és hogyan jut el oda az adat (ETL, ELT).</p>
+
+<section id="motivacio">
+<h2>Motiváció</h2>
+<p>Egy hazai kiskereskedelmi cégnek van egy webshopja és tizenkét boltja. A cégvezető ezt kérdezi:</p>
+<blockquote><p>„Hogyan alakult a bevétel régiónként és termékkategóriánként az elmúlt három évben? És melyik vevőink maradtak el?”</p></blockquote>
+<p>Az adatok megvannak, csak szét vannak szórva:</p>
+<ul>
+<li>a webshop rendelései egy MySQL adatbázisban vannak, ahol a régi címet felülírja az új;</li>
+<li>a boltok pénztárgépei minden este egy CSV-t küldenek, más dátumformátummal és ezer forintban;</li>
+<li>a hűségkártya-rendszer egy felhős szolgáltatásban fut;</li>
+<li>a weboldal kattintásnaplója naponta több millió JSON-sor.</li>
+</ul>
+<p>Három kérdésre kell válaszolnod: <strong>hol</strong> tárold az adatokat, <strong>hogyan</strong> hozd őket egységes formára egy helyre, és <strong>hogyan</strong> maradjon meg a múlt.
+A lecke végén megtervezed a cég adatarchitektúráját (<a href="#alkalmazas">Alkalmazás</a>).</p>
+
+<div class="box tip"><span class="box-title">💡 Honnan van az anyag?</span>
+<p>Az előadás két diasorára épül: „Adattárolási szintek, Python adatkezelés” (az eleje; a Python rész a <a href="11-python-adatkezeles.html">11. leckében</a> van)
+és „Adattárház, MD modell, MDX” (az eleje; a többdimenziós modell és az MDX a <a href="13-md-modell-mdx.html">13. leckében</a>).
+Kiegészítettük a rokon kurzus „Modern adattárolási technikák”, „ETL/ELT-folyamatok” és „BI-alapfogalmak” fejezeteivel.
+A számpéldákat Pythonnal (és SQLite-tal) ellenőriztük.</p>
+</div>
+</section>
+
+<section id="utiterv">
+<h2>Útiterv</h2>
+<ol class="roadmap">
+  <li><a href="#lepes1">1. lépés – Adattárolási szintek: a lokális fájltól a NoSQL-ig</a></li>
+  <li><a href="#lepes2">2. lépés – OLTP és OLAP: ugyanaz a kérdés két rendszerben</a></li>
+  <li><a href="#lepes3">3. lépés – Mi az adattárház? Inmon négy tulajdonsága, schema-on-write és schema-on-read</a></li>
+  <li><a href="#lepes4">4. lépés – Az adattárház komponensei és a VIR-komponensek (ERP, EAI, staging, ODS, adatpiac, EDW)</a></li>
+  <li><a href="#lepes5">5. lépés – ETL: kinyerés és átalakítás egy kézzel követhető példán</a></li>
+  <li><a href="#lepes6">6. lépés – Betöltés (teljes, inkrementális) és ELT</a></li>
+  <li><a href="#lepes7">7. lépés – Adattó, lakehouse, elosztott tárolás (HDFS, replikáció, MapReduce)</a></li>
+  <li><a href="#lepes8">8. lépés – Felhő és NoSQL-adatbázisok BI-szemmel</a></li>
+  <li><a href="#lepes9">9. lépés – Edge tárolás, adatbiztonság és megfelelés (GDPR)</a></li>
+  <li><a href="#alkalmazas">Alkalmazás – a kiskereskedelmi cég adatarchitektúrája</a></li>
+  <li><a href="#osszefoglalas">Összefoglalás és döntési táblázat</a></li>
+  <li><a href="#kviz">Ellenőrző kvíz</a></li>
+</ol>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes1">
+<h2>1. lépés – Adattárolási szintek: a lokális fájltól a NoSQL-ig</h2>
+
+<h4>Kis eset: egy cég adatainak élete</h4>
+<p>Kövesd végig, hogyan nő ki egy cég egy tárolási megoldásból. Minden sorban az előző megoldás <em>korlátja</em> kényszeríti ki a következőt.</p>
+<ol>
+<li><strong>Egy Excel-fájl a tulajdonos laptopján.</strong> Gyors, ingyenes. De ha a laptop elromlik, minden elveszik, és más nem éri el.</li>
+<li><strong>Megosztott mappa a cég szerverén.</strong> Hárman is elérik. De ketten egyszerre szerkesztik, és megjelenik az <code>arak_vegleges_v3_JAVITOTT.xlsx</code>. Nincs egyidejű írás, nincs ellenőrzés.</li>
+<li><strong>Relációs adatbázis</strong> a webshop mögött. Egyszerre száz vásárló ír bele, a tranzakció vagy teljesen lefut, vagy semmi. De amikor a vezetés háromévnyi elemzést futtat rajta, a webshop belassul.</li>
+<li><strong>Adattárház.</strong> Az elemzés külön, erre optimalizált tárolóba kerül, a múlt is megmarad. De a szerverterem bővítése drága és lassú.</li>
+<li><strong>Felhő.</strong> A kapacitás egy kattintással nő, használat szerint fizetsz. De a kattintásnaplók és a termékfotók nem férnek bele egy táblás sémába.</li>
+<li><strong>Adattó, lakehouse.</strong> Bármilyen formátumú nyers adat elfér. De a terabájtok már egy gépen nem dolgozhatók fel.</li>
+<li><strong>Elosztott fájlrendszer</strong> (HDFS). Sok olcsó gép együtt tárol és számol. De a fájlrendszer nem ad gyors, rekordszintű olvasást-írást.</li>
+<li><strong>Elosztott adatbázis, NoSQL, hibrid megoldás.</strong> Sok gépen, akár több kontinensen, ezredmásodperces elérés. Cserébe a szigorú konzisztencia lazulhat.</li>
+</ol>
+
+<div class="box def"><span class="box-title">Definíció – Az adattárolás szintjei (az előadás felsorolása)</span>
+<ol>
+<li>lokális állományok</li>
+<li>file-szerverek</li>
+<li>lokális vagy szerver relációs adatbázisok</li>
+<li>adattárház</li>
+<li>felhőalapú adattárolás</li>
+<li>adattavak és lakehouse megoldások</li>
+<li>elosztott fájlrendszerek</li>
+<li>elosztott adatbázisok / adattárházak</li>
+<li>NoSQL és hibrid adatbázisok</li>
+</ol>
+<p><strong>Miért szintek?</strong> Mert mindegyik egy-egy korlátot old fel: megosztás, egyidejű írás, elemzés, rugalmas kapacitás, sokféle formátum, egy gép mérete, valós idejű elérés.
+A szint feljebb lépésével nő a teljesítmény és a rugalmasság, de nő a bonyolultság és az üzemeltetési tudásigény is.</p>
+</div>
+
+<div class="table-wrap"><table>
+<tr><th>Szint</th><th>Mit old meg?</th><th>Fő korlát</th><th>Példa</th></tr>
+<tr><td>lokális állomány</td><td>gyors, egyszemélyes munka</td><td>nincs megosztás, nincs mentés</td><td>CSV, XLSX a saját gépen</td></tr>
+<tr><td>file-szerver</td><td>közös hozzáférés</td><td>nincs egyidejű írás, nincs integritás</td><td>megosztott hálózati mappa, NAS</td></tr>
+<tr><td>relációs adatbázis</td><td>egyidejű írás, tranzakció, integritás</td><td>az elemzés lassítja az üzemi működést</td><td>MySQL, PostgreSQL, SQL Server, Oracle</td></tr>
+<tr><td>adattárház</td><td>integrált, historikus, elemzésre optimalizált adat</td><td>csak strukturált adat, drága skálázás</td><td>SQL Server + Analysis Services, Redshift, Snowflake</td></tr>
+<tr><td>felhő</td><td>rugalmas kapacitás, használatalapú díj</td><td>késleltetés, szolgáltatófüggés, megfelelés</td><td>AWS S3, Azure Blob, Google Cloud Storage</td></tr>
+<tr><td>adattó, lakehouse</td><td>bármilyen formátum nyersen</td><td>adatminőség („adatmocsár”)</td><td>Azure Data Lake, Databricks</td></tr>
+<tr><td>elosztott fájlrendszer</td><td>egy gépnél nagyobb adat, párhuzamos feldolgozás</td><td>nagy fájlokra, kötegelt munkára jó</td><td>HDFS, Google File System</td></tr>
+<tr><td>elosztott DB, NoSQL, hibrid</td><td>vízszintes skálázás, valós idejű elérés</td><td>lazább konzisztencia, kevésbé kötött lekérdezés</td><td>Cassandra, MongoDB, DynamoDB, Redis</td></tr>
+</table></div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia</span>
+<ul>
+<li><strong>Strukturált adat:</strong> rögzített oszlopok és típusok (tábla). <strong>Félig strukturált:</strong> van szerkezete, de rugalmas (JSON, XML, napló). <strong>Nem strukturált:</strong> kép, hang, videó, szabad szöveg.</li>
+<li><strong>Függőleges skálázás</strong> (scale up): nagyobb gép. <strong>Vízszintes skálázás</strong> (scale out): több gép. Az elosztott rendszerek a vízszintest használják.</li>
+</ul>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – egy kis könyvelőiroda</span>
+<p>Öt munkatárs, ügyfelenként néhány tucat Excel-táblázat, a fájlokat egyszerre ritkán szerkesztik. Melyik szint elég?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p><strong>File-szerver</strong> (vagy felhős fájlmegosztás) rendszeres mentéssel. A közös elérés kell, de nincs nagy, egyidejű írás és nincs elemzési igény. Adatbázis vagy adattárház itt felesleges bonyolítás.</p>
+</details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – jegyértékesítő oldal</span>
+<p>Egy koncertjegy-oldalon egyszerre több ezren vásárolnak. Egy ülőhely nem kelhet el kétszer. Melyik szint az alap?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p><strong>Relációs adatbázis</strong> tranzakciókezeléssel. A kulcs az egyidejű írás és az integritás: a foglalás vagy teljesen lefut, vagy semmi. Fájlban ez nem oldható meg.</p>
+</details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – okos fogyasztásmérők</span>
+<p>Egy áramszolgáltató 2 millió mérőjétől negyedóránként kap leolvasást, évente több terabájtot. Az adatot gépi tanuláshoz is meg akarják őrizni. Melyik irány?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p><strong>Elosztott tárolás / adattó</strong> (pl. HDFS vagy felhős objektumtár), mellette oszlopcsaládos NoSQL a friss idősorokhoz. Az adat egy gépre nem fér el, és a nyers formát meg kell tartani.
+A havi riportokhoz ebből egy kisebb, összesített adattárház-réteg készülhet.</p>
+</details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – a „magasabb szint” nem jobb</span>
+<ul>
+<li>A szintek nem minőségi sorrendet jelentenek. Egy 2 000 soros árlistához adattó vagy Hadoop-fürt <strong>túlméretezés</strong>: drágább, lassabban fejleszthető, és több hibalehetőség van benne.</li>
+<li>A file-szerver <strong>nem adatbázis</strong>: attól, hogy közös, még nincs egyidejű írás, integritás és lekérdezőnyelv.</li>
+<li>A valóságban a szintek <strong>egymás mellett</strong> élnek: ugyanannál a cégnél van fájl, adatbázis, adattárház és adattó is.</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Hüvelykujjszabály</span>
+<p>A <strong>legegyszerűbb</strong> szintet válaszd, amelyik a mostani <em>és</em> a belátható jövőbeli igényt még elbírja. Feljebb akkor lépj, amikor egy konkrét korlátba ütközöl.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Melyik tárolási szint? (5 feladat)</summary>
+<ol>
+  <li><p>Egy egyetemista a szakdolgozatához 300 kérdőív válaszait elemzi. Hol tárolja az adatot?</p>
+    <details class="solution"><summary>Megoldás</summary><p><strong>Lokális állomány</strong> (CSV vagy XLSX), felhős mentéssel. Egyszemélyes munka, kicsi adat, nincs egyidejű írás.</p></details></li>
+  <li><p>Egy fogorvosi rendelő időpontfoglaló rendszert vezet be: a recepciós és az online felület egyszerre foglalhat. Melyik szint az alap, és miért nem elég a megosztott Excel?</p>
+    <details class="solution"><summary>Megoldás</summary><p><strong>Relációs adatbázis.</strong> Két egyidejű foglalás ugyanarra az időpontra ütközne. A megosztott fájl nem kezeli az egyidejű írást és nem garantálja, hogy egy időpont csak egyszer keljen el.</p></details></li>
+  <li><p>Egy bank tíz éve gyűjti a számlaforgalmi adatokat, és a kockázati osztály havonta ügyfélszegmensenkénti trendeket elemez. A tranzakciós rendszert nem szabad terhelni. Melyik szint kell?</p>
+    <details class="solution"><summary>Megoldás</summary><p><strong>Adattárház.</strong> Integrált, historikus, elemzésre optimalizált adat kell, külön az üzemi rendszertől.</p></details></li>
+  <li><p>Egy médiacég videókat, feliratfájlokat és nézettségi naplókat akar egy helyen tartani, hogy később ajánlórendszert tanítson rajtuk. Mit javasolsz?</p>
+    <details class="solution"><summary>Megoldás</summary><p><strong>Adattó</strong> (vagy lakehouse), jellemzően felhős objektumtárolón. Vegyes, nem strukturált adat, nyers formában kell megőrizni, a sémát az elemzéskor adjuk meg.</p></details></li>
+  <li><p>Egy mobiljáték 30 országban fut, a játékosok állását ezredmásodpercek alatt kell olvasni és írni, a forgalom esténként tízszeresére nő. Mi a megfelelő szint, és milyen skálázás?</p>
+    <details class="solution"><summary>Megoldás</summary><p><strong>Elosztott NoSQL-adatbázis</strong> (pl. kulcs–érték vagy oszlopcsaládos), <strong>vízszintes skálázással</strong>: csúcsidőben új csomópontok jönnek be. Egy nagy gép (függőleges skálázás) itt drága és egyetlen hibapont lenne.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes2">
+<h2>2. lépés – OLTP és OLAP: ugyanaz a kérdés két rendszerben</h2>
+
+<p>Az előző lépés 3. és 4. szintje között egy fontos határ van: az <strong>üzemi</strong> (tranzakciós) és az <strong>elemző</strong> rendszer határa. Nézzük meg egy kis példán, miért nem jó ugyanaz a tárolás mindkettőre.</p>
+
+<h4>Kis eset: a webshop tranzakciós adatbázisa</h4>
+<p>A webshop adatbázisa <strong>normalizált</strong>: minden adat egyszer szerepel, a táblák kulcsokkal hivatkoznak egymásra (összeg ezer Ft-ban).</p>
+<div class="two-col">
+<div style="min-width:0">
+<div class="table-wrap"><table>
+<tr><th colspan="3"><code>varos</code></th></tr>
+<tr><th>varos_id</th><th>nev</th><th>regio</th></tr>
+<tr><td class="num">1</td><td>Budapest</td><td>Közép</td></tr>
+<tr><td class="num">2</td><td>Győr</td><td>Nyugat</td></tr>
+<tr><td class="num">3</td><td>Sopron</td><td>Nyugat</td></tr>
+</table></div>
+<div class="table-wrap"><table>
+<tr><th colspan="3"><code>ugyfel</code></th></tr>
+<tr><th>ugyfel_id</th><th>nev</th><th>varos_id</th></tr>
+<tr><td class="num">1</td><td>Anna</td><td class="num">1</td></tr>
+<tr><td class="num">2</td><td>Béla</td><td class="num">2</td></tr>
+<tr><td class="num">3</td><td>Csilla</td><td class="num">3</td></tr>
+</table></div>
+<div class="table-wrap"><table>
+<tr><th colspan="3"><code>termek</code></th></tr>
+<tr><th>termek_id</th><th>nev</th><th>kategoria</th></tr>
+<tr><td class="num">1</td><td>Laptop</td><td>Elektronika</td></tr>
+<tr><td class="num">2</td><td>Egér</td><td>Elektronika</td></tr>
+<tr><td class="num">3</td><td>Kávé</td><td>Élelmiszer</td></tr>
+</table></div>
+</div>
+<div style="min-width:0">
+<div class="table-wrap"><table>
+<tr><th colspan="3"><code>rendeles</code></th></tr>
+<tr><th>rendeles_id</th><th>ugyfel_id</th><th>datum</th></tr>
+<tr><td class="num">101</td><td class="num">1</td><td>2025-03-03</td></tr>
+<tr><td class="num">102</td><td class="num">2</td><td>2025-03-05</td></tr>
+<tr><td class="num">103</td><td class="num">3</td><td>2025-03-12</td></tr>
+<tr><td class="num">104</td><td class="num">1</td><td>2025-04-02</td></tr>
+</table></div>
+<div class="table-wrap"><table>
+<tr><th colspan="4"><code>tetel</code></th></tr>
+<tr><th>rendeles_id</th><th>termek_id</th><th>db</th><th>egysegar</th></tr>
+<tr><td class="num">101</td><td class="num">1</td><td class="num">1</td><td class="num">300</td></tr>
+<tr><td class="num">101</td><td class="num">3</td><td class="num">2</td><td class="num">5</td></tr>
+<tr><td class="num">102</td><td class="num">2</td><td class="num">2</td><td class="num">10</td></tr>
+<tr><td class="num">102</td><td class="num">3</td><td class="num">1</td><td class="num">5</td></tr>
+<tr><td class="num">103</td><td class="num">1</td><td class="num">1</td><td class="num">290</td></tr>
+<tr><td class="num">104</td><td class="num">3</td><td class="num">4</td><td class="num">5</td></tr>
+</table></div>
+</div>
+</div>
+
+<p>A webshop tipikus műveletei: „rögzítsd Anna új rendelését”, „írd át Béla szállítási címét”, „mennyi van raktáron az egérből?”. Ezek <strong>egy-két sort</strong> érintenek, és gyorsan kell lefutniuk.
+Erre a normalizált szerkezet ideális: Béla városa egyetlen helyen van, egyetlen <code>UPDATE</code> elég.</p>
+
+<p>Most jön a vezetés kérdése: <em>mennyi volt a bevétel régiónként és kategóriánként 2025 márciusában?</em></p>
+<pre><code class="language-sql">SELECT v.regio, t.kategoria, SUM(tt.db * tt.egysegar) AS bevetel
+FROM rendeles r
+JOIN tetel  tt ON tt.rendeles_id = r.rendeles_id
+JOIN termek t  ON t.termek_id    = tt.termek_id
+JOIN ugyfel u  ON u.ugyfel_id    = r.ugyfel_id
+JOIN varos  v  ON v.varos_id     = u.varos_id
+WHERE r.datum BETWEEN '2025-03-01' AND '2025-03-31'
+GROUP BY v.regio, t.kategoria;</code></pre>
+<p>Öt tábla, négy összekapcsolás. Öt sornál ez semmiség, de 200 millió tételsornál percekig fut, és közben lassítja a vásárlókat.</p>
+
+<p>Az <strong>elemző</strong> rendszerben ugyanez az adat előre összekapcsolva, „kiterítve” van tárolva (minden sor egy eladott tétel):</p>
+<div class="table-wrap"><table>
+<tr><th colspan="9"><code>ertekesites</code> – elemzésorientált tábla</th></tr>
+<tr><th>datum</th><th>honap</th><th>ugyfel</th><th>varos</th><th>regio</th><th>termek</th><th>kategoria</th><th>db</th><th>bevetel</th></tr>
+<tr><td>2025-03-03</td><td>2025-03</td><td>Anna</td><td>Budapest</td><td>Közép</td><td>Laptop</td><td>Elektronika</td><td class="num">1</td><td class="num">300</td></tr>
+<tr><td>2025-03-03</td><td>2025-03</td><td>Anna</td><td>Budapest</td><td>Közép</td><td>Kávé</td><td>Élelmiszer</td><td class="num">2</td><td class="num">10</td></tr>
+<tr><td>2025-03-05</td><td>2025-03</td><td>Béla</td><td>Győr</td><td>Nyugat</td><td>Egér</td><td>Elektronika</td><td class="num">2</td><td class="num">20</td></tr>
+<tr><td>2025-03-05</td><td>2025-03</td><td>Béla</td><td>Győr</td><td>Nyugat</td><td>Kávé</td><td>Élelmiszer</td><td class="num">1</td><td class="num">5</td></tr>
+<tr><td>2025-03-12</td><td>2025-03</td><td>Csilla</td><td>Sopron</td><td>Nyugat</td><td>Laptop</td><td>Elektronika</td><td class="num">1</td><td class="num">290</td></tr>
+<tr><td>2025-04-02</td><td>2025-04</td><td>Anna</td><td>Budapest</td><td>Közép</td><td>Kávé</td><td>Élelmiszer</td><td class="num">4</td><td class="num">20</td></tr>
+</table></div>
+<div class="two-col">
+<div style="min-width:0">
+<pre><code class="language-sql">SELECT regio, kategoria, SUM(bevetel) AS bevetel
+FROM ertekesites
+WHERE honap = '2025-03'
+GROUP BY regio, kategoria;</code></pre>
+<p>Nincs összekapcsolás, a hónap kész oszlop.</p>
+</div>
+<div style="min-width:0">
+<p class="kicker">Eredmény (mindkét lekérdezés)</p>
+<div class="table-wrap"><table>
+<tr><th>regio</th><th>kategoria</th><th>bevetel</th></tr>
+<tr><td>Közép</td><td>Elektronika</td><td class="num">300</td></tr>
+<tr><td>Közép</td><td>Élelmiszer</td><td class="num">10</td></tr>
+<tr><td>Nyugat</td><td>Elektronika</td><td class="num">310</td></tr>
+<tr><td>Nyugat</td><td>Élelmiszer</td><td class="num">5</td></tr>
+</table></div>
+</div>
+</div>
+<p>Az ára: a „Budapest, Közép” szöveg többször szerepel (redundancia). Egy üzemi rendszerben ez hiba lenne, egy elemzőben vállalt kompromisszum, mert itt <strong>olvasni</strong> kell sokat, írni ritkán.</p>
+
+<h4>A fordulat: Anna Győrbe költözik</h4>
+<p>Áprilisban Anna átköltözik, a webshop ezt egyetlen sorral rögzíti: <code>UPDATE ugyfel SET varos_id = 2 WHERE ugyfel_id = 1</code>. Futtasd újra a márciusi lekérdezést a tranzakciós adatbázison:</p>
+<div class="table-wrap"><table>
+<tr><th>regio</th><th>kategoria</th><th>bevetel</th></tr>
+<tr><td>Nyugat</td><td>Elektronika</td><td class="num">610</td></tr>
+<tr><td>Nyugat</td><td>Élelmiszer</td><td class="num">15</td></tr>
+</table></div>
+<p>A Közép régió <strong>eltűnt a márciusi riportból</strong>, pedig márciusban Anna még Budapesten vásárolt. A tranzakciós rendszer csak a <em>jelenlegi</em> állapotot ismeri.
+Az elemző tábla sora viszont a vásárlás pillanatának városát őrzi, ott március változatlan marad. Ez az elemző rendszer másik nagy különbsége: <strong>a múltat is tárolja</strong>.</p>
+
+<div class="box def"><span class="box-title">Definíció – OLTP és OLAP</span>
+<p><strong>OLTP</strong> (Online Transaction Processing, tranzakciófeldolgozás): sok, rövid, egy-két sort érintő írás és olvasás, a napi működés kiszolgálására.
+<strong>OLAP</strong> (Online Analytical Processing, elemzőfeldolgozás): kevés, de nagy, sok sort összesítő lekérdezés a döntéstámogatáshoz.</p>
+<div class="table-wrap"><table>
+<tr><th>Szempont</th><th>OLTP (üzemi rendszer)</th><th>OLAP (elemző rendszer, adattárház)</th></tr>
+<tr><td>cél</td><td>a napi működés: rendelés, számla, foglalás</td><td>elemzés, riport, döntéstámogatás</td></tr>
+<tr><td>felhasználó</td><td>sok ügyintéző, vásárló, alkalmazás</td><td>kevés elemző, vezető</td></tr>
+<tr><td>tipikus művelet</td><td><code>INSERT</code>, <code>UPDATE</code>, <code>DELETE</code>, kulcs szerinti olvasás</td><td>nagy <code>SELECT</code> összesítéssel, csoportosítással</td></tr>
+<tr><td>érintett sorok</td><td>egy-két sor</td><td>milliók</td></tr>
+<tr><td>adatok</td><td>aktuális állapot</td><td>historikus (évek) és aktuális</td></tr>
+<tr><td>séma</td><td>normalizált, sok tábla</td><td>elemzésorientált (denormalizált, többdimenziós)</td></tr>
+<tr><td>frissítés</td><td>folyamatos, azonnal</td><td>időszakos betöltés (pl. éjszaka)</td></tr>
+<tr><td>mire optimalizált</td><td>gyors, biztonságos írás</td><td>gyors, nagy olvasás</td></tr>
+</table></div>
+<p><strong>Miért két rendszer?</strong> Mert a két terhelés ellentétes szerkezetet kíván: az írás a normalizálást szereti (minden adat egyszer), a nagy olvasás az előre összekapcsolt, redundáns tárolást.
+Az előadás szavaival: az OLAP-motorok más jellemzőkkel rendelkeznek, mint a hagyományos OLTP-motorok.</p>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés – sor- és oszlopalapú tárolás</span>
+<p>Az „elemzésorientált tárolás” fizikai szinten is jelent valamit. Az OLTP-adatbázisok <strong>soronként</strong> írják a lemezre az adatot: egy rendelés minden mezője egymás mellett van, így egy sort gyorsan be lehet szúrni.
+Sok elemző motor <strong>oszloponként</strong> tárol: a <code>bevetel</code> oszlop összes értéke egymás mellett van.</p>
+<p>Példa: 1 millió sor, 20 oszlop. A <code>SUM(bevetel) … GROUP BY regio</code> csak 2 oszlopot olvas. Oszlopalapú tárolásnál az adat $2/20 = 10\%$-át kell beolvasni, soralapúnál mindet.
+Ráadásul egy oszlopban sok az ismétlődő érték (pl. „Közép”), ami jól tömöríthető.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – OLTP vagy OLAP?</span>
+<p>Melyik rendszerbe való: (a) „Írd le a raktárkészletből a most eladott 2 egeret.” (b) „Melyik termékkategória nőtt a legjobban az elmúlt 3 év negyedéveiben?”</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>(a) <strong>OLTP</strong>: egyetlen sor azonnali módosítása. (b) <strong>OLAP</strong>: évek adatát összesíti, csoportosít, idősort hasonlít.</p>
+</details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – miért lassú az elemzés az üzemi rendszeren?</span>
+<p>A webshop adatbázisán futtatott éves riport idején a vásárlók panaszkodnak, hogy lassú a fizetés. Mi a két fő ok?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>(1) A riport sok táblát kapcsol össze és milliónyi sort olvas, ez lefoglalja a szerver erőforrásait. (2) Az OLTP-rendszer a gyors, kis írásokra van hangolva, nem a nagy olvasásokra.
+Megoldás: az elemzést külön, elemzésre optimalizált tárolóba (adattárházba) kell vinni.</p>
+</details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+<li>A <strong>denormalizálás</strong> az elemző rendszerben nem tervezési hiba, hanem szándékos döntés. Az üzemi rendszerben viszont valóban hiba lenne (frissítési anomália: Anna városát több helyen kellene átírni).</li>
+<li>Az OLTP-ben az <code>UPDATE</code> <strong>felülírja</strong> a múltat. Ha a riportot a tranzakciós rendszerből készíted, a múltbeli számok utólag megváltozhatnak (lásd Anna költözését).</li>
+<li>Az OLAP itt <em>feldolgozási módot</em> jelent. Hogy az elemző adatot hogyan érdemes kockába, csillagsémába rendezni, az a <a href="13-md-modell-mdx.html">13. lecke</a> témája.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – OLTP és OLAP (5 feladat)</summary>
+<ol>
+  <li><p>Döntsd el mindegyikről, OLTP vagy OLAP: (a) banki átutalás jóváírása; (b) fiókonkénti havi hitelállomány-trend 5 évre; (c) egy ügyfél e-mail-címének módosítása; (d) a 10 legjövedelmezőbb termék régiónként.</p>
+    <details class="solution"><summary>Megoldás</summary><p>(a) OLTP, (b) OLAP, (c) OLTP, (d) OLAP. Az OLTP-műveletek egy-két sort írnak, az OLAP-lekérdezések sok sort összesítenek.</p></details></li>
+  <li><p>A példatáblákból számold ki a tranzakciós adatbázison: mennyi volt a teljes bevétel 2025 márciusában és áprilisában? Hány táblát kell összekapcsolni hozzá?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Március: $300+10+20+5+290 = 625$, április: $20$ (ezer Ft). Ehhez csak a <code>rendeles</code> (dátum) és a <code>tetel</code> (db, egységár) kell: 2 tábla, 1 összekapcsolás. Régió vagy kategória szerinti bontáshoz már mind az 5.</p></details></li>
+  <li><p>Miért nem jó az elemző tábla (<code>ertekesites</code>) a webshop napi működéséhez? Mondj egy konkrét esetet!</p>
+    <details class="solution"><summary>Megoldás</summary><p>Mert redundáns: ha egy termék kategóriáját átnevezik, az összes sorát át kell írni, és ha egy kimarad, ellentmondás keletkezik (frissítési anomália). Egy új rendelés rögzítésénél is minden leíró adatot újra be kellene írni.</p></details></li>
+  <li><p>Anna költözése után mit mutat a <em>tranzakciós</em> adatbázisból készített márciusi riport a Közép régióra, és mit az elemző táblából készült? Melyik a helyes?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A tranzakciós riportban a Közép régió eltűnik (Anna 310 ezer Ft-os márciusi vásárlása a Nyugathoz kerül: Elektronika 610, Élelmiszer 15). Az elemző tábla szerint Közép: Elektronika 300, Élelmiszer 10. Az utóbbi a helyes, mert márciusban Anna Budapesten lakott.</p></details></li>
+  <li><p>Egy táblában 50 oszlop és 10 millió sor van. A lekérdezés 5 oszlopot használ. Oszlopalapú tárolásnál nagyjából az adat hányad részét kell beolvasni?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$5/50 = 10\%$-át (tömörítés nélkül, egyforma oszlopszélességet feltételezve). Soralapú tárolásnál az egész táblát. Ezért szeretik az elemző motorok az oszlopalapú tárolást.</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l12-lepes2"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes3">
+<h2>3. lépés – Mi az adattárház? Inmon négy tulajdonsága, schema-on-write és schema-on-read</h2>
+
+<p>Az előző lépésben láttad, hogy az elemzéshez külön tároló kell, amely integrál, a múltat is őrzi, és olvasásra van hangolva. Ennek a tárolónak a neve <strong>adattárház</strong> (data warehouse, DW vagy DWH).</p>
+
+<h4>Kis eset: négy mondat a vezetéstől</h4>
+<ol>
+<li>„Nem azt akarom látni, mit csinál a számlázó modul, hanem azt, mit vesznek a <em>vevőink</em>.”</li>
+<li>„A webshop <code>CUST_001</code>-nek, a bolt <code>CUST001</code>-nek írja ugyanazt a vevőt, és a bolt ezer forintban számol. Ebből nekem egy szám kell.”</li>
+<li>„Látni akarom, hogyan változott a bevétel az elmúlt öt évben, hónapról hónapra.”</li>
+<li>„A tavalyi márciusi szám ne változzon meg csak azért, mert valaki elköltözött.”</li>
+</ol>
+<p>Ez a négy igény pontosan Inmon négy tulajdonsága.</p>
+
+<div class="box def"><span class="box-title">Definíció – Adattárház (Inmon)</span>
+<p>Az adattárház <strong>téma-orientált, integrált, időben változó és nem illékony</strong> adatgyűjtemény, amely a vezetői döntéshozatalt támogatja.</p>
+<div class="table-wrap"><table>
+<tr><th>Tulajdonság</th><th>Jelentés</th><th>A kis esetben</th></tr>
+<tr><td><strong>téma-orientált</strong> (subject-oriented)</td><td>üzleti témák köré szervezett (vevő, termék, értékesítés), nem alkalmazások vagy folyamatok köré</td><td>1. mondat</td></tr>
+<tr><td><strong>integrált</strong> (integrated)</td><td>a különböző forrásokból jövő adatok egységes kódolásúak, formátumúak, mértékegységűek</td><td>2. mondat</td></tr>
+<tr><td><strong>időben változó</strong> (time-variant)</td><td>minden adat egy időponthoz vagy időszakhoz kötött, hosszú (több éves) idősor érhető el</td><td>3. mondat</td></tr>
+<tr><td><strong>nem illékony</strong> (non-volatile)</td><td>a betöltött adatot nem írjuk felül és nem töröljük; az adattárház betöltéssel bővül, a felhasználók csak olvassák</td><td>4. mondat</td></tr>
+</table></div>
+<p><strong>Miért pont ez a négy?</strong> Mert ezek a tranzakciós rendszer négy „hiányának” ellentétei: az OLTP alkalmazásonként szerveződik, forrásonként eltér, csak a jelent ismeri, és folyamatosan felülíródik.</p>
+</div>
+
+<p>Az előadás az adattárház főbb jellemzőit így sorolja fel: speciális logikai és fizikai adatmodell, erős elemzési támogatás, felhasználóbarát parancsok és algebra, adatvizualizációs támogatás,
+egyszerű adatszerkezet, elemzésorientált tárolás, többdimenziós adatmodell, és egy saját parancsnyelv, az MDX. Belső jellemzői: Inmon vezette be (az előadás szerint 1995),
+OLAP-rendszerekhez való tárolómotor, heterogén adatokat integrál sok forrásból, historikus adatot tárol, a műveletek MD-algebrán alapulnak, és nagy adatmennyiségre optimalizált.
+A többdimenziós modell, az MD-algebra és az MDX a <a href="13-md-modell-mdx.html">13. lecke</a> témája.</p>
+
+<h4>Schema-on-write és schema-on-read</h4>
+<p>Új kis eset. A webshop eddig ilyen eseményeket küldött: <code>{"vevo": "CUST001", "osszeg": 12500}</code>. Egy nap a fejlesztők új mezőt adnak hozzá: <code>{"vevo": "CUST001", "osszeg": 12500, "kupon": "TAVASZ10"}</code>.</p>
+<div class="two-col">
+<div class="box example" style="min-width:0"><span class="box-title">Adattárház – schema-on-write</span>
+<p>A tábla szerkezete (oszlopok, típusok) <strong>előre</strong> rögzített. A betöltő folyamat vagy eldobja a <code>kupon</code> mezőt, vagy hibára fut, amíg valaki fel nem veszi az új oszlopot.</p>
+<p>Cserébe ami bent van, az <strong>ellenőrzött</strong>, és a lekérdezés gyors.</p>
+</div>
+<div class="box example" style="min-width:0"><span class="box-title">Adattó – schema-on-read</span>
+<p>Az esemény nyersen, változatlanul tárolódik. A szerkezetet <strong>olvasáskor</strong> adja meg, aki elemez: „most a <code>vevo</code>, az <code>osszeg</code> és a <code>kupon</code> mező érdekel”.</p>
+<p>Cserébe az ellenőrzés és a tisztítás munkája az elemzőre marad.</p>
+</div>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Schema-on-write és schema-on-read</span>
+<ul>
+<li><strong>Schema-on-write</strong> (séma íráskor): az adatot a betöltés <em>előtt</em> tisztítjuk, átalakítjuk és a rögzített sémába illesztjük. Ez az adattárház megközelítése.</li>
+<li><strong>Schema-on-read</strong> (séma olvasáskor): az adatot nyersen tároljuk, a sémát a lekérdezés vagy elemzés pillanatában alkalmazzuk. Ez az adattó megközelítése.</li>
+</ul>
+<p><strong>Miért fontos?</strong> Ez dönti el, hol van a munka: a betöltésnél (adattárház, ETL) vagy a felhasználásnál (adattó). És ez dönti el, mennyire rugalmas a tároló az új adatfajtákkal szemben.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – melyik tulajdonság sérül?</span>
+<p>Egy „adattárházban” a termékek árát minden éjjel felülírják a mai árral. Melyik Inmon-tulajdonság sérül?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>A <strong>nem illékony</strong> (és vele az időben változó) tulajdonság: a régi ár elvész, így egy tavalyi bevétel-ár elemzés hamis lesz. Helyesen az új ár új sorként, érvényességi dátummal kerül be.</p>
+</details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – téma vagy alkalmazás?</span>
+<p>Két terv: (A) táblák <code>szamlazo_modul</code>, <code>webshop_modul</code>, <code>raktar_modul</code> néven; (B) táblák <code>vevo</code>, <code>termek</code>, <code>ertekesites</code> néven, mindegyik több forrásból töltve. Melyik téma-orientált?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>A <strong>(B)</strong>. Az (A) a forrásalkalmazásokat másolja le, így a „vevő” fogalma három helyen, háromféleképpen szerepelne. A (B) egy üzleti témához egy helyet ad, és oda integrálja a forrásokat.</p>
+</details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+<li>A „nem illékony” nem azt jelenti, hogy az adattárház <em>soha nem változik</em>. Bővül (új betöltésekkel), és egy hibás betöltés javítható, de jellemzően korrekciós sorral vagy újratöltéssel, nem a felhasználók kézi módosításával.</li>
+<li>Az „időben változó” nem azt jelenti, hogy „gyakran változik”, hanem azt, hogy <strong>az idő az adat része</strong> (minden rekordhoz tartozik időpont vagy érvényességi időszak).</li>
+<li>Kivétel a nem illékonyság alól: a jogszabály (GDPR) kötelezhet személyes adat törlésére. Erről a <a href="#lepes9">9. lépésben</a> lesz szó.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Inmon tulajdonságai, séma íráskor és olvasáskor (5 feladat)</summary>
+<ol>
+  <li><p>Párosítsd a tulajdonsággal: (a) a „nő/férfi”, „N/F”, „0/1” kódokat egységesen „N/F”-re alakítják; (b) minden sorban van <code>betoltes_datum</code> és <code>ervenyes_tol</code>; (c) az elemzők nem írhatnak a táblákba; (d) az adattárház „Vevő” területe a CRM-ből és a webshopból is töltődik.</p>
+    <details class="solution"><summary>Megoldás</summary><p>(a) integrált, (b) időben változó, (c) nem illékony, (d) téma-orientált (és integrált is: egy témához több forrás).</p></details></li>
+  <li><p>Egy cég „adattárháza” egy éjszakánként frissülő másolat a webshop adatbázisáról, ugyanazokkal a táblákkal. Mely tulajdonságok hiányoznak?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Nem téma-orientált (az alkalmazás tábláit másolja), nem integrált (csak egy forrás, egységesítés nélkül), és ha a másolat felülíródik, nem is időben változó és nem is nem illékony. Ez legfeljebb egy riportolási másolat, nem adattárház.</p></details></li>
+  <li><p>Melyik megközelítés (schema-on-write vagy schema-on-read) illik jobban: (a) havi pénzügyi zárás riportja; (b) egy kutatócsoport még nem tudja, mit keres a szenzornaplókban?</p>
+    <details class="solution"><summary>Megoldás</summary><p>(a) schema-on-write: ellenőrzött, rögzített szerkezetű, gyorsan lekérdezhető adat kell. (b) schema-on-read: a nyers adatot érdemes megőrizni, a sémát majd az elemzéskor választják meg.</p></details></li>
+  <li><p>A webshop eseményeiben megjelenik a <code>kupon</code> mező. Mi történik vele egy schema-on-write adattárházban, ha senki nem módosítja a betöltőt? És az adattóban?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Az adattárházban elveszik (a betöltő eldobja) vagy a betöltés hibára fut. Az adattóban megmarad a nyers eseményben, és bármikor kiolvasható, amikor valaki rákérdez.</p></details></li>
+  <li><p>Miért nem lenne jó, ha az adattárház minden éjjel törölné és újraírná a vevők címét a CRM aktuális állapota szerint, régi verziók nélkül?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Mert az adattárház ekkor illékony lenne: a régi címek elvesznek, és a múltbeli eladások rossz régióhoz kerülnek (mint Anna költözésénél a <a href="#lepes2">2. lépésben</a>). Az időbeli elemzés hamis lesz.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes4">
+<h2>4. lépés – Az adattárház komponensei és a VIR-komponensek</h2>
+
+<p>Tudod, mi az adattárház. De hogyan jut el egy bolti blokk a vezető képernyőjére? Az előadás egy modulokra bontott architektúrát mutat.</p>
+
+<h4>Kis eset: egy blokk útja</h4>
+<p>Anna kedden 18:12-kor vesz egy kávét a győri boltban. A pénztárgép rögzíti (<strong>adatforrás</strong>). Éjjel 2-kor elindul egy ütemezett feladat (<strong>ütemező</strong>), kiolvassa a napi CSV-t,
+egységesíti és betölti (<strong>ETL</strong>) az adattárház tárolójába (<strong>tároló modul</strong>). Közben feljegyzi, honnan, mikor, hány sor jött (<strong>metaadat</strong>).
+Reggel a vezető a riportban (<strong>megjelenítési réteg</strong>) régió és hónap szerint nézi a bevételt, ami mögött egy logikai modell (<strong>adathozzáférési interfész</strong>) fordítja le a kattintását lekérdezéssé.</p>
+
+<figure>
+<svg viewBox="0 0 720 230" role="img" aria-label="Adattárház architektúra: adatforrás, ETL, tároló, metaadat és ütemező modul, adathozzáférési interfész, megjelenítési réteg" style="max-width:720px;width:100%">
+  <defs><marker id="nyil1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+  <g font-family="Inter, sans-serif" font-size="13" fill="currentColor" text-anchor="middle">
+    <g stroke="currentColor" stroke-width="1.4" fill="none">
+      <ellipse cx="60" cy="95" rx="48" ry="10"/><path d="M12,95 v50 a48,10 0 0 0 96,0 v-50"/>
+      <rect x="140" y="95" width="90" height="50" rx="6"/>
+      <rect x="270" y="20" width="150" height="46" rx="6" fill="var(--accent)" fill-opacity="0.18"/>
+      <rect x="270" y="97" width="150" height="46" rx="6"/>
+      <rect x="270" y="174" width="150" height="46" rx="6"/>
+      <rect x="460" y="90" width="120" height="60" rx="6"/>
+      <rect x="612" y="90" width="100" height="60" rx="6"/>
+    </g>
+    <text x="60" y="125">Adatforrás</text><text x="60" y="141" font-size="11">(OLTP)</text>
+    <text x="185" y="125">ETL</text>
+    <text x="345" y="48">Tároló modul</text>
+    <text x="345" y="125">Metaadat modul</text>
+    <text x="345" y="202">Ütemező modul</text>
+    <text x="520" y="115">Adathozzáférési</text><text x="520" y="132">interfész</text>
+    <text x="662" y="115">Megjelenítési</text><text x="662" y="132">réteg</text>
+    <g stroke="currentColor" stroke-width="1.4" fill="none" marker-end="url(#nyil1)">
+      <line x1="108" y1="120" x2="138" y2="120"/>
+      <line x1="230" y1="112" x2="268" y2="50"/><line x1="230" y1="120" x2="268" y2="120"/><line x1="230" y1="128" x2="268" y2="190"/>
+      <line x1="420" y1="50" x2="458" y2="108"/><line x1="420" y1="120" x2="458" y2="120"/><line x1="420" y1="190" x2="458" y2="132"/>
+      <line x1="580" y1="120" x2="610" y2="120"/>
+    </g>
+  </g>
+</svg>
+<figcaption>Az adattárház moduljai az előadás ábrája alapján. A középső oszlop három modulja együtt alkotja magát a tárházat.</figcaption>
+</figure>
+
+<div class="box def"><span class="box-title">Definíció – Az adattárház komponensei (az előadás alapján)</span>
+<div class="table-wrap"><table>
+<tr><th>Komponens</th><th>Feladata</th><th>A kis esetben</th></tr>
+<tr><td><strong>adatforrás</strong></td><td>külső (jellemzően OLTP) rendszer, amely a nyers adatot generálja</td><td>pénztárgép, webshop</td></tr>
+<tr><td><strong>ETL</strong></td><td>az adatot a DW-be mozgatja: kinyerés (a forrásból egy átmeneti tárba), átalakítás (érték és formátum a konzisztencia érdekében), betöltés a DW tárolómotorjába</td><td>éjjeli CSV-feldolgozás</td></tr>
+<tr><td><strong>tároló modul</strong></td><td>a fizikai tárolási szint</td><td>a betöltött ténysorok</td></tr>
+<tr><td><strong>metaadat modul</strong></td><td>kiegészítő információ a nyers adatokról: honnan jön, mit jelent, mikor töltődött</td><td>„bolt.csv, 2025-03-04 02:03, 1 412 sor”</td></tr>
+<tr><td><strong>ütemező modul</strong></td><td>a belső műveletek vezérlése: betöltés, előzetes számítások (előaggregálás)</td><td>2:00 betöltés, 3:00 havi összesítők frissítése</td></tr>
+<tr><td><strong>adathozzáférési interfész</strong></td><td>a DW logikai adatmodellje, általában többdimenziós (MD) modell</td><td>„bevétel régió és hónap szerint”</td></tr>
+<tr><td><strong>megjelenítési réteg</strong></td><td>eszközök a tartalom megjelenítésére és az MD-algebrai műveletek végrehajtására</td><td>riport, dashboard</td></tr>
+</table></div>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – mit tárol a metaadat?</span>
+<p>A riportban a „bevétel” oszlop mellett egy elemző megkérdezi: „Ez bruttó vagy nettó? És mikor frissült?” Hol a válasz?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>A <strong>metaadat modulban</strong>. Kétféle metaadat van:</p>
+<ul>
+<li><strong>üzleti metaadat:</strong> „bevétel = nettó eladási ár × darab, áfa nélkül, Ft”;</li>
+<li><strong>technikai metaadat:</strong> forrás (webshop.rendeles, bolt.csv), típus (egész), utolsó betöltés (2025-03-04 02:03), betöltött sorok száma.</li>
+</ul>
+<p>Metaadat nélkül két osztály kétféle „bevételt” számolna, és nem tudnák, miért tér el a számuk.</p>
+</details>
+</div>
+
+<h4>A tágabb kép: VIR-komponensek</h4>
+<p>Az adattárház egy vállalati információs rendszer (VIR) része. Az előadás ábrája a forrásoktól a részlegek adatpiacaiig mutatja az utat.</p>
+
+<figure>
+<svg viewBox="0 0 720 272" role="img" aria-label="VIR komponensek: ERP és egyéb alkalmazások, EAI, átmeneti terület, ODS, EDW, adatpiacok, elemzés" style="max-width:720px;width:100%">
+  <defs><marker id="nyil2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+  <g font-family="Inter, sans-serif" font-size="13" fill="currentColor" text-anchor="middle">
+    <g stroke="currentColor" stroke-width="1.4" fill="none">
+      <rect x="8" y="40" width="96" height="40" rx="6"/><rect x="8" y="100" width="96" height="40" rx="6"/><rect x="8" y="160" width="96" height="40" rx="6"/>
+      <rect x="130" y="40" width="44" height="160" rx="6"/>
+      <rect x="200" y="95" width="100" height="50" rx="6"/>
+      <rect x="330" y="30" width="110" height="50" rx="6"/>
+      <rect x="330" y="160" width="110" height="60" rx="6" fill="var(--accent)" fill-opacity="0.18"/>
+      <rect x="480" y="125" width="100" height="34" rx="6"/><rect x="480" y="170" width="100" height="34" rx="6"/><rect x="480" y="215" width="100" height="30" rx="6"/>
+      <rect x="610" y="150" width="104" height="60" rx="6"/>
+    </g>
+    <text x="56" y="65">ERP</text><text x="56" y="125" font-size="12">CRM, webshop</text><text x="56" y="185">külső adat</text>
+    <text x="152" y="125" transform="rotate(-90 152 125)">EAI</text>
+    <text x="250" y="117">Átmeneti</text><text x="250" y="133">terület</text>
+    <text x="385" y="52">ODS</text><text x="385" y="68" font-size="11">aktuális állapot</text>
+    <text x="385" y="185">EDW</text><text x="385" y="202" font-size="11">vállalati, historikus</text>
+    <text x="530" y="147">Pénzügy</text><text x="530" y="192">Értékesítés</text><text x="530" y="235">HR</text><text x="530" y="265" font-size="12" font-weight="600">adatpiacok</text>
+    <text x="662" y="175">elemzés,</text><text x="662" y="192">riport, BI</text>
+    <g stroke="currentColor" stroke-width="1.4" fill="none" marker-end="url(#nyil2)">
+      <line x1="104" y1="60" x2="128" y2="60"/><line x1="104" y1="120" x2="128" y2="120"/><line x1="104" y1="180" x2="128" y2="180"/>
+      <line x1="174" y1="120" x2="198" y2="120"/>
+      <line x1="300" y1="110" x2="328" y2="62"/><line x1="300" y1="132" x2="328" y2="180"/>
+      <line x1="440" y1="180" x2="478" y2="142"/><line x1="440" y1="188" x2="478" y2="187"/><line x1="440" y1="198" x2="478" y2="228"/>
+      <line x1="580" y1="142" x2="608" y2="168"/><line x1="580" y1="187" x2="608" y2="182"/><line x1="580" y1="230" x2="608" y2="198"/>
+      <line x1="440" y1="55" x2="608" y2="160" stroke-dasharray="4 3"/>
+    </g>
+  </g>
+</svg>
+<figcaption>VIR-komponensek (egyszerűsítve). Szaggatott nyíl: az ODS-ből operatív, „mai” riportok is készülhetnek.</figcaption>
+</figure>
+
+<div class="box def"><span class="box-title">Definíció – VIR-komponensek</span>
+<div class="table-wrap"><table>
+<tr><th>Rövidítés</th><th>Név</th><th>Szerepe</th></tr>
+<tr><td><strong>ERP</strong></td><td>vállalatirányítási rendszer (Enterprise Resource Planning)</td><td>a cég fő üzemi rendszere: pénzügy, készlet, beszerzés, HR (pl. SAP)</td></tr>
+<tr><td><strong>EAI</strong></td><td>vállalati alkalmazásintegráció (Enterprise Application Integration)</td><td>összeköti az alkalmazásokat, hogy adatot cseréljenek (üzenetek, interfészek)</td></tr>
+<tr><td><strong>átmeneti terület</strong> (staging area)</td><td>—</td><td>a bejövő adatok ideiglenes tárolása és módosítása (tisztítás, átalakítás) a betöltés előtt</td></tr>
+<tr><td><strong>ODS</strong></td><td>operatív adattár (Operational Data Store)</td><td>az ERP (és a források) <em>aktuális</em> állapotát tárolja integráltan, gyakran frissül, kevés múlttal</td></tr>
+<tr><td><strong>EDW</strong></td><td>vállalati adattárház (Enterprise Data Warehouse)</td><td>vállalati szintű, integrált, historikus adattár</td></tr>
+<tr><td><strong>adatpiac</strong> (data mart)</td><td>—</td><td>kisebb, részleg- vagy témaszintű adattár (pl. csak értékesítés), egy szűkebb felhasználói körnek</td></tr>
+</table></div>
+</div>
+
+<div class="table-wrap"><table>
+<tr><th>Szempont</th><th>ODS</th><th>EDW</th><th>Adatpiac</th></tr>
+<tr><td>hatókör</td><td>vállalati, operatív</td><td>vállalati</td><td>egy részleg / téma</td></tr>
+<tr><td>idő</td><td>aktuális állapot (napok)</td><td>historikus (évek)</td><td>historikus, a téma igénye szerint</td></tr>
+<tr><td>frissítés</td><td>gyakori, akár percenként, felülír</td><td>időszakos, bővít</td><td>időszakos, jellemzően az EDW-ből</td></tr>
+<tr><td>tipikus kérdés</td><td>„Mi van most nyitott rendelésként?”</td><td>„Hogyan változott a bevétel 5 év alatt?”</td><td>„Hogy teljesít a marketingkampány?”</td></tr>
+</table></div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – melyik komponens?</span>
+<p>Az ügyfélszolgálat azt akarja látni, hogy egy ügyfélnek <em>most</em> milyen nyitott rendelései és reklamációi vannak, három rendszerből összefésülve. Melyik komponens szolgálja ki?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Az <strong>ODS</strong>: integrált (több forrásból), de aktuális állapotot tárol és gyakran frissül. Az EDW-nek nem ez a dolga (ott a múlt van, jellemzően napi késéssel).</p>
+</details>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés – Inmon és Kimball</span>
+<p>Két klasszikus építési sorrend van:</p>
+<ul>
+<li><strong>Inmon (felülről lefelé):</strong> először a normalizált, vállalati EDW épül fel, és <em>ebből</em> töltődnek a részlegek adatpiacai.</li>
+<li><strong>Kimball (alulról felfelé):</strong> először a részlegek többdimenziós adatpiacai épülnek, közös („megfeleltetett”) dimenziókkal, és ezek együtt adják a vállalati adattárházat.</li>
+</ul>
+<p>Az előadás ábrája az előbbit mutatja. A Kimball-féle dimenzionális modellezés a <a href="13-md-modell-mdx.html">13. leckében</a> jön.</p>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+<li>Az <strong>átmeneti terület</strong> nem a felhasználóké: félkész, ellenőrizetlen adat van benne. Riportot nem szabad rá építeni.</li>
+<li>Az <strong>ODS nem adattárház</strong>: integrált, de felülíródik, így múltbeli elemzésre nem jó.</li>
+<li>Az <strong>adatpiac</strong> nem egy kisebb, „bárhogyan kivágott” másolat: egy jól meghatározott téma vagy részleg igényére szabott, és (Inmon szerint) az EDW-vel egyező számokat ad.</li>
+<li>A <strong>metaadat</strong> nem „mellékes dokumentáció”: a DW önálló modulja, nélküle a számok nem értelmezhetők és nem ellenőrizhetők.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Komponensek (5 feladat)</summary>
+<ol>
+  <li><p>Melyik DW-komponens feladata: (a) éjjel 2-kor elindítani a betöltést; (b) a forrásból kiolvasni a napi CSV-t; (c) leírni, hogy a „vevőszám” mit jelent; (d) a dashboard?</p>
+    <details class="solution"><summary>Megoldás</summary><p>(a) ütemező modul, (b) ETL (kinyerés), (c) metaadat modul (üzleti metaadat), (d) megjelenítési réteg.</p></details></li>
+  <li><p>A pénzügyi osztály saját, csak pénzügyi témájú adattárat kap, amely a vállalati adattárházból töltődik. Mi ennek a neve?</p>
+    <details class="solution"><summary>Megoldás</summary><p><strong>Adatpiac</strong> (data mart): részlegszintű adattár, Inmon-féle felépítésben az EDW-ből töltve.</p></details></li>
+  <li><p>Hol végzik a bejövő adatok tisztítását, mielőtt az EDW-be kerülnének, és miért nem közvetlenül az EDW tábláiban?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Az <strong>átmeneti területen</strong> (staging). Ha közvetlenül az EDW-ben dolgoznának, a felhasználók félkész, ellenőrizetlen adatot látnának, és egy hibás betöltés elrontaná a végleges táblákat.</p></details></li>
+  <li><p>Mit csinál az EAI, és miben más, mint az ETL?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Az EAI az <strong>alkalmazásokat köti össze</strong>, hogy működés közben adatot cseréljenek (pl. a webshop rendelése azonnal megjelenik az ERP-ben). Az ETL az <strong>elemzéshez</strong> mozgatja az adatot a DW-be, jellemzően időszakosan és átalakítással.</p></details></li>
+  <li><p>Két riportban eltér a „márciusi bevétel”: 625 és 612 ezer Ft. Melyik DW-modul segít kideríteni az okot, és milyen információval?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A <strong>metaadat modul</strong>: az üzleti metaadat megmutatja, hogy a két riport ugyanazt a definíciót használja-e (pl. bruttó vagy nettó, a visszárut levonják-e), a technikai metaadat pedig azt, hogy mikori betöltésből és hány sorból készült.</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l12-lepes4"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes5">
+<h2>5. lépés – ETL: kinyerés és átalakítás egy kézzel követhető példán</h2>
+
+<p>Az architektúrában az ETL egyetlen doboz volt. Most kinyitjuk. Két forrásrendszer ugyanarról a hétről küld adatot, és ebből egy egységes céltáblát kell készíteni.</p>
+
+<h4>Kis eset: két forrás, egy céltábla</h4>
+<div class="two-col">
+<div style="min-width:0">
+<p class="kicker">A forrás – <code>webshop.csv</code> (vesszővel tagolt)</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>ugyfel</th><th>datum</th><th>osszeg_ft</th><th>varos</th></tr>
+<tr><td>W1</td><td>CUST_001</td><td>2025-03-01</td><td class="num">12500</td><td>budapest</td></tr>
+<tr><td>W2</td><td>CUST_002</td><td>2025-03-01</td><td class="num">8000</td><td>Győr</td></tr>
+<tr><td>W3</td><td>CUST_001</td><td>2025-03-02</td><td class="num">4500</td><td>Budapest</td></tr>
+<tr><td>W3</td><td>CUST_001</td><td>2025-03-02</td><td class="num">4500</td><td>Budapest</td></tr>
+</table></div>
+</div>
+<div style="min-width:0">
+<p class="kicker">B forrás – <code>bolt.csv</code> (pontosvesszővel tagolt)</p>
+<div class="table-wrap"><table>
+<tr><th>bizonylat</th><th>vevo</th><th>datum</th><th>osszeg_eFt</th><th>varos</th></tr>
+<tr><td>P1</td><td>CUST001</td><td>2025.03.01.</td><td class="num">6,2</td><td>Bp.</td></tr>
+<tr><td>P2</td><td>CUST003</td><td>2025.03.02.</td><td class="num">3,5</td><td>Debrecen</td></tr>
+<tr><td>P3</td><td></td><td>2025.03.02.</td><td class="num">2,0</td><td>Győr</td></tr>
+</table></div>
+</div>
+</div>
+
+<p>Mielőtt bármit csinálnál, vedd számba a problémákat (ez a <a href="01-adattisztitas.html#lepes3">01. lecke „elvárás kontra valóság”</a> vizsgálata):</p>
+<ol>
+<li>eltérő <strong>oszlopnevek</strong> (<code>id</code> / <code>bizonylat</code>, <code>ugyfel</code> / <code>vevo</code>);</li>
+<li>eltérő <strong>dátumformátum</strong> (<code>2025-03-01</code> / <code>2025.03.01.</code>);</li>
+<li>eltérő <strong>mértékegység</strong> és tizedesjel (Ft / ezer Ft, tizedesvesszővel);</li>
+<li>eltérő <strong>városírás</strong> (<code>budapest</code>, <code>Budapest</code>, <code>Bp.</code>);</li>
+<li><strong>duplikátum</strong> (a W3 kétszer jött, mert az export kétszer futott);</li>
+<li>eltérő <strong>ügyfélkulcs</strong> (<code>CUST_001</code> / <code>CUST001</code>) és egy <strong>hiányzó</strong> vevő (P3: kártya nélküli vásárló).</li>
+</ol>
+
+<h4>Az átalakítás lépésről lépésre</h4>
+<div class="table-wrap"><table>
+<tr><th>Lépés</th><th>Mit csinálunk</th><th>A példában</th></tr>
+<tr><td>1. leképezés (mapping)</td><td>a forrásmezőket a cél sémájára illesztjük</td><td><code>bizonylat → id</code>, <code>vevo → ugyfel</code>, <code>osszeg_eFt → osszeg_ft</code></td></tr>
+<tr><td>2. formátum-egységesítés</td><td>dátum, szám, mértékegység egy formára</td><td><code>2025.03.01.</code> → <code>2025-03-01</code>; <code>6,2</code> eFt → <code>6200</code> Ft</td></tr>
+<tr><td>3. tisztítás, szövegegységesítés</td><td>kis- és nagybetű, rövidítések, elírások</td><td><code>budapest</code>, <code>Bp.</code> → <code>Budapest</code></td></tr>
+<tr><td>4. deduplikálás</td><td>az ismétlődő rekordok kiszűrése (forrás + azonosító szerint)</td><td>a második W3 kiesik: 7 sorból 6 marad</td></tr>
+<tr><td>5. kulcsképzés</td><td>a természetes kulcs egységesítése, majd <strong>helyettesítő kulcs</strong> (surrogate key) kiosztása</td><td><code>CUST_001</code>, <code>CUST001</code> → <code>CUST001</code> → kulcs 1; hiányzó vevő → 0 („ismeretlen”)</td></tr>
+<tr><td>6. aggregálás (ha kell)</td><td>összesítő táblák, mutatók előállítása</td><td>napi és városonkénti bevétel</td></tr>
+</table></div>
+
+<p class="kicker">Céltábla – <code>ertekesites_teny</code> (6 sor)</p>
+<div class="table-wrap"><table>
+<tr><th>sk</th><th>forras</th><th>forras_id</th><th>ugyfel_kulcs</th><th>datum</th><th>osszeg_ft</th><th>varos</th></tr>
+<tr><td class="num">1</td><td>webshop</td><td>W1</td><td class="num">1</td><td>2025-03-01</td><td class="num">12500</td><td>Budapest</td></tr>
+<tr><td class="num">2</td><td>webshop</td><td>W2</td><td class="num">2</td><td>2025-03-01</td><td class="num">8000</td><td>Győr</td></tr>
+<tr><td class="num">3</td><td>webshop</td><td>W3</td><td class="num">1</td><td>2025-03-02</td><td class="num">4500</td><td>Budapest</td></tr>
+<tr><td class="num">4</td><td>bolt</td><td>P1</td><td class="num">1</td><td>2025-03-01</td><td class="num">6200</td><td>Budapest</td></tr>
+<tr><td class="num">5</td><td>bolt</td><td>P2</td><td class="num">3</td><td>2025-03-02</td><td class="num">3500</td><td>Debrecen</td></tr>
+<tr><td class="num">6</td><td>bolt</td><td>P3</td><td class="num">0</td><td>2025-03-02</td><td class="num">2000</td><td>Győr</td></tr>
+</table></div>
+<p>Az ügyfélkulcsok: <code>CUST001</code> → 1, <code>CUST002</code> → 2, <code>CUST003</code> → 3, ismeretlen → 0. Összesen $36\,700$ Ft. Városonként: Budapest $23\,200$, Győr $10\,000$, Debrecen $3\,500$ Ft.
+Naponta: 03-01: $26\,700$, 03-02: $10\,000$ Ft.</p>
+
+<div class="box def"><span class="box-title">Definíció – ETL (Extract, Transform, Load)</span>
+<ol>
+<li><strong>Kinyerés</strong> (extract): az adat kiolvasása a forrásrendszerekből (adatbázis, CSV, JSON, API, SaaS-alkalmazás), jellemzően egy átmeneti területre.</li>
+<li><strong>Átalakítás</strong> (transform): leképezés, tisztítás, egységesítés, deduplikálás, kulcsképzés, validálás, számított mezők és aggregálás, hogy az adat a cél sémájának és üzleti szabályainak megfeleljen.</li>
+<li><strong>Betöltés</strong> (load): az átalakított adat beírása a céltárolóba (adattárház, adatpiac, ODS) – teljesen vagy inkrementálisan (<a href="#lepes6">6. lépés</a>).</li>
+</ol>
+<p><strong>Miért ebben a sorrendben?</strong> Mert az adattárház schema-on-write: csak tiszta, sémába illő adat kerülhet be. Az átalakítás ezért a betöltés <em>előtt</em>, egy külön (átmeneti) helyen történik.</p>
+</div>
+
+<h4>Mi lett volna, ha kihagysz egy lépést?</h4>
+<div class="table-wrap"><table>
+<tr><th>Kihagyott lépés</th><th>Következmény a példában</th></tr>
+<tr><td>deduplikálás</td><td>összesen $41\,200$ Ft $36\,700$ helyett, Budapest $27\,700$ $23\,200$ helyett (a W3 kétszer számít)</td></tr>
+<tr><td>kulcsegységesítés</td><td>Anna két vevőnek látszik: <code>CUST_001</code> $17\,000$ Ft és <code>CUST001</code> $6\,200$ Ft, a „legjobb vevők” listája hamis</td></tr>
+<tr><td>városegységesítés</td><td>három „Budapest” csoport: <code>budapest</code> $12\,500$, <code>Budapest</code> $4\,500$, <code>Bp.</code> $6\,200$</td></tr>
+<tr><td>mértékegység-váltás</td><td>a bolti összegek 6,2, 3,5 és 2,0 „forintként” mennek be, a végösszeg $25\,011{,}7$ lenne</td></tr>
+</table></div>
+
+<h4>Ugyanez Pythonban</h4>
+<p>A <a href="01-adattisztitas.html#lepes4">01. lecke</a> tisztító lépései (duplikátum, szövegegységesítés, típuskonverzió) itt egy ETL-folyamat „T” betűjévé állnak össze. A pandas részletei a <a href="11-python-adatkezeles.html">11. leckében</a> vannak.</p>
+<pre><code class="language-python">import pandas as pd
+
+# 1. Kinyerés (Extract)
+web  = pd.read_csv("webshop.csv")
+bolt = pd.read_csv("bolt.csv", sep=";", decimal=",")
+
+# 2. Átalakítás (Transform)
+web  = web.drop_duplicates()                                  # deduplikálás
+bolt = bolt.rename(columns={"bizonylat": "id", "vevo": "ugyfel"})
+bolt["datum"]     = pd.to_datetime(bolt["datum"], format="%Y.%m.%d.")
+bolt["osszeg_ft"] = (bolt["osszeg_eFt"] * 1000).round().astype(int)   # ezer Ft -> Ft
+web["datum"]      = pd.to_datetime(web["datum"], format="%Y-%m-%d")
+web["forras"], bolt["forras"] = "webshop", "bolt"
+
+oszlopok = ["forras", "id", "ugyfel", "datum", "osszeg_ft", "varos"]
+egyutt = pd.concat([web[oszlopok], bolt[oszlopok]], ignore_index=True)
+
+egyutt["varos"] = (egyutt["varos"].str.strip().str.lower()
+                   .replace({"bp.": "budapest"}).str.title())          # egységesítés
+egyutt["ugyfel"] = egyutt["ugyfel"].str.upper().str.replace("_", "")  # természetes kulcs
+kulcsok = {k: i + 1 for i, k in enumerate(egyutt["ugyfel"].dropna().unique())}
+egyutt["ugyfel_kulcs"] = egyutt["ugyfel"].map(kulcsok).fillna(0).astype(int)  # helyettesítő kulcs
+
+# 3. Betöltés (Load) – itt csak kiírjuk; élesben: to_sql(...) a DWH-ba
+print(egyutt.drop(columns="ugyfel"))
+print(egyutt.groupby("varos")["osszeg_ft"].sum())</code></pre>
+<p class="kicker">Kimenet (részlet)</p>
+<pre><code class="language-plaintext">varos
+Budapest    23200
+Debrecen     3500
+Győr        10000</code></pre>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – miért kell helyettesítő kulcs?</span>
+<p>A webshopban a 17-es ügyfél Kiss Péter, a bolti hűségkártya-rendszerben a 17-es ügyfél Nagy Éva. Mi történik, ha az adattárház a forráskulcsot használja?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Két különböző ember ugyanazt a kulcsot kapja, a vásárlásaik összekeverednek. Ezért az ETL saját, a forrásoktól független <strong>helyettesítő kulcsot</strong> (surrogate key) oszt ki: pl. webshop/17 → 1 024, hűségkártya/17 → 2 311.
+A forráskulcsot (természetes kulcs) megtartjuk egy oszlopban, hogy vissza lehessen keresni. A helyettesítő kulcs akkor is stabil marad, ha a forrásrendszert lecserélik.</p>
+</details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – hiányzó érték kulcsban</span>
+<p>A P3 vásárlásnál nincs vevőazonosító. Elhagyjuk a sort?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Nem: a 2 000 Ft bevétel valódi, ha elhagyjuk, a győri bevétel 8 000 Ft lenne $10\,000$ helyett. Ehelyett egy külön <strong>„ismeretlen vevő”</strong> kulcsot (itt 0) kap. Így a bevételi összegek helyesek maradnak, a vevőszintű elemzésben pedig külön látszik, mennyi a névtelen vásárlás.</p>
+</details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – mikor aggregáljunk?</span>
+<p>Az ETL a betöltés előtt napi, városonkénti összegre aggregál, és csak ezt tölti be. Mi a baj ezzel, ha később ügyfelenkénti elemzés kell?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>A részletek (melyik vevő mit vett) elvesztek, az összegből már nem bontható vissza. Ezért az adattárház a <strong>legrészletesebb szintet</strong> (tétel, bizonylat) tárolja, az összesítők pedig <em>ebből</em>, kiegészítő táblaként készülnek (ezt végzi az ütemező az „előzetes számítások” keretében).</p>
+</details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+<li>A deduplikálás kulcsa számít. Itt a (forrás, azonosító) pár a jó kulcs. Ha csak a teljes sor egyezését nézed, egy véletlenül azonos összegű, napú, városú, de <em>különböző</em> vásárlást is törölhetsz; ha csak az azonosítót, két forrás azonos azonosítója ütközhet.</li>
+<li>A hibás sorokat ne dobd el némán: tedd egy <strong>hibatáblába</strong> (elutasított rekordok) az okkal együtt. Különben nem tudod megmagyarázni, miért kevesebb a betöltött sor.</li>
+<li>Az egységesítési szótárat (<code>Bp. → Budapest</code>) karban kell tartani: egy új írásmód (<code>BUDAPEST XI.</code>) új hibát hoz.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – ETL átalakítás (5 feladat)</summary>
+<ol>
+  <li><p>A céltábla alapján mennyit költött összesen a 1-es kulcsú ügyfél (Anna)? Melyik forrásból mennyit?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Webshop: $12\,500 + 4\,500 = 17\,000$ Ft, bolt: $6\,200$ Ft, összesen $23\,200$ Ft. Ez csak a kulcsegységesítés után jön ki egyben.</p></details></li>
+  <li><p>Egy harmadik forrás a dátumot így küldi: <code>03/01/2025</code>. Mi a gond ezzel, és mit kell tudni az átalakításhoz?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Kétértelmű: amerikai szokás szerint március 1., európai szerint január 3. A forrásrendszer dokumentációjából (vagy metaadatából) kell kideríteni a formátumot, és explicit formátummal (<code>%m/%d/%Y</code> vagy <code>%d/%m/%Y</code>) kell átalakítani.</p></details></li>
+  <li><p>Melyik átalakítási lépés oldja meg: (a) <code>Electronics</code> és <code>electrnics</code>; (b) ugyanaz a rendelés kétszer; (c) EUR és Ft vegyesen; (d) <code>CUST_001</code> és <code>CUST001</code>?</p>
+    <details class="solution"><summary>Megoldás</summary><p>(a) tisztítás, szövegegységesítés (elírás javítása), (b) deduplikálás, (c) formátum- és mértékegység-egységesítés (árfolyammal, a vásárlás napján), (d) kulcsképzés (természetes kulcs egységesítése).</p></details></li>
+  <li><p>A bolt holnaptól forintban küldi az összeget, de senki nem módosítja az ETL-t. Mi lesz a 6 200 Ft-os vásárlással?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Az ETL továbbra is ezerrel szoroz: $6\,200\cdot 1\,000 = 6\,200\,000$ Ft kerül be. Ezért kell a forrás formátumváltozását figyelni (metaadat, validálási szabály, pl. „egy bolti blokk nem lehet 1 millió Ft felett”).</p></details></li>
+  <li><p>Írd le, milyen sorrendben futnál a hat átalakítási lépésen, és miért kell a deduplikálásnak a kulcsképzés előtt lennie!</p>
+    <details class="solution"><summary>Megoldás</summary><p>Leképezés → formátum → tisztítás → deduplikálás → kulcsképzés → aggregálás. A duplikátumot a kulcsosztás előtt kell kiszűrni, különben a két W3-sor két külön ténysort (két helyettesítő <code>sk</code>-t) kapna, és később már nem látszana, hogy ugyanaz a rendelés. Az aggregálás mindig a végére kerül, mert a tiszta, részletes sorokból számol.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes6">
+<h2>6. lépés – Betöltés (teljes, inkrementális) és ELT</h2>
+
+<h4>Kis eset: másnap éjjel</h4>
+<p>Tegnap éjjel betöltöttünk mindent. Ma éjjel újra fut az ETL. A webshop <code>rendelesek</code> táblájában minden sornak van egy <code>modositva</code> időbélyege. Az előző futáskor a legnagyobb betöltött időbélyeg <strong>2025-03-02 18:20</strong> volt (ez a <em>vízjel</em>).</p>
+<div class="table-wrap"><table>
+<tr><th>id</th><th>statusz</th><th>modositva</th><th>Mi történt tegnap óta?</th></tr>
+<tr><td class="num">1</td><td>kiszállítva</td><td>2025-03-01 10:00</td><td>semmi</td></tr>
+<tr><td class="num">2</td><td>kiszállítva</td><td>2025-03-03 11:00</td><td>módosult (fizetve → kiszállítva)</td></tr>
+<tr><td class="num">3</td><td>fizetve</td><td>2025-03-02 18:20</td><td>semmi</td></tr>
+<tr><td class="num">4</td><td>új</td><td>2025-03-03 09:15</td><td>új rendelés</td></tr>
+<tr><td class="num">5</td><td>új</td><td>2025-03-03 16:40</td><td>új rendelés</td></tr>
+<tr><td colspan="4">(a 6-os rendelést tegnap óta törölték a forrásból)</td></tr>
+</table></div>
+<div class="two-col">
+<div class="box example" style="min-width:0"><span class="box-title">Teljes betöltés (full load)</span>
+<p>Kiürítjük a céltáblát és mind az 5 sort újratöltjük. Egyszerű, és a törölt 6-os is eltűnik. De 200 millió sornál ez órákig tart, minden éjjel.</p>
+</div>
+<div class="box example" style="min-width:0"><span class="box-title">Inkrementális betöltés</span>
+<pre><code class="language-sql">SELECT * FROM rendelesek
+WHERE modositva &gt; '2025-03-02 18:20';</code></pre>
+<p>Csak a 2, 4, 5 jön át (3 sor): a 2-est frissítjük, a 4-est és 5-öst beszúrjuk (<code>MERGE</code> / „upsert”). Az új vízjel 2025-03-03 16:40.</p>
+</div>
+</div>
+<p>Az inkrementális betöltés sokkal kevesebb munka. De a <strong>törölt 6-os sort nem veszi észre</strong>: az már nincs a forrásban, így nincs mit kiolvasni. Erre való a változáskövetés.</p>
+
+<div class="box def"><span class="box-title">Definíció – Teljes és inkrementális betöltés</span>
+<ul>
+<li><strong>Teljes betöltés</strong> (full load): minden alkalommal a teljes adathalmazt töltjük újra. Egyszerű, de idő- és erőforrás-igényes.</li>
+<li><strong>Inkrementális betöltés</strong> (incremental load): csak az előző futás óta új vagy módosult adatot dolgozzuk fel. Hatékony, de nyilván kell tartani, mi változott. Eszközei:
+  <ul>
+  <li>időbélyeg- vagy jelzőmező (<code>modositva</code>, <code>betoltve = 0/1</code>) és vízjel;</li>
+  <li><strong>CDC</strong> (Change Data Capture, változáskövetés): a forrás naplójából a beszúrás, módosítás <em>és törlés</em> is kiolvasható;</li>
+  <li>audit tábla, amely naplózza a futásokat (mikor, hány sor, milyen vízjellel).</li>
+  </ul></li>
+</ul>
+<p><strong>Miért?</strong> Egy több százmillió soros adattárházban naponta jellemzően csak a sorok töredéke változik. Felesleges a változatlan többséget minden éjjel újra mozgatni.</p>
+</div>
+
+<h4>ELT: fordítsuk meg a sorrendet</h4>
+<p>Eddig a T (átalakítás) egy külön szerveren, a betöltés előtt volt. A modern felhős adattárházak (Snowflake, BigQuery, Redshift, Azure Synapse) óriási számítási kapacitással bírnak. Mi lenne, ha a nyers adatot <em>először betöltenénk</em>, és ott, SQL-lel alakítanánk át?</p>
+
+<figure>
+<svg viewBox="0 0 720 170" role="img" aria-label="ETL és ELT összehasonlítása: az átalakítás helye" style="max-width:720px;width:100%">
+  <defs><marker id="nyil3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+  <g font-family="Inter, sans-serif" font-size="13" fill="currentColor" text-anchor="middle">
+    <text x="30" y="45" font-weight="700">ETL</text><text x="30" y="125" font-weight="700">ELT</text>
+    <g stroke="currentColor" stroke-width="1.4" fill="none">
+      <rect x="70" y="20" width="110" height="44" rx="6"/><rect x="230" y="20" width="200" height="44" rx="6" fill="var(--accent)" fill-opacity="0.18"/><rect x="480" y="20" width="220" height="44" rx="6"/>
+      <rect x="70" y="100" width="110" height="44" rx="6"/><rect x="230" y="100" width="470" height="44" rx="6"/>
+      <rect x="440" y="106" width="250" height="32" rx="5" fill="var(--accent)" fill-opacity="0.18"/>
+    </g>
+    <text x="125" y="47">Források</text>
+    <text x="330" y="40">Átalakítás külön</text><text x="330" y="56" font-size="11">ETL-szerveren / staging</text>
+    <text x="590" y="47">Adattárház (tiszta adat)</text>
+    <text x="125" y="127">Források</text>
+    <text x="330" y="120">Felhős adattárház</text><text x="330" y="136" font-size="11">nyers (staging) táblák</text>
+    <text x="565" y="127">Átalakítás SQL-lel, a tárházban</text>
+    <g stroke="currentColor" stroke-width="1.4" fill="none" marker-end="url(#nyil3)">
+      <line x1="180" y1="42" x2="228" y2="42"/><line x1="430" y1="42" x2="478" y2="42"/>
+      <line x1="180" y1="122" x2="228" y2="122"/><line x1="410" y1="122" x2="438" y2="122"/>
+    </g>
+    <text x="204" y="34" font-size="11">E</text><text x="454" y="34" font-size="11">L</text>
+    <text x="204" y="114" font-size="11">E, L</text><text x="424" y="114" font-size="11">T</text>
+  </g>
+</svg>
+<figcaption>Az ETL a tárházon kívül, a betöltés előtt alakít át; az ELT előbb betölti a nyers adatot, és a tárház saját számítási erejével alakít át.</figcaption>
+</figure>
+
+<div class="box def"><span class="box-title">Definíció – ELT (Extract, Load, Transform)</span>
+<p>Kinyerés után a nyers adat azonnal a célrendszerbe (jellemzően felhős adattárház staging tábláiba vagy adattóba) kerül, és az átalakítás <strong>ott</strong>, a célrendszer számítási kapacitásával, többnyire SQL-lel történik.</p>
+<div class="table-wrap"><table>
+<tr><th>Jellemző</th><th>ETL</th><th>ELT</th></tr>
+<tr><td>átalakítás helye</td><td>külső rendszerben, betöltés előtt</td><td>a célrendszeren belül, betöltés után</td></tr>
+<tr><td>teljesítmény</td><td>az ETL-szerver korlátozza</td><td>a tárház skálázható számítási erejét használja</td></tr>
+<tr><td>nyers adat</td><td>nem marad meg a célban</td><td>megmarad, újra feldolgozható</td></tr>
+<tr><td>adatminőség a célban</td><td>csak ellenőrzött adat kerül be</td><td>a nyers rétegben ellenőrizetlen adat is van</td></tr>
+<tr><td>tipikus környezet</td><td>helyben futó (on-premise), szigorúan szabályozott</td><td>felhős, nagy adatmennyiségű</td></tr>
+<tr><td>költségmodell</td><td>saját infrastruktúra</td><td>használatalapú</td></tr>
+<tr><td>eszközök</td><td>Informatica, Talend, SSIS, Pentaho, NiFi</td><td>dbt, Fivetran, Airbyte, Matillion</td></tr>
+</table></div>
+<p><strong>Mikor jobb az ELT?</strong> Ha felhős, erős számítási kapacitású tárház van; nagy, részben strukturált az adat; meg akarod őrizni a nyers adatot későbbi, más célú újrafeldolgozáshoz; és gyorsan kell új elemzéseket kipróbálni.
+<strong>Mikor jobb az ETL?</strong> Ha a célrendszer csak előre formázott adatot fogad, ha jogszabály írja elő, hogy személyes adat csak átalakítva (pl. álnevesítve) kerülhet a tárolóba, vagy ha helyben futó, korlátos kapacitású tárház van.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – ETL vagy ELT?</span>
+<p>(a) Egy kórház helyben futó adattárháza betegadatokat kap, amelyeket csak álnevesítve szabad tárolni. (b) Egy startup a webes kattintásnaplókat BigQuery-be gyűjti, és még nem tudja, milyen elemzések kellenek majd.</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>(a) <strong>ETL</strong>: az álnevesítésnek a tárolás <em>előtt</em> kell megtörténnie, és a helyi tárház kapacitása korlátos. (b) <strong>ELT</strong>: felhős tárház, nagy adat, a nyers adatot meg kell őrizni, az átalakítást SQL-lel, később, igény szerint írják meg.</p>
+</details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – a példánk ELT-ben</span>
+<p>Hogyan néz ki az 5. lépés két CSV-je ELT-ben?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>(1) A két CSV-t változatlanul betöltjük két nyers táblába (<code>stg_webshop</code>, <code>stg_bolt</code>). (2) A tárházban SQL-lel (pl. dbt-modellként) készül a tiszta <code>ertekesites_teny</code>: <code>REPLACE</code>, <code>UPPER</code>, dátumkonverzió, <code>SELECT DISTINCT</code>, <code>UNION ALL</code>.
+A nyers táblák megmaradnak, így ha kiderül, hogy a <code>Bp.</code>-szótár hibás volt, az egész történet újraszámolható a forrásrendszerek újbóli lekérdezése nélkül.</p>
+</details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+<li><strong>&gt; vagy ≥ a vízjelnél?</strong> <code>&gt;=</code>-vel a vízjel pillanatában módosult sor (itt a 3-as) minden futáskor újra bejön, ezért a betöltésnek ismétlésbiztosnak kell lennie (upsert, nem sima beszúrás). <code>&gt;</code>-vel az a sor, amely ugyanabban a pillanatban, de a futás után került be, kimaradhat.</li>
+<li>Az időbélyeges inkrementális betöltés a <strong>törlést nem látja</strong>. Megoldás: CDC, „logikai törlés” jelzőmező a forrásban, vagy időnként teljes összevetés.</li>
+<li>Az ELT nem azt jelenti, hogy „nincs átalakítás”: ugyanaz a munka, csak máshol és később. A nyers réteg ellenőrizetlen, ezért arra riportot építeni ugyanolyan hiba, mint a staging területre.</li>
+<li>Sok cég <strong>hibrid</strong>: a pénzügyi adatokra ETL-t, a naplókra ELT-t használ. Nem kell egyet választani az egész cégre.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Betöltés és ELT (5 feladat)</summary>
+<ol>
+  <li><p>A vízjel 2025-03-03 16:40. Másnap a forrásban: 2-es (módosítva 03-03 11:00), 5-ös (módosítva 03-04 08:00), 7-es (új, 03-04 12:30). Mely sorok jönnek át a <code>modositva &gt; vízjel</code> feltétellel, és mi lesz az új vízjel?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Az 5-ös (frissítés) és a 7-es (beszúrás): 2 sor. A 2-es nem, mert 11:00 &lt; 16:40, és azt tegnap már betöltöttük. Az új vízjel 2025-03-04 12:30.</p></details></li>
+  <li><p>Egy 300 millió soros ténytáblában naponta kb. 400 000 sor változik. Teljes vagy inkrementális betöltést javasolsz? Kb. hányszor kevesebb sort mozgat az inkrementális?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Inkrementálisat. $300\,000\,000 / 400\,000 = 750$-szer kevesebb sort mozgat naponta.</p></details></li>
+  <li><p>Melyik esetben jobb a teljes betöltés? (a) 2 000 soros terméktörzs, amelyben a törlés is gyakori; (b) 5 éves kattintásnapló.</p>
+    <details class="solution"><summary>Megoldás</summary><p>(a) teljes betöltés: kicsi, gyorsan újratölthető, és így a törlések is automatikusan átjönnek. (b) inkrementális: óriási, és a régi napló nem változik.</p></details></li>
+  <li><p>Egy bank szerint az ügyfelek adóazonosítója csak titkosítva kerülhet a felhős tárolóba. ETL vagy ELT kell legalább erre a mezőre, és miért?</p>
+    <details class="solution"><summary>Megoldás</summary><p>ETL (legalább erre a mezőre): az átalakításnak (titkosítás, álnevesítés) a betöltés <em>előtt</em> kell megtörténnie, különben a nyers, ELT-s staging táblában titkosítatlanul ott lenne az érzékeny adat.</p></details></li>
+  <li><p>Mondj két előnyt és két hátrányt az ELT mellett, a nyers adat megőrzéséhez kapcsolódva!</p>
+    <details class="solution"><summary>Megoldás</summary><p>Előny: (1) hibás átalakítás után újraszámolható a forrás újbóli lekérdezése nélkül; (2) új elemzési igényhez a nyers adat már rendelkezésre áll. Hátrány: (1) ellenőrizetlen (és akár személyes) adat van a célrendszerben, ami adatvédelmi és minőségi kockázat; (2) a redundáns tárolás növeli a tárhelyköltséget.</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l12-lepes6"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes7">
+<h2>7. lépés – Adattó, lakehouse, elosztott tárolás</h2>
+
+<p>Az ELT-nél már felbukkant az ötlet: tároljuk a nyers adatot is. A kattintásnapló, a termékfotók és a szenzoradatok viszont nem férnek bele egy táblás, schema-on-write adattárházba. Kell egy másik fajta tároló.</p>
+
+<h4>Adattó és lakehouse</h4>
+<div class="box def"><span class="box-title">Definíció – Adattó és lakehouse</span>
+<ul>
+<li><strong>Adattó</strong> (data lake): nagy mennyiségű, strukturált, félig strukturált és nem strukturált adat tárolása egy helyen, <strong>nyers, eredeti formában</strong>, előre definiált séma nélkül (schema-on-read). Jellemzően olcsó objektumtárolón vagy elosztott fájlrendszeren.</li>
+<li><strong>Lakehouse</strong> (adat-lakehouse, „tóház”): hibrid architektúra, amely az adattó rugalmasságát és olcsó tárolását ötvözi az adattárház teljesítményével és adatkezelési képességeivel (séma, tranzakciók, gyors SQL) egyetlen rendszerben.</li>
+</ul>
+<p><strong>Miért kell a lakehouse?</strong> Mert ha a cég adattavat <em>és</em> adattárházat is fenntart, az adat kétszer van tárolva, két rendszert kell üzemeltetni, és a kettő eltérhet egymástól.</p>
+</div>
+
+<div class="table-wrap"><table>
+<tr><th>Szempont</th><th>Adattárház</th><th>Adattó</th><th>Lakehouse</th></tr>
+<tr><td>adattípus</td><td>strukturált</td><td>bármilyen</td><td>bármilyen</td></tr>
+<tr><td>séma</td><td>schema-on-write</td><td>schema-on-read</td><td>mindkettő (nyers és rendezett réteg)</td></tr>
+<tr><td>adatminőség</td><td>magas, ellenőrzött</td><td>változó, irányítás nélkül „adatmocsár”</td><td>rétegenként szabályozott</td></tr>
+<tr><td>erőssége</td><td>gyors riport, megbízható szám</td><td>rugalmasság, olcsó skálázás, gépi tanulás</td><td>egy rendszer mindkét célra</td></tr>
+<tr><td>gyengéje</td><td>merev, drága skálázás</td><td>bonyolult lekérdezés, minőségkockázat</td><td>összetett bevezetés, még kiforratlan gyakorlat</td></tr>
+<tr><td>példa</td><td>Redshift, Snowflake, BigQuery</td><td>Azure Data Lake, AWS S3 + Lake Formation</td><td>Databricks (Delta Lake)</td></tr>
+</table></div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés – rétegek az adattóban</span>
+<p>Az „adatmocsár” ellenszere a rétegezés (a Databricks szóhasználatával „medál-architektúra”): <strong>bronz</strong> réteg = nyers adat, változatlanul; <strong>ezüst</strong> = tisztított, egységesített; <strong>arany</strong> = üzleti, összesített, riportra kész.
+Ez lényegében az ELT a tóban: a bronzból ezüstöt, az ezüstből aranyat ugyanazok az átalakítások csinálnak, mint az <a href="#lepes5">5. lépésben</a>.</p>
+</div>
+
+<h4>Kis eset: egy fájl, amely nem fér el egy gépen</h4>
+<p>Az előadás egyik képe egy Google-szerverfarm. Az ötlet: sok olcsó gép együtt tárol és számol. Ennek klasszikus megvalósítása az Apache Hadoop elosztott fájlrendszere, a <strong>HDFS</strong>.</p>
+<p>Vegyünk egy 300 MB-os naplófájlt és egy 4 gépes (csomópontos) fürtöt. A HDFS a fájlt <strong>blokkokra</strong> vágja (alapértelmezés: 128 MB), és minden blokkot <strong>3 különböző</strong> gépre másol (replikációs tényező: 3).</p>
+<ul>
+<li>Blokkok: $\lceil 300/128 \rceil = 3$ blokk: B1 = 128 MB, B2 = 128 MB, B3 = 44 MB.</li>
+<li>Blokkpéldányok: $3 \cdot 3 = 9$.</li>
+<li>Felhasznált nyers tárhely: $3 \cdot 300 = 900$ MB (a 44 MB-os blokk csak 44 MB-ot foglal, nem 128-at).</li>
+</ul>
+
+<figure>
+<svg viewBox="0 0 640 170" role="img" aria-label="HDFS: három blokk, mindegyik három példányban négy csomóponton elosztva" style="max-width:640px;width:100%">
+  <g font-family="Inter, sans-serif" font-size="13" fill="currentColor" text-anchor="middle">
+    <g stroke="currentColor" stroke-width="1.4" fill="none">
+      <rect x="10" y="30" width="145" height="120" rx="8"/><rect x="170" y="30" width="145" height="120" rx="8"/>
+      <rect x="330" y="30" width="145" height="120" rx="8"/><rect x="490" y="30" width="145" height="120" rx="8"/>
+    </g>
+    <text x="82" y="20">1. csomópont</text><text x="242" y="20">2. csomópont</text><text x="402" y="20">3. csomópont</text><text x="562" y="20">4. csomópont</text>
+    <g stroke="currentColor" stroke-width="1">
+      <rect x="35" y="45" width="95" height="26" rx="4" fill="var(--accent)" fill-opacity="0.45"/>
+      <rect x="35" y="80" width="95" height="26" rx="4" fill="var(--accent)" fill-opacity="0.25"/>
+      <rect x="195" y="45" width="95" height="26" rx="4" fill="var(--accent)" fill-opacity="0.45"/>
+      <rect x="195" y="80" width="95" height="26" rx="4" fill="var(--accent)" fill-opacity="0.10"/>
+      <rect x="355" y="45" width="95" height="26" rx="4" fill="var(--accent)" fill-opacity="0.25"/>
+      <rect x="355" y="80" width="95" height="26" rx="4" fill="var(--accent)" fill-opacity="0.10"/>
+      <rect x="515" y="45" width="95" height="26" rx="4" fill="var(--accent)" fill-opacity="0.45"/>
+      <rect x="515" y="80" width="95" height="26" rx="4" fill="var(--accent)" fill-opacity="0.25"/>
+      <rect x="515" y="115" width="95" height="26" rx="4" fill="var(--accent)" fill-opacity="0.10"/>
+    </g>
+    <text x="82" y="63">B1</text><text x="82" y="98">B2</text>
+    <text x="242" y="63">B1</text><text x="242" y="98">B3</text>
+    <text x="402" y="63">B2</text><text x="402" y="98">B3</text>
+    <text x="562" y="63">B1</text><text x="562" y="98">B2</text><text x="562" y="133">B3</text>
+  </g>
+</svg>
+<figcaption>Egy lehetséges elhelyezés: minden blokk 3 különböző csomóponton van. Bármelyik két csomópont kiesése után is megmarad minden blokkból legalább egy példány.</figcaption>
+</figure>
+<p>A blokkok helyét egy központi „névjegyzék”, a <strong>NameNode</strong> tartja nyilván, az adatot a <strong>DataNode</strong>-ok tárolják. Ha egy gép kiesik, a NameNode a megmaradt példányokból újra 3-ra pótolja a másolatokat.</p>
+
+<h4>MapReduce: szószámlálás három gépen</h4>
+<p>Az adat szét van osztva. Hogyan számolunk rajta? A MapReduce elve: <strong>a számítást visszük az adathoz</strong>, nem az adatot a számításhoz. Minden gép a saját darabján dolgozik, és csak a kis részeredmények utaznak a hálózaton.</p>
+<p>Feladat: hányszor fordul elő az egyes szavak a három csomóponton tárolt szövegben?</p>
+<div class="table-wrap"><table>
+<tr><th>Csomópont</th><th>Saját adat</th><th>Map: (szó, 1) párok</th></tr>
+<tr><td>1.</td><td><code>adat tó adat ház</code></td><td>(adat,1) (tó,1) (adat,1) (ház,1)</td></tr>
+<tr><td>2.</td><td><code>ház adat felhő</code></td><td>(ház,1) (adat,1) (felhő,1)</td></tr>
+<tr><td>3.</td><td><code>tó felhő felhő adat</code></td><td>(tó,1) (felhő,1) (felhő,1) (adat,1)</td></tr>
+</table></div>
+<div class="two-col">
+<div style="min-width:0">
+<p class="kicker">Shuffle: csoportosítás kulcs (szó) szerint</p>
+<div class="table-wrap"><table>
+<tr><th>szó</th><th>értékek</th></tr>
+<tr><td>adat</td><td>[1, 1, 1, 1]</td></tr>
+<tr><td>tó</td><td>[1, 1]</td></tr>
+<tr><td>ház</td><td>[1, 1]</td></tr>
+<tr><td>felhő</td><td>[1, 1, 1]</td></tr>
+</table></div>
+</div>
+<div style="min-width:0">
+<p class="kicker">Reduce: összegzés kulcsonként</p>
+<div class="table-wrap"><table>
+<tr><th>szó</th><th>darab</th></tr>
+<tr><td>adat</td><td class="num">4</td></tr>
+<tr><td>tó</td><td class="num">2</td></tr>
+<tr><td>ház</td><td class="num">2</td></tr>
+<tr><td>felhő</td><td class="num">3</td></tr>
+</table></div>
+</div>
+</div>
+<pre><code class="language-python">from collections import defaultdict
+
+csomopontok = ["adat tó adat ház", "ház adat felhő", "tó felhő felhő adat"]
+
+# Map: minden csomópont a saját darabján, egymástól függetlenül (párhuzamosan)
+map_kimenet = [[(szo, 1) for szo in szoveg.split()] for szoveg in csomopontok]
+
+# Shuffle: az azonos kulcsú párok egy helyre kerülnek
+csoportok = defaultdict(list)
+for parok in map_kimenet:
+    for szo, db in parok:
+        csoportok[szo].append(db)
+
+# Reduce: kulcsonként összegzés
+print({szo: sum(ertekek) for szo, ertekek in csoportok.items()})
+# {'adat': 4, 'tó': 2, 'ház': 2, 'felhő': 3}</code></pre>
+
+<div class="box def"><span class="box-title">Definíció – Elosztott tárolás, HDFS, replikáció, MapReduce</span>
+<ul>
+<li><strong>Elosztott tárolás:</strong> az adatot több szerver (csomópont) között osztjuk szét. Haszna: <strong>skálázhatóság</strong> (új csomópont = több kapacitás), <strong>hibatűrés</strong> (egy gép kiesése nem okoz adatvesztést), <strong>magas rendelkezésre állás</strong> (hiba vagy karbantartás alatt is elérhető).</li>
+<li><strong>HDFS</strong> (Hadoop Distributed File System): az Apache Hadoop nagy fájlokra tervezett elosztott fájlrendszere. A fájlokat blokkokra bontja, a blokkokat több gépen tárolja, és lehetővé teszi a párhuzamos feldolgozást. Rokona a Google File System (GFS).</li>
+<li><strong>Replikáció:</strong> minden blokkból több (HDFS-ben alapból 3) példány, különböző gépeken.</li>
+<li><strong>MapReduce:</strong> programozási modell elosztott adatra. <em>Map</em>: minden darabból kulcs–érték párokat képez; <em>shuffle</em>: az azonos kulcsúakat egy helyre gyűjti; <em>reduce</em>: kulcsonként összesít.</li>
+</ul>
+<p><strong>Miért?</strong> Mert egy gép tárhelye és sebessége véges, a hálózat pedig lassú: olcsóbb a számítást a sok gépre szétküldeni, mint a terabájtokat egy helyre mozgatni. Az előadás szerint ez gyors elemzést, költséghatékonyságot (nyílt forrású Hadoop, Cassandra), adatbiztonságot (replikáció) és könnyű BI-integrációt ad.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa – mennyi hely kell?</span>
+<p>Egy 1 000 MB-os fájlt töltünk HDFS-be (128 MB-os blokk, replikáció 3). Hány blokk lesz, mekkora az utolsó, és mennyi nyers tárhelyet foglal?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>$\lceil 1000/128 \rceil = 8$ blokk, ebből 7 teljes ($7\cdot 128 = 896$ MB), az utolsó $1000-896 = 104$ MB. Blokkpéldány: $8\cdot 3 = 24$, nyers tárhely: $3\cdot 1000 = 3000$ MB.</p>
+</details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+<li><strong>A replikáció nem biztonsági mentés.</strong> Ha valaki véletlenül töröl vagy elront egy fájlt, a hiba azonnal mind a 3 példányra „replikálódik”. Gép kiesése ellen véd, emberi hiba ellen nem.</li>
+<li>A HDFS <strong>nagy fájlokra</strong> jó. Sok millió apró fájl (pl. 2 KB-os JSON-ok) a NameNode memóriáját terheli; ilyenkor érdemes őket nagyobb fájlokba összefűzni.</li>
+<li>A MapReduce <strong>nem tároló</strong>, hanem feldolgozási modell; a HDFS pedig <strong>nem adatbázis</strong>: nincs benne gyors, rekordszintű módosítás.</li>
+<li>Az adattó nem „mindent bele, majd lesz valami”: metaadat, katalógus és hozzáférés-szabályozás nélkül adatmocsárrá válik.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Adattó, HDFS, MapReduce (5 feladat)</summary>
+<ol>
+  <li><p>Egy 129 MB-os fájl hány blokkot kap (128 MB-os blokkméret), és mekkorák?</p>
+    <details class="solution"><summary>Megoldás</summary><p>2 blokkot: 128 MB és 1 MB. Replikáció 3 mellett 6 blokkpéldány, nyers tárhely $3\cdot 129 = 387$ MB.</p></details></li>
+  <li><p>Egy fürtben 12 TB nyers tárhely van, a replikációs tényező 3. Kb. mennyi hasznos adat fér el?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$12/3 = 4$ TB (a rendszerfájlokat és a tartalékot figyelmen kívül hagyva).</p></details></li>
+  <li><p>Futtasd kézzel a szószámlálást erre: 1. csomópont: <code>tó tó ház</code>, 2. csomópont: <code>ház felhő tó</code>. Mi a map kimenete, és mi a végeredmény?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Map: (tó,1) (tó,1) (ház,1) | (ház,1) (felhő,1) (tó,1). Shuffle: tó → [1,1,1], ház → [1,1], felhő → [1]. Reduce: tó 3, ház 2, felhő 1.</p></details></li>
+  <li><p>A szószámlálásban a map után 11 pár utazik a hálózaton. Ha minden csomópont a shuffle előtt helyben összegzi a saját párjait (ezt <em>combiner</em>nek hívják), hány pár utazik? (Adatok: <code>adat tó adat ház</code> | <code>ház adat felhő</code> | <code>tó felhő felhő adat</code>.)</p>
+    <details class="solution"><summary>Megoldás</summary><p>1. csomópont: (adat,2) (tó,1) (ház,1) = 3 pár; 2.: (ház,1) (adat,1) (felhő,1) = 3 pár; 3.: (tó,1) (felhő,2) (adat,1) = 3 pár. Összesen 9 pár 11 helyett. A végeredmény ugyanaz, mert az összeadás sorrendje mindegy.</p></details></li>
+  <li><p>Egy cég havi pénzügyi riportokat <em>és</em> gépi tanulást is akar, strukturált és nyers adatból, gyorsan növekvő mennyiséggel. Adattárház, adattó vagy lakehouse? Indokolj két szemponttal!</p>
+    <details class="solution"><summary>Megoldás</summary><p><strong>Lakehouse</strong> (vagy adattó + adattárház együtt). (1) Adattípus: vegyes, nyers adatot is kell tárolni – ez a tó erőssége. (2) Riport: gyors, megbízható SQL kell – ez a tárház erőssége. A lakehouse egy rendszerben adja mindkettőt, és jól skálázható.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes8">
+<h2>8. lépés – Felhő és NoSQL-adatbázisok BI-szemmel</h2>
+
+<p>Az elosztott tárolást nem kell feltétlenül saját gépteremben építeni: bérelhető. És nem minden adatnak kell táblába kerülnie: vannak más adatmodellek is.</p>
+
+<h4>Felhőalapú tárolás</h4>
+<div class="box def"><span class="box-title">Definíció – Felhőalapú adattárolás</span>
+<p>Az adatok transzparens tárolása elosztott környezetben, távoli adatközpontokban, interneten keresztül elérve. Nem kell ismerni a tárolás részleteit (az előadás megfogalmazása szerint).</p>
+<p><strong>Előnyei</strong> (az előadás felsorolása): <strong>méretezhetőség</strong> (rugalmas kapacitásbővítés), <strong>költséghatékonyság</strong> (nincs szükség drága saját infrastruktúrára, használat szerint fizetsz),
+<strong>biztonság és megfelelőség</strong> (titkosítás, szabályozási megfelelés), <strong>globális hozzáférés</strong> (távmunka), <strong>katasztrófa-helyreállítás</strong> (automatikus mentések).</p>
+</div>
+<div class="table-wrap"><table>
+<tr><th>Tárolástípus</th><th>Hogyan tárol?</th><th>Mire jó?</th><th>Példa</th></tr>
+<tr><td>objektumtárolás</td><td>objektumként, metaadatokkal, egyedi azonosítóval</td><td>nem strukturált adat, mentés, adattó</td><td>AWS S3, Azure Blob, Google Cloud Storage</td></tr>
+<tr><td>blokktárolás</td><td>fix méretű blokkokban, mint egy virtuális lemez</td><td>adatbázisok, nagy teljesítményű alkalmazások</td><td>AWS EBS, Azure Disks</td></tr>
+<tr><td>fájltárolás</td><td>hagyományos mappaszerkezetben</td><td>megosztott fájlhozzáférés</td><td>Amazon FSx, Azure Files</td></tr>
+</table></div>
+<p>Telepítési modellek: <strong>nyilvános felhő</strong> (közös, szolgáltató üzemelteti, olcsó és gyorsan skálázható), <strong>privát felhő</strong> (egy szervezeté, nagyobb kontroll, szabályozott ágazatoknak),
+<strong>hibrid felhő</strong> (a kettő kombinációja: pl. az érzékeny adat a privátban, a nagy számítás a nyilvánosban).</p>
+<div class="table-wrap"><table>
+<tr><th>Kihívás</th><th>Megoldási stratégia</th></tr>
+<tr><td>késleltetés (latency)</td><td>tartalomkézbesítő hálózat (CDN), peremhálózati gyorsítótár</td></tr>
+<tr><td>biztonsági kockázat</td><td>végponttól végpontig titkosítás, többfaktoros hitelesítés</td></tr>
+<tr><td>megfelelés (GDPR, HIPAA)</td><td>a szabályozásnak megfelelő régióban tárolás</td></tr>
+<tr><td>szolgáltatófüggés (vendor lock-in)</td><td>több felhős (multi-cloud) vagy hibrid stratégia, nyílt formátumok</td></tr>
+</table></div>
+
+<h4>Kis eset: ugyanaz az adat négy NoSQL-modellben</h4>
+<p>A NoSQL („Not only SQL”) adatbázisok nem rögzített táblákban tárolnak. Nézd meg, hogyan tárolná Anna adatait mind a négy fő típus.</p>
+<div class="two-col">
+<div class="box example" style="min-width:0"><span class="box-title">Kulcs–érték</span>
+<pre><code class="language-plaintext">"kosar:CUST001"  →  "[Laptop, Kávé]"
+"session:8f3a"   →  "CUST001"</code></pre>
+<p>Csak kulcs szerint kérdezhetsz, de ezredmásodperc alatt. <em>Cache, munkamenet, valós idejű számlálók.</em> Pl. Redis, DynamoDB.</p>
+</div>
+<div class="box example" style="min-width:0"><span class="box-title">Dokumentum</span>
+<pre><code class="language-json">{ "_id": "CUST001", "nev": "Anna",
+  "varos": "Budapest",
+  "rendelesek": [ {"datum": "2025-03-03",
+                   "tetelek": ["Laptop", "Kávé"]} ] }</code></pre>
+<p>Egy dokumentum = egy egész objektum, a szerkezet dokumentumonként eltérhet. <em>Termékkatalógus, webes backend.</em> Pl. MongoDB, CouchDB.</p>
+</div>
+<div class="box example" style="min-width:0"><span class="box-title">Oszlopcsalád (wide-column)</span>
+<pre><code class="language-plaintext">sor kulcs: CUST001
+  vasarlas:2025-03-03T10:12 = 300
+  vasarlas:2025-03-03T10:13 = 10
+  vasarlas:2025-04-02T18:40 = 20   … akár milliónyi oszlop</code></pre>
+<p>Soronként tetszőleges számú, rendezett oszlop, sok gépen elosztva. <em>Idősor, napló, eseményadat nagy írási terheléssel.</em> Pl. Cassandra, Bigtable.</p>
+</div>
+<div class="box example" style="min-width:0"><span class="box-title">Gráf</span>
+<pre><code class="language-plaintext">(Anna) -[AJÁNLOTTA]-> (Béla)
+(Anna) -[VÁSÁROLTA]-> (Laptop) &lt;-[VÁSÁROLTA]- (Csilla)</code></pre>
+<p>A kapcsolat maga is adat. <em>Közösségi háló, ajánlás, csalásfelderítés.</em> Pl. Neo4j, ArangoDB.</p>
+</div>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – NoSQL-adatbázisok és a relációs modell</span>
+<div class="table-wrap"><table>
+<tr><th>Tulajdonság</th><th>Relációs</th><th>NoSQL</th></tr>
+<tr><td>adatszerkezet</td><td>rögzített séma, előre meghatározott táblák</td><td>rugalmas, dinamikus séma</td></tr>
+<tr><td>skálázás</td><td>jellemzően függőleges (nagyobb gép)</td><td>vízszintes (több gép)</td></tr>
+<tr><td>konzisztencia</td><td>ACID-tranzakciók (szigorú)</td><td>gyakran „végül konzisztens” (eventual consistency)</td></tr>
+<tr><td>erőssége</td><td>összetett lekérdezés, összekapcsolás, tranzakció</td><td>nagy mennyiség, gyors elérés, változó szerkezet</td></tr>
+<tr><td>BI-szerep</td><td>OLTP-forrás, adattárház</td><td>forrás (napló, esemény), valós idejű dashboard, cache</td></tr>
+</table></div>
+<p><strong>Miért?</strong> Ha az adat szerkezete gyakran változik, ha gyors vízszintes skálázás kell, vagy valós idejű elérés, a merev séma és az egy gépre tervezett tranzakciókezelés akadály. A <strong>hibrid</strong> (többmodelles) adatbázisok több modellt is támogatnak egy rendszerben (pl. ArangoDB: gráf, dokumentum, kulcs–érték).</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa – melyik NoSQL-típus?</span>
+<p>(a) Egy webshop a dashboardja számait másodpercenként frissíti, és a legutóbbi értéket gyorsan ki kell olvasni. (b) Egy bank azt keresi, mely számlák kötődnek láncszerűen ugyanahhoz a gyanús telefonszámhoz.</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>(a) <strong>Kulcs–érték</strong> (pl. Redis): kulcs szerinti, memóriabeli, ezredmásodperces elérés. (b) <strong>Gráf</strong>: a kérdés a kapcsolatok láncolatáról szól, amit relációs adatbázisban sok önösszekapcsolással lehetne csak megoldani.</p>
+</details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+<li><strong>Oszlopcsalád ≠ oszlopalapú elemző tárolás.</strong> A Cassandra-féle oszlopcsaládos adatbázis sor kulcs szerint tárol, sok írásra és kulcs szerinti olvasásra jó. Az elemző motorok oszlopalapú tárolása (<a href="#lepes2">2. lépés, kiegészítés</a>; pl. Redshift, Parquet) az összesítő lekérdezéseket gyorsítja. A név hasonló, a cél más.</li>
+<li>A NoSQL nem azt jelenti, hogy „nincs SQL”: „Not only SQL”. Sok NoSQL-rendszernek van SQL-szerű lekérdezőnyelve.</li>
+<li>A NoSQL nem automatikusan gyorsabb: egy kulcs szerinti olvasásban igen, egy ad hoc, sok szempontú összesítésben gyakran lassabb, mint egy adattárház.</li>
+<li>A felhő sem automatikusan olcsóbb: folyamatos, nagy terhelésnél a használatalapú díj több lehet, mint a saját gép, és az adat kimozgatásáért is fizetni kell.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Felhő és NoSQL (5 feladat)</summary>
+<ol>
+  <li><p>Melyik felhőelőny érvényesül: (a) karácsony előtt egy nap alatt megduplázzák a tárhelyet; (b) tűz a cég épületében, de az adatok megvannak; (c) a kollégák otthonról is elérik a riportokat?</p>
+    <details class="solution"><summary>Megoldás</summary><p>(a) méretezhetőség, (b) katasztrófa-helyreállítás, (c) globális hozzáférés.</p></details></li>
+  <li><p>Melyik felhős tárolástípust választanád: (a) 2 millió termékfotó; (b) egy felhős virtuális gépen futó PostgreSQL lemeze; (c) közös mappa a marketingcsapatnak?</p>
+    <details class="solution"><summary>Megoldás</summary><p>(a) objektumtárolás, (b) blokktárolás, (c) fájltárolás.</p></details></li>
+  <li><p>Melyik NoSQL-típus illik: (a) IoT-szenzorok másodpercenkénti mérései; (b) eltérő szerkezetű termékleírások (a cipőnek mérete, a laptopnak processzora van); (c) munkamenet-azonosítók?</p>
+    <details class="solution"><summary>Megoldás</summary><p>(a) oszlopcsalád (idősor, nagy írási terhelés), (b) dokumentum (rugalmas szerkezet), (c) kulcs–érték.</p></details></li>
+  <li><p>Egy banki tranzakciós rendszer és egy IoT-platform közül melyikhez választanál relációs, melyikhez NoSQL-adatbázist? Indokolj!</p>
+    <details class="solution"><summary>Megoldás</summary><p>Bank: <strong>relációs</strong> – szigorú konzisztencia, ACID-tranzakciók kellenek (egy átutalás nem lehet „félig” kész). IoT: <strong>NoSQL</strong> – nagy, változó szerkezetű adat, gyors vízszintes skálázás; a „végül konzisztens” viselkedés itt elfogadható.</p></details></li>
+  <li><p>Egy cég attól tart, hogy ha minden adatát egyetlen felhőszolgáltatónál tartja, később nehéz lesz váltani. Mi ennek a neve, és mit tehet ellene?</p>
+    <details class="solution"><summary>Megoldás</summary><p><strong>Szolgáltatófüggés</strong> (vendor lock-in). Ellenszer: multi-cloud vagy hibrid stratégia, nyílt adatformátumok (pl. Parquet), szolgáltatófüggetlen eszközök.</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l12-lepes8"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes9">
+<h2>9. lépés – Edge tárolás, adatbiztonság és megfelelés (GDPR)</h2>
+
+<p>Eddig az adat mindig egy központba utazott: tárházba, tóba, felhőbe. Két helyzetben ez nem jó: ha az utazás <strong>túl lassú</strong>, és ha az adat <strong>túl érzékeny</strong>.</p>
+
+<h4>Kis eset: egy gyártósori szenzor</h4>
+<p>Egy rezgésérzékelő másodpercenként 1 000 mérést ad, mindegyik 8 bájt. Naponta ez $1000\cdot 8\cdot 86\,400 = 691\,200\,000$ bájt, kb. 691 MB, egyetlen szenzorról.
+Ha minden nyers mérést a felhőbe küldünk, a hálózat telítődik, és mire a központ észreveszi a rendellenes rezgést és visszaszól, a gép már tönkremehet.</p>
+<p>Ehelyett a gép melletti kis számítógép (<strong>edge</strong>, perem) helyben elemez: ha a rezgés túllépi a határt, azonnal leállítja a gépet, a központba pedig csak percenkénti összesítőt küld (minimum, maximum, átlag: 3 érték × 8 bájt).
+Ez naponta $1440\cdot 24 = 34\,560$ bájt, kb. 34 KB: húszezerszer kevesebb.</p>
+
+<div class="box def"><span class="box-title">Definíció – Edge tárolás és feldolgozás</span>
+<p>Az adatot a keletkezése helyéhez közel, helyi eszközön vagy szerveren tároljuk és dolgozzuk fel a központi adatközpont helyett. Előnyei: <strong>kisebb késleltetés</strong>, <strong>sávszélesség-takarékosság</strong> (nem kell minden nyers adatot továbbítani), <strong>valós idejű döntés</strong>.
+Tipikus területek: gyártás, egészségügy (viselhető eszközök), okosváros, önvezető járművek. Példák: AWS for the Edge, Azure Edge, ObjectBox.</p>
+<p><strong>Miért?</strong> Mert a fénysebesség és a hálózat sávszélessége véges: ahol ezredmásodpercek számítanak, ott a döntésnek helyben kell születnie. A BI-hoz (trendek, riportok) elég az összesített adat.</p>
+</div>
+
+<h4>Adatbiztonság: négy pillér</h4>
+<div class="table-wrap"><table>
+<tr><th>Pillér</th><th>Mit véd?</th><th>Példa a kiskereskedelmi cégnél</th></tr>
+<tr><td><strong>titkosítás</strong></td><td>az adatot tároláskor és átvitelkor; kulcs nélkül olvashatatlan</td><td>a felhős tároló és a CSV-átvitel titkosított</td></tr>
+<tr><td><strong>hozzáférés-szabályozás</strong></td><td>csak jogosult ember férjen hozzá (szerepkörök, legkisebb jogosultság, többfaktoros hitelesítés)</td><td>a bolti vezető csak a saját boltja adatait látja</td></tr>
+<tr><td><strong>audit és monitorozás</strong></td><td>ki, mikor, mit nézett és módosított; riasztás rendellenességre</td><td>riasztás, ha valaki éjjel a teljes vevőtörzset letölti</td></tr>
+<tr><td><strong>mentés és helyreállítás</strong></td><td>adatvesztés vagy sérülés után visszaállítható legyen</td><td>napi mentés más régióba, kipróbált visszaállítási terv</td></tr>
+</table></div>
+
+<h4>Megfelelés: a GDPR az adattárházban</h4>
+<p>Az EU általános adatvédelmi rendelete (GDPR) a személyes adatokra vonatkozik. Az adattárolás szempontjából fontos elvei és jogai:</p>
+<ul>
+<li><strong>célhoz kötöttség:</strong> az adatot csak meghatározott célra lehet gyűjteni és használni;</li>
+<li><strong>adattakarékosság:</strong> csak annyi személyes adatot tárolj, amennyi a célhoz kell (egy régiós bevételi riporthoz nem kell a vevő neve);</li>
+<li><strong>korlátozott tárolhatóság:</strong> csak addig, ameddig a célhoz szükséges;</li>
+<li><strong>integritás és bizalmas jelleg:</strong> megfelelő biztonsági intézkedések (lásd a négy pillért);</li>
+<li>az érintett <strong>jogai:</strong> hozzáférés, helyesbítés, <strong>törlés</strong> („elfeledtetéshez való jog”).</li>
+</ul>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés – álnevesítés és anonimizálás az ETL-ben</span>
+<ul>
+<li><strong>Álnevesítés</strong> (pszeudonimizálás): a közvetlen azonosítót (név, e-mail) egy kóddal helyettesítjük, a kód és a személy összerendelését külön, védetten tároljuk. A helyettesítő kulcs (<a href="#lepes5">5. lépés</a>) ilyen kód is lehet. Az álnevesített adat <strong>továbbra is személyes adat</strong>.</li>
+<li><strong>Anonimizálás:</strong> az adatból semmilyen észszerű eszközzel nem azonosítható többé a személy (pl. csak városonkénti összesítő marad). Az anonim adatra a GDPR nem vonatkozik.</li>
+</ul>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa – törlési kérelem egy nem illékony tárházban</span>
+<p>Anna kéri a személyes adatai törlését. Az adattárház „nem illékony”. Mit tehet a cég?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>A jogszabály felülírja a tervezési elvet. Ha a ténysorok csak az álnevesített ügyfélkulcsot (1) tartalmazzák, és a név, e-mail, cím a külön ügyféltáblában van, akkor elég ott törölni (vagy anonimizálni) Anna sorát.
+A bevételi sorok megmaradnak, az összegek nem változnak, de többé nem köthetők Annához. Ez az egyik ok, amiért a személyes adatot az elemző adattól elkülönítve érdemes tárolni. (A számlázási adatokra külön megőrzési kötelezettség vonatkozhat.)</p>
+</details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+<li>Az e-mail-cím hash-e <strong>nem anonim</strong>: ugyanaz az e-mail mindig ugyanazt a hash-t adja, így egy ismert e-mail-listával visszakereshető. Ez legfeljebb álnevesítés.</li>
+<li>Az ELT nyers rétege tele lehet személyes adattal, amit senki nem tisztított. A GDPR ott is érvényes.</li>
+<li>Felhőben a <strong>régió</strong> számít: ha az adat az EU-n kívüli adatközpontba kerül, külön jogalap kell hozzá.</li>
+<li>A titkosítás nem helyettesíti a hozzáférés-szabályozást: egy jogosult, de rosszhiszemű felhasználó a titkosított adatot is olvashatja.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Edge, biztonság, GDPR (5 feladat)</summary>
+<ol>
+  <li><p>Miért nem jó egy önvezető autóban, ha minden szenzoradatot először egy távoli adatközpontba küldenek feldolgozásra?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A késleltetés miatt: az oda-vissza út és a hálózati ingadozás túl lassú egy fékezési döntéshez, és kapcsolat nélkül a jármű döntésképtelen lenne. A döntésnek helyben (edge) kell születnie; a központba csak összesített vagy kiválasztott adat megy.</p></details></li>
+  <li><p>Hány bájtot küld naponta a szenzor, ha percenként csak 1 átlagértéket (8 bájt) továbbít? Hányszor kevesebb ez a nyers $691\,200\,000$ bájtnál?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$1440\cdot 8 = 11\,520$ bájt naponta. $691\,200\,000 / 11\,520 = 60\,000$-szer kevesebb.</p></details></li>
+  <li><p>Melyik biztonsági pillér segít: (a) egy ellopott laptopon lévő adatbázis-másolat olvashatatlan; (b) egy gyakornok nem látja a fizetéseket; (c) zsarolóvírus után visszaállítják a tegnapi állapotot; (d) kiderül, ki töltötte le múlt héten a vevőlistát?</p>
+    <details class="solution"><summary>Megoldás</summary><p>(a) titkosítás, (b) hozzáférés-szabályozás, (c) mentés és helyreállítás, (d) audit és monitorozás.</p></details></li>
+  <li><p>A régiós bevételi adatpiacba az ETL betölti a vevők nevét, e-mail-címét és születési dátumát is, „hátha jó lesz valamire”. Melyik GDPR-elvet sérti?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Az <strong>adattakarékosságot</strong> (és a célhoz kötöttséget): a régiós bevételi elemzéshez ezek nem kellenek. Elég a régió, a dátum, az összeg és legfeljebb egy álnevesített ügyfélkulcs.</p></details></li>
+  <li><p>Egy elemző azt mondja: „A vevőket SHA-256 hash-sel kódoltuk, így az adat anonim, nem vonatkozik rá a GDPR.” Igaza van?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Nincs. A hash ugyanarra a bemenetre mindig ugyanaz, így egy ismert azonosítólistával visszafejthető, és a vevők viselkedése továbbra is egyénenként követhető. Ez álnevesítés: az adat személyes adat marad, a GDPR érvényes rá.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="alkalmazas">
+<h2>Alkalmazás – a kiskereskedelmi cég adatarchitektúrája</h2>
+<p>Térjünk vissza a <a href="#motivacio">motivációhoz</a>. Négy adatforrás van, és a vezető régiós, kategóriás, háromévnyi bevételt és elmaradó vevőket akar látni. Most már minden eszközöd megvan.</p>
+
+<div class="table-wrap"><table>
+<tr><th>Igény / adat</th><th>Döntés</th><th>Melyik lépés indokolja?</th></tr>
+<tr><td>a webshop MySQL-adatbázisa (felülírja a régi címet)</td><td>marad OLTP; elemzés nem fut rajta. Az adat inkrementálisan (időbélyeg + CDC a törlésekhez) kerül át</td><td><a href="#lepes2">2.</a>, <a href="#lepes6">6.</a></td></tr>
+<tr><td>bolti CSV-k (más dátum, ezer Ft)</td><td>ETL az átmeneti területen: formátum, mértékegység, városnév, duplikátum, kulcs</td><td><a href="#lepes4">4.</a>, <a href="#lepes5">5.</a></td></tr>
+<tr><td>„a márciusi szám ne változzon”</td><td>adattárház (Inmon): integrált, időben változó, nem illékony; a vevő városa vásárláskori állapot szerint</td><td><a href="#lepes3">3.</a></td></tr>
+<tr><td>kattintásnapló, napi több millió JSON-sor</td><td>ELT az adattó nyers (bronz) rétegébe, felhős objektumtárolón; onnan összesítve a tárházba</td><td><a href="#lepes6">6.</a>, <a href="#lepes7">7.</a>, <a href="#lepes8">8.</a></td></tr>
+<tr><td>a vezetői riport</td><td>értékesítési adatpiac + többdimenziós modell + dashboard</td><td><a href="#lepes4">4.</a>, <a href="13-md-modell-mdx.html">13. lecke</a></td></tr>
+<tr><td>„melyik vevőink maradtak el?”</td><td>vevőszintű, historikus ténysorok a helyettesítő kulccsal; az adatbányászati elemzés (pl. <a href="03-kmeans.html">szegmentálás</a>) erre épül</td><td><a href="#lepes5">5.</a></td></tr>
+<tr><td>személyes adatok</td><td>a név, e-mail, cím külön ügyféltáblában, a ténysorokban csak álnevesített kulcs; EU-régiós felhő; szerepkör szerinti hozzáférés</td><td><a href="#lepes9">9.</a></td></tr>
+<tr><td>ütemezés</td><td>éjjel 2:00 betöltés, 3:00 összesítők; a metaadat naplózza a sorszámokat</td><td><a href="#lepes4">4.</a></td></tr>
+</table></div>
+
+<p>Két kérdés, amit érdemes átgondolni:</p>
+<ul>
+<li><strong>Kell-e lakehouse?</strong> Ha a gépi tanulás is a kattintásnaplóra épül, és nem akarnak két külön rendszert (tó + tárház) üzemeltetni, igen: egy lakehouse a bronz–ezüst–arany rétegekkel mindkettőt kiszolgálja.</li>
+<li><strong>Kell-e edge vagy NoSQL?</strong> Ehhez a riporthoz nem. Ha a cég valós idejű, „most a kosárban lévő termékek” számlálót akar, ahhoz egy kulcs–érték adatbázis (Redis) jó választás lenne a webshop mellett.</li>
+</ul>
+
+<div class="box tip"><span class="box-title">💡 A tanulság</span>
+<p>Nincs egyetlen „legjobb” tároló. A jó architektúra <strong>adatfajtánként</strong> dönt: az üzemi adat OLTP-ben, az integrált, ellenőrzött múlt adattárházban, a nyers és vegyes adat adattóban, a kettő között ETL vagy ELT, és mindegyikre ugyanazok a biztonsági szabályok vonatkoznak.</p>
+</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="osszefoglalas">
+<h2>Összefoglalás</h2>
+<ul>
+<li>Az <strong>adattárolási szintek</strong> (lokális állomány → file-szerver → relációs DB → adattárház → felhő → adattó/lakehouse → elosztott fájlrendszer → elosztott DB → NoSQL/hibrid) mind egy-egy korlátot oldanak fel. A legegyszerűbb, még elegendő szintet válaszd.</li>
+<li>Az <strong>OLTP</strong> sok kis írásra, normalizált sémára, aktuális állapotra épül; az <strong>OLAP</strong> kevés, nagy összesítő olvasásra, elemzésorientált (denormalizált, oszlopalapú) tárolásra, historikus adatra.</li>
+<li>Az <strong>adattárház</strong> (Inmon): téma-orientált, integrált, időben változó, nem illékony. <strong>Schema-on-write</strong>: a séma a betöltés előtt; az adattó <strong>schema-on-read</strong>: a séma olvasáskor.</li>
+<li><strong>DW-komponensek:</strong> adatforrás, ETL, tároló, metaadat, ütemező, adathozzáférési interfész (MD modell), megjelenítési réteg. <strong>VIR:</strong> ERP, EAI, átmeneti terület, ODS (aktuális), EDW (vállalati, historikus), adatpiac (részlegszintű).</li>
+<li><strong>ETL:</strong> kinyerés → átalakítás (leképezés, formátum, tisztítás, deduplikálás, kulcsképzés, aggregálás) → betöltés (teljes vagy inkrementális: vízjel, CDC). <strong>ELT:</strong> előbb betöltés, átalakítás a felhős tárházban.</li>
+<li><strong>Elosztott tárolás:</strong> HDFS-blokkok, 3-szoros replikáció (hibatűrés, nem mentés), MapReduce: map → shuffle → reduce, a számítás megy az adathoz.</li>
+<li><strong>Felhő:</strong> méretezhetőség, költség, biztonság, globális hozzáférés, katasztrófa-helyreállítás; objektum-, blokk-, fájltárolás; nyilvános, privát, hibrid. <strong>NoSQL:</strong> kulcs–érték, dokumentum, oszlopcsalád, gráf.</li>
+<li><strong>Edge:</strong> helyi feldolgozás a késleltetés és a sávszélesség miatt. <strong>Biztonság:</strong> titkosítás, hozzáférés, audit, mentés. <strong>GDPR:</strong> célhoz kötöttség, adattakarékosság, törlési jog, álnevesítés ≠ anonimizálás.</li>
+</ul>
+
+<h3>Döntési táblázat</h3>
+<div class="table-wrap"><table>
+<tr><th>Ha a feladatban ez áll…</th><th>…ezt válaszd</th></tr>
+<tr><td>egyszemélyes munka, kis adat</td><td>lokális állomány (+ mentés)</td></tr>
+<tr><td>néhány ember közös fájljai, ritka egyidejű szerkesztés</td><td>file-szerver / felhős fájlmegosztás</td></tr>
+<tr><td>sok egyidejű írás, tranzakció, integritás (rendelés, foglalás, banki átutalás)</td><td>relációs adatbázis (OLTP)</td></tr>
+<tr><td>több forrás integrálása, évek idősora, megbízható vezetői riport</td><td>adattárház (OLAP), ETL-lel</td></tr>
+<tr><td>egy részleg / téma saját elemzése</td><td>adatpiac</td></tr>
+<tr><td>integrált, de <em>aktuális</em> operatív kép („mi van most nyitva?”)</td><td>ODS</td></tr>
+<tr><td>nyers, vegyes formátumú adat (kép, napló, JSON), gépi tanulás, még ismeretlen kérdések</td><td>adattó (schema-on-read)</td></tr>
+<tr><td>riport <em>és</em> gépi tanulás egy rendszerben, strukturált és nyers adatból</td><td>lakehouse</td></tr>
+<tr><td>egy gépre nem férő adat, kötegelt párhuzamos feldolgozás</td><td>elosztott fájlrendszer (HDFS) + MapReduce / Spark</td></tr>
+<tr><td>gyorsan növő igény, nincs saját infrastruktúra, használatalapú díj</td><td>felhő (nyilvános; érzékeny adatnál privát vagy hibrid)</td></tr>
+<tr><td>kulcs szerinti, ezredmásodperces elérés (cache, munkamenet)</td><td>kulcs–érték NoSQL</td></tr>
+<tr><td>változó szerkezetű objektumok (katalógus, webes backend)</td><td>dokumentum NoSQL</td></tr>
+<tr><td>idősor, napló, nagy írási terhelés sok gépen</td><td>oszlopcsaládos NoSQL</td></tr>
+<tr><td>a kapcsolatok a lényeg (háló, ajánlás, csalás)</td><td>gráfadatbázis</td></tr>
+<tr><td>azonnali helyi döntés, kevés sávszélesség</td><td>edge tárolás és feldolgozás</td></tr>
+<tr><td>a célrendszer csak tiszta adatot fogad, vagy a szabály átalakítást ír elő tárolás előtt</td><td>ETL</td></tr>
+<tr><td>felhős tárház, nagy adat, a nyers adatot meg kell őrizni</td><td>ELT</td></tr>
+<tr><td>nagy tábla, kevés napi változás</td><td>inkrementális betöltés (időbélyeg, CDC)</td></tr>
+<tr><td>kis tábla, gyakori törlés, egyszerűség</td><td>teljes betöltés</td></tr>
+<tr><td>személyes adat elemzése</td><td>adattakarékosság, álnevesített kulcs, külön ügyféltábla, EU-régió</td></tr>
+</table></div>
+</section>
+
+<section id="kviz">
+<h2>Ellenőrző kvíz</h2>
+<p>A kérdések a teljes leckét lefedik; több helyen a lecke kis példáira (webshop-táblák, a két CSV, a szószámlálás) hivatkoznak.</p>
+<div class="quiz" data-quiz="l12-vegso"></div>
+</section>
+
+<nav class="pager">
+  <a href="11-python-adatkezeles.html">← 11. Python adatkezelés</a>
+  <a href="13-md-modell-mdx.html">13. MD modell és MDX →</a>
+</nav>
+</main>
+</body>
+</html>

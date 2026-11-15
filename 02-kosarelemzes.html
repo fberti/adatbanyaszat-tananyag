@@ -45,6 +45,7 @@
   <li><a href="#lepes4">4. lépés – Asszociációs szabály és megbízhatóság</a></li>
   <li><a href="#lepes5">5. lépés – Lift: mikor érdekes egy szabály?</a></li>
   <li><a href="#lepes6">6. lépés – A küszöbök hatása a szabályok számára</a></li>
+  <li><a href="#lepes7">7. lépés – Szabályból döntés: üzleti alkalmazások és általánosítások</a> <em>(kiegészítés)</em></li>
   <li><a href="#alkalmazas">Alkalmazás – a gyakorlat munkafolyamata a valódi adatokon</a></li>
   <li><a href="#osszefoglalas">Összefoglalás és döntési táblázat</a></li>
   <li><a href="#kviz">Ellenőrző kvíz</a></li>
@@ -95,6 +96,16 @@
 <ul>
 <li>A kosár <strong>nem a vásárló</strong>. Ugyanaz a vásárló (customer_id) sokszor vásárol; minden vásárlás külön kosár.</li>
 <li>Ha 3 kenyeret vett, a mátrixban akkor is 1 áll, nem 3.</li>
+</ul>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés – A rokon tananyag (niu) szóhasználata</span>
+<ul>
+<li><strong>Termékcsoport</strong> = elemhalmaz (itemset); jele $X$, $Y$; az összes termék halmaza $T$.</li>
+<li><strong>Tranzakciós adatállomány</strong> = a vásárlói kosarak összessége; a kosarak azonosítója a <strong>Tid</strong> (nálunk a <code>transaction_id</code>).</li>
+<li>A kosarakon belül a termékeket szokás ábécérendben (lexikografikusan) felsorolni. Ez az Apriori összekapcsolási lépését egyszerűsíti (3. lépés).</li>
+<li>Minden kosár termékcsoport, de nem minden termékcsoport fordul elő önálló kosárként. A {kenyér, vaj} például sok kosárnak <em>része</em>, de lehet, hogy senki sem vett <em>csak</em> kenyeret és vajat.</li>
+<li>A kosár–termék mátrix az előfeldolgozás <strong>binarizálás</strong> lépésének egy esete (1. lecke, <a href="01-adattisztitas.html#lepes11">11. lépés</a>). A kosárelemzés felügyelet nélküli feladat: nincs kijelölt célváltozó.</li>
 </ul>
 </div>
 
@@ -329,6 +340,26 @@
 
 <div class="box extra"><span class="box-title">➕ Kiegészítés (nem szerepelt a gyakorlaton)</span>
 <p>A tankönyvi Apriori az összekapcsolást hatékonyabban végzi: a halmazok elemeit rendezve két $(k-1)$-halmazt csak akkor kapcsol össze, ha az első $k-2$ elemük megegyezik. Ugyanazokat a jelölteket adja, csak kevesebb felesleges párosítással. A gyakorlat (és a demó) egyszerűbb szabálya – „bármely kettő, ha az unió $k$ elemű” – ugyanarra az eredményre vezet.</p>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés (nem szerepelt a gyakorlaton) – Az Apriori alternatívái: Eclat és FP-growth</span>
+<p>A gyakori halmazok keresésének három útja van (niu 3. fejezet):</p>
+<ul>
+<li><strong>Nyers erő:</strong> minden részhalmaz támogatottságát megszámoljuk. 18 terméknél 262&nbsp;143 halmaz – kivitelezhetetlen.</li>
+<li><strong>A jelöltek számának csökkentése</strong> – ez az <strong>Apriori</strong>: a metszés miatt sok jelöltet meg sem számol. Ára: szintenként újra végig kell olvasni az összes kosarat.</li>
+<li><strong>Az összehasonlítások csökkentése</strong> ügyesebb adatszerkezettel – ilyen az <strong>Eclat</strong> és az <strong>FP-growth</strong> (FP-bővítés).</li>
+</ul>
+<p><strong>Eclat</strong> („függőleges” formátum): minden termékhez eltárolja, mely kosarakban szerepel (tid-lista). Egy halmaz támogatottsága a tid-listák <em>metszetének</em> mérete, a kosarakat nem kell újraolvasni. A demóban: Tej = {T1, T2, T3}, Vaj = {T1, T2}, így {Tej, Vaj} = {T1, T2}, a támogatottság $2/5$.</p>
+<p><strong>FP-growth</strong>: két olvasással dolgozik. Az elsőben megszámolja a termékeket. A másodikban minden kosár gyakori termékeit gyakoriság szerint sorba rendezi, és egy közös előtagfába (<strong>FP-fa</strong>) fűzi. Az azonos kezdetű kosarak ugyanazon az ágon osztoznak. A gyakori halmazokat ezután a fából olvassa ki, jelöltgenerálás nélkül. A demóban ($s_{\min} = 40\%$, a Tea kiesik, sorrend: Kenyér 5, Tej 3, Sajt 2, Vaj 2):</p>
+<pre><code>(gyökér)
+ └─ Kenyér:5
+     ├─ Tej:3
+     │   └─ Vaj:2      ← T1, T2  (T3 a Tej:3-nál ér véget)
+     └─ Sajt:2         ← T4, T5</code></pre>
+<p>Az 5 kosár 12 előfordulása (a Tea nélkül) 4 csomópontba tömörül. Az eredmény <strong>pontosan ugyanaz</strong>, mint az Apriorié. A gyakorlat valódi adatán a <code>fpgrowth</code> is ugyanazt a 100 halmazt (18 termék + 82 pár) adja; nagy adatnál viszont általában gyorsabb.</p>
+<pre><code class="language-python">from mlxtend.frequent_patterns import fpgrowth
+frequent_itemsets = fpgrowth(basket_matrix, min_support=0.10, use_colnames=True, max_len=2)
+# ugyanaz a bemenet és a kimenet formája, mint az apriori()-nál</code></pre>
 </div>
 
 <details class="box practice"><summary>✏️ Gyakorlás – Apriori kézzel (5 feladat)</summary>
@@ -592,6 +623,102 @@
 </section>
 
 <!-- ============================================================ -->
+<section id="lepes7">
+<h2>7. lépés – Szabályból döntés: üzleti alkalmazások és általánosítások</h2>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés (niu 3. fejezet, 4.4; a gyakorlaton csak egy mondat szólt róla)</span>
+<p>Eddig azt tanultuk meg, hogyan <em>találjuk meg</em> és hogyan <em>ítéljük meg</em> a szabályokat. A bolt azonban döntést akar: mit tegyen egymás mellé, mit ajánljon, mit tegyen akcióba. Ez a lépés a mutatókat üzleti döntésekre fordítja le.</p>
+</div>
+
+<h4>Kis eset – a klasszikus „pelenka és sör”</h4>
+<p>A niu-tananyag öt kosara:</p>
+<div class="table-wrap"><table>
+<tr><th>Tid</th><th>Kosár</th></tr>
+<tr><td>1</td><td>{kenyér, tej}</td></tr>
+<tr><td>2</td><td>{kenyér, pelenka, sör, vaj}</td></tr>
+<tr><td>3</td><td>{pelenka, sajt, sör, tej}</td></tr>
+<tr><td>4</td><td>{kenyér, pelenka, sör, tej}</td></tr>
+<tr><td>5</td><td>{kenyér, pelenka, sajt, sör}</td></tr>
+</table></div>
+<p>A pelenka 4 kosárban van, és mind a 4-ben ott a sör is. A sör szintén 4 kosárban van. Tehát: pelenka → sör, támogatottság $4/5 = 0{,}8$, megbízhatóság $4/4 = 1$, lift $1/0{,}8 = 1{,}25$. Erős, sok vásárlót érintő pozitív kapcsolat. A kérdés már nem az, hogy igaz-e, hanem az, hogy <strong>mit kezdjen vele a bolt</strong>.</p>
+
+<div class="box def"><span class="box-title">Definíció – A kosárelemzés alkalmazási területei</span>
+<div class="table-wrap"><table>
+<tr><th>Terület</th><th>Mi a „termék” és mi a „kosár”?</th><th>Mire jó?</th></tr>
+<tr><td><strong>Kiskereskedelem</strong></td><td>árucikk; egy vásárlás</td><td>termékelhelyezés, keresztértékesítés (cross-selling), készletezés, árképzés, akciók</td></tr>
+<tr><td><strong>E-kereskedelem</strong></td><td>termék; egy rendelés vagy egy munkamenet</td><td>termékajánlás („aki ezt megvette, ezt is…”), célzott hirdetés</td></tr>
+<tr><td><strong>Bank, pénzügy</strong></td><td>banki termék (számla, kártya, hitel); egy ügyfél portfóliója</td><td>keresztértékesítés, a következő vásárolt termék előrejelzése</td></tr>
+<tr><td><strong>Egészségügy</strong></td><td>tünet, diagnózis, kezelés; egy beteg vagy egy vizit</td><td>tünetek és betegségek együttes előfordulása, hatékony kezelések</td></tr>
+<tr><td><strong>Gyártás</strong></td><td>alkatrész, alapanyag; egy gyártási tétel</td><td>együtt felhasznált anyagok, beszerzés</td></tr>
+<tr><td><strong>Szövegbányászat</strong></td><td>szó, kifejezés; egy dokumentum</td><td>gyakran együtt előforduló szavak, témák</td></tr>
+<tr><td><strong>Biztosítás</strong></td><td>kárigénytípus; egy ügyfél vagy egy esemény kárigényei</td><td>szokatlan együttes előfordulás → csalásgyanú</td></tr>
+</table></div>
+<p><strong>Miért működik ennyi helyen?</strong> Mert a módszer csak annyit feltételez, hogy vannak „tételek” és „tranzakciók” (tételek halmazai). Hogy a tétel termék, szó vagy tünet, az a matematikának mindegy.</p>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Hüvelykujjszabály – szabálytípusból akció</span>
+<div class="table-wrap"><table>
+<tr><th>A szabály</th><th>Lehetséges akció</th></tr>
+<tr><td>lift &gt; 1 <strong>és</strong> nagy támogatottság</td><td>sok vásárlót érint: <strong>termékelhelyezés</strong> (egymás mellé – vagy szándékosan távol, hogy a vevő bejárja a boltot), csomagajánlat, közös akció</td></tr>
+<tr><td>lift &gt; 1, magas megbízhatóság, kisebb támogatottság</td><td><strong>célzott ajánlás</strong> vagy kupon azoknak, akiknek a kosarában $A$ már benne van (keresztértékesítés)</td></tr>
+<tr><td>lift ≈ 1 (akár magas megbízhatósággal)</td><td>nincs mit kihasználni: $B$-t $A$ nélkül is ugyanilyen arányban veszik</td></tr>
+<tr><td>lift &lt; 1</td><td>a két termék ritkábban kerül együtt a kosárba: lehet, hogy <strong>helyettesítik</strong> egymást; közös akcióra nem alkalmas</td></tr>
+</table></div>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Ajánló a pénztárnál (valódi adat)</span>
+<p>A vevő kosarában <strong>vaj</strong> és <strong>kávé</strong> van. A gyakorlat szabályai közül ($s_{\min} = 0{,}10$, $c_{\min} = 0{,}5$, lift &gt; 1) melyik alapján mit ajánlasz?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>A kosárra illő szabályok (a bal oldal benne van a kosárban, a jobb oldal még nincs):</p>
+<div class="table-wrap"><table>
+<tr><th>Szabály</th><th class="num">confidence</th><th class="num">support(B)</th><th class="num">lift</th><th class="num">conf − support(B)</th></tr>
+<tr><td>butter → bread</td><td class="num">0,737</td><td class="num">0,553</td><td class="num">1,333</td><td class="num">+0,184</td></tr>
+<tr><td>coffee → biscuits</td><td class="num">0,607</td><td class="num">0,434</td><td class="num">1,401</td><td class="num">+0,173</td></tr>
+</table></div>
+<p>Megbízhatóság szerint a kenyér az első (a vajat vevők 74%-a vesz kenyeret), lift szerint a keksz (a kávé 1,4-szeresére emeli az esélyét). A kettő közel van egymáshoz. Ha az a cél, hogy az ajánlat minél gyakrabban célba érjen, a kenyér a jobb. Ha az, hogy olyat ajánlj, amit a vevő magától kevésbé venne meg, akkor a keksz (a kenyér a kosarak 55%-ában amúgy is ott van). A szabály tehát rangsorol, a döntést az üzleti cél hozza meg.</p>
+<p>Ellenpélda: ha a kosárban csak kávé van, megbízhatóság szerint a második jelölt a kenyér lenne (coffee → bread, 0,550). A liftje azonban 0,995, tehát a kávé semmit nem tesz hozzá – ezt az ajánlót nem szabad felvenni.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Ugyanaz a lift, más hatókör</span>
+<p>A kis eset adatán: pelenka → sör és sajt → sör. Számold ki a mutatókat. Melyik szabály érint több vásárlót?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>pelenka → sör: support $0{,}8$, conf $1$, lift $1{,}25$. sajt → sör: a sajt 2 kosárban van (3, 5), mindkettőben van sör: support $0{,}4$, conf $1$, lift $1/0{,}8 = 1{,}25$.</p>
+<p>A lift és a megbízhatóság azonos, de a pelenkás szabály kétszer annyi kosarat érint. Termékelhelyezésre ez való, a sajtos inkább célzott ajánlásra. (A niu példájában a {pelenka, tej} → {sör} szabály is conf 1, lift 1,25, de csak 2 kosárra, support 0,4.)</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktatók</span>
+<ul>
+<li><strong>Az asszociáció nem okság.</strong> Abból, hogy a kekszet vevők gyakran vesznek kávét, nem következik, hogy egy kekszakció növeli a kávé forgalmát. Az akció hatását csak kísérlettel (pl. két bolt vagy két időszak összevetésével) lehet megmérni.</li>
+<li><strong>A kosárelemzés nem nézi az időt.</strong> A {pelenka, sör} egy kosáron belüli együttes előfordulás, nem sorrend. Ha a vásárló és az időbélyeg is ismert, az egymást követő vásárlások sorrendjét („aki laptopot vett, egy hónapon belül táskát is vesz”) a <em>szekvenciális mintakeresés</em> vizsgálja – ez külön feladat.</li>
+<li><strong>A szabály egy adathalmazra érvényes.</strong> A három hónap adatából kapott szabály szezonális is lehet (pl. ünnepi vásárlás). Új időszakon ellenőrizni kell.</li>
+<li><strong>Túl sok szabály.</strong> Alacsony küszöböknél ezres nagyságrendű szabály is kijöhet. Lift szerinti szűrés, majd szakmai szűrés kell: a triviális szabályok (pl. ami amúgy is egy csomagban kapható) kidobhatók.</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia</span>
+<p><em>market basket analysis</em> = vásárlóikosár-elemzés · <em>cross-selling</em> = keresztértékesítés · <em>product placement</em> = termékelhelyezés · <em>recommendation</em> = ajánlás · <em>bundle</em> = csomagajánlat · <em>substitute</em> = helyettesítő termék · <em>sequential pattern mining</em> = szekvenciális mintakeresés.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Alkalmazás és értelmezés (5 feladat)</summary>
+<p>Az 1–4. feladat a kis eset öt kosarára vonatkozik.</p>
+<ol>
+  <li><p>Mennyi a {kenyér, pelenka, sör} támogatottsága? Szerepel-e ez a termékcsoport önálló kosárként?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A 2., 4. és 5. kosár tartalmazza: $3/5 = 0{,}6$. Önálló kosárként nem szerepel: mindhárom kosárban más termék is van mellette.</p></details></li>
+  <li><p>Számold ki a sör → pelenka szabály megbízhatóságát és liftjét. Miben tér el a pelenka → sör szabálytól?</p>
+    <details class="solution"><summary>Megoldás</summary><p>conf $= 4/4 = 1$, lift $= 1/0{,}8 = 1{,}25$. Ugyanaz, mint a fordított irányban, mert a pelenka és a sör támogatottsága egyenlő (mindkettő 4 kosár). A lift mindig szimmetrikus, a megbízhatóság csak ilyenkor.</p></details></li>
+  <li><p>Számold ki a kenyér → tej és a tej → kenyér szabály megbízhatóságát és liftjét. Javasolnál-e közös akciót?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Együtt: 1. és 4. kosár, support $0{,}4$. kenyér → tej: $2/4 = 0{,}5$; tej → kenyér: $2/3 \approx 0{,}667$. lift $= 0{,}4/(0{,}8\cdot 0{,}6) \approx 0{,}83 &lt; 1$ mindkét irányban. Nem: a tejet vevők 67%-a vesz kenyeret, de a kenyér a kosarak 80%-ában amúgy is ott van. A kapcsolat negatív.</p></details></li>
+  <li><p>kenyér → pelenka: support $0{,}6$, conf $0{,}75$. Mennyi a lift, és mit mondasz egy kollégának, aki szerint „a kenyeret vevők háromnegyede pelenkát is vesz, tegyük őket egymás mellé”?</p>
+    <details class="solution"><summary>Megoldás</summary><p>lift $= 0{,}75/0{,}8 \approx 0{,}94$. A pelenka a kosarak 80%-ában van, a kenyér ezt nem emeli, sőt kicsit csökkenti. A 75% a pelenka népszerűségéből jön, nem a kapcsolatból (ugyanaz a csapda, mint az 5. lépésben a coffee → bread).</p></details></li>
+  <li><p>Egy bank ügyfelei termékportfóliójára futtat kosárelemzést. Mi itt a tétel és mi a tranzakció? Mondj egy szabálypéldát és egy akciót.</p>
+    <details class="solution"><summary>Megoldás</summary><p>Tétel: banki termék (folyószámla, hitelkártya, lakáshitel, megtakarítási számla…). Tranzakció: egy ügyfél termékeinek halmaza. Pl. {lakáshitel} → {lakásbiztosítás}, lift &gt; 1: a lakáshitellel rendelkező, de biztosítással nem rendelkező ügyfeleknek célzott ajánlat (keresztértékesítés).</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l02-lepes7"></div>
+</section>
+
+<!-- ============================================================ -->
 <section id="alkalmazas">
 <h2>Alkalmazás – a gyakorlat munkafolyamata a valódi adatokon</h2>
 <p>Adat: az 1. gyakorlat tisztított vásárlási adata (<code>retail_transactions_cleaned.csv</code>), 6945 sor, 1151 vásárlás, 18 termék. A kosarat a <code>transaction_id</code> határozza meg.</p>
@@ -727,6 +854,8 @@ for itemset, support in supports.items():        # {frozenset: support}
 <li>Szabály $A\to B$: $\operatorname{conf} = \operatorname{support}(A\cup B)/\operatorname{support}(A)$ – <strong>irányfüggő</strong>.</li>
 <li>$\operatorname{lift} = \operatorname{conf}/\operatorname{support}(B)$ – <strong>szimmetrikus</strong>; $&gt;1$ pozitív, $=1$ független, $&lt;1$ negatív kapcsolat.</li>
 <li>Magas megbízhatóság + lift &gt; 1 = érdekes szabály. Gyakori $B$ esetén a magas megbízhatóság félrevezet.</li>
+<li>Az Apriori a jelöltek számát csökkenti; az Eclat (tid-listák metszete) és az FP-growth (FP-fa, jelöltgenerálás nélkül) az összehasonlításokat. Az eredmény mindháromnál ugyanaz.</li>
+<li>Alkalmazás: termékelhelyezés, keresztértékesítés, ajánlás, készletezés, árképzés; a módszer bármilyen „tétel–tranzakció” adaton működik (bank, egészségügy, szövegek, biztosítási csalás). A szabály együttes előfordulás, nem okság és nem időbeli sorrend.</li>
 </ul>
 </div>
 
@@ -742,6 +871,9 @@ for itemset, support in supports.items():        # {frozenset: support}
 <tr><td>„hány szabály képezhető egy $k$ elemű halmazból”</td><td>$2^k - 2$</td></tr>
 <tr><td>„túl sok / túl kevés az eredmény”</td><td>$s_{\min}$ vagy $c_{\min}$ emelése / csökkentése</td></tr>
 <tr><td>„magas a confidence, jó-e a szabály”</td><td>nézd meg a liftet és support($B$)-t</td></tr>
+<tr><td>„nagy adaton lassú az Apriori”</td><td><code>fpgrowth(...)</code> – ugyanaz a bemenet és az eredmény</td></tr>
+<tr><td>„mit ajánljunk ehhez a kosárhoz”</td><td>a kosárra illő, lift &gt; 1 szabályok confidence (vagy lift) szerint rendezve, a már bent lévő termékek nélkül</td></tr>
+<tr><td>„mit kezdjünk a szabállyal”</td><td>nagy support + lift &gt; 1: elhelyezés, csomag; kisebb support: célzott ajánlás; lift &lt; 1: lehetséges helyettesítők</td></tr>
 </table></div>
 </section>
 
@@ -752,7 +884,7 @@ for itemset, support in supports.items():        # {frozenset: support}
 
 <nav class="pager">
   <a href="01-adattisztitas.html">← 1. Adattisztítás</a>
-  <a href="03-kmeans.html">3. K-means →</a>
+  <a href="11-python-adatkezeles.html">11. Python adatkezelés →</a>
 </nav>
 </main>
 </body>

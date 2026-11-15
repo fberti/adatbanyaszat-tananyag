@@ -302,6 +302,15 @@ VISSZAAD H</code></pre>
 </ul>
 </div>
 
+<div class="box extra"><span class="box-title">➕ Kiegészítés (előadásanyag) – erősségek és gyengeségek ábrákon</span>
+<p>Az előadásanyag (Tan–Steinbach–Kumar nyomán) így foglalja össze a két szélső módszert:</p>
+<ul>
+  <li><strong>Single:</strong> jól kezeli az <strong>eltérő nagyságú</strong> és a nem gömb alakú klasztereket, de <strong>érzékeny a zajra és a kiugró adatokra</strong>: néhány zajpont „hidat” képez két csoport között (láncolódás).</li>
+  <li><strong>Complete:</strong> <strong>kevésbé érzékeny a zajra</strong> és a kiugró adatokra (egyetlen hídpont nem ránt össze két csoportot), viszont <strong>hajlamos a nagy klasztereket kettévágni</strong>, és gömbszerű klasztereket részesít előnyben.</li>
+</ul>
+<p>A két állítás – „a complete érzékeny a kiugró pontokra” (fent) és „a complete kevésbé érzékeny a zajra” – mást-mást ért érzékenységen: egy kiugró pont a complete-nél megnöveli annak a klaszternek az átmérőjét, amelyhez csatlakozik (ezért sokáig külön marad, és a vágásnál egyelemű klaszter lehet belőle); a single-nél viszont a zajpontok két valódi csoportot is összeköthetnek. A zajpontok kezelésére külön eszköz a sűrűség alapú DBSCAN (<a href="14-suruseg-validalas-kiugrok.html#lepes6">14. lecke</a>).</p>
+</div>
+
 <div class="box tip"><span class="box-title">🔤 Terminológia</span>
 <p><em>single linkage</em> = egyszeres kapcsolás, legközelebbi szomszéd módszer · <em>complete linkage</em> = teljes kapcsolás, legtávolabbi szomszéd módszer · <em>average linkage</em> (UPGMA) = átlagos kapcsolás · <em>chaining</em> = láncolódás.</p>
 </div>
@@ -551,6 +560,14 @@ labels = AgglomerativeClustering(n_clusters=2, linkage="ward").fit_predict(X)</c
 </ul>
 </div>
 
+<div class="box extra"><span class="box-title">➕ Kiegészítés (előadásanyag) – a hierarchikus módszer előnyei, korlátai és a felosztó változat</span>
+<ul>
+  <li><strong>Előnyök:</strong> nem kell előre klaszterszámot feltételezni (a dendrogram bárhol elvágható), és a kapott fa értelmes <strong>taxonómiának</strong> is megfelelhet (pl. filogenetikus fák a biológiában).</li>
+  <li><strong>Korlátok:</strong> a K-means-hez képest lassú (tárigénye másodfokú, időigénye a naiv algoritmussal harmadfokú a mintanagyságban); az összevonás nem vonható vissza; <strong>nincs olyan globális célfüggvény</strong>, amelyet közvetlenül minimalizálna, és amellyel a kapott klaszterezéseket össze lehetne hasonlítani (a Ward is csak lépésenként, mohón minimalizál); egyes kapcsolások érzékenyek a zajra, nehezen kezelik az eltérő méretű klasztereket, vagy kettévágják a nagyokat.</li>
+  <li><strong>Felosztó (divizív) módszer az előadásanyag szerint:</strong> minden pont egy közös klaszterből indul, és lépésenként a <strong>legnagyobb hibájú</strong> (SSE-jű) klasztert vágjuk ketté, amíg minden klaszter egyelemű nem lesz (vagy el nem érjük a kívánt $k$-t). Gyakorlati megvalósítása a <strong>felező K-közép</strong> (<em>bisecting K-means</em>), ahol a vágást egy 2-közép futás végzi – kidolgozott példa: <a href="03-kmeans.html#lepes7">3. lecke, 7. lépés</a>.</li>
+</ul>
+</div>
+
 <details class="box practice"><summary>✏️ Gyakorlás – HAC vagy K-means? (5 feladat)</summary>
 <ol>
   <li><p>Egy webshop 2 millió vásárlóját kell szegmentálni. Melyik módszert választanád, és miért?</p>
@@ -565,6 +582,10 @@ labels = AgglomerativeClustering(n_clusters=2, linkage="ward").fit_predict(X)</c
     <details class="solution"><summary>Megoldás</summary><p>A <em>futás</em> reprodukálható lesz (mindig ugyanazt kapod), de a módszer maga továbbra is a kezdőpontoktól függ: más seed más eredményt adhat. A rögzített seed csak elrejti ezt a függést.</p></details></li>
 </ol>
 </details>
+
+<div class="box tip"><span class="box-title">➡️ Tovább: 14. lecke</span>
+<p>A K-means és a HAC minden pontot besorol, és gömbszerű vagy láncszerű csoportokat keres. A <a href="14-suruseg-validalas-kiugrok.html">14. lecke</a> az előadásanyag további részeit dolgozza fel: más távolság- és hasonlósági mértékek (Manhattan, Csebisev, Mahalanobis, Jaccard, koszinusz), a sűrűség alapú <strong>DBSCAN</strong> (zajpontokkal), a klaszterezés <strong>validálása</strong> (kohézió, szeparáció, Davies–Bouldin) és a <strong>kiugró rekordok</strong> detektálása – ugyanezen a 120 vásárlón.</p>
+</div>
 
 <div class="quiz" data-quiz="l04-lepes5"></div>
 </section>
@@ -719,7 +740,7 @@ cluster_profile = customers.groupby("cluster").agg(
 
 <nav class="pager">
   <a href="03-kmeans.html">← 3. K-means</a>
-  <a href="05-dontesi-fa.html">5. Döntési fa →</a>
+  <a href="14-suruseg-validalas-kiugrok.html">14. Sűrűség, validálás, kiugrók →</a>
 </nav>
 </main>
 </body>

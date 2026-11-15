@@ -50,6 +50,8 @@ A lecke végére érteni fogod, hogyan lehetséges ez, mit mér akkor valójába
   <li><a href="#lepes6">6. lépés – Konfúziós mátrix: accuracy, precision, recall, F1</a></li>
   <li><a href="#lepes7">7. lépés – Többségi alapmodell és kiegyensúlyozatlan osztályok</a></li>
   <li><a href="#lepes8">8. lépés – Famélység: alultanulás és túltanulás</a></li>
+  <li><a href="#lepes9">9. lépés – Küszöb, ROC-görbe és AUC; specificitás; többosztályos átlagolás</a></li>
+  <li><a href="#lepes10">10. lépés – Az osztályozás szerepe a BI-ban és további osztályozó eszközök (kNN, naiv Bayes, logisztikus regresszió, SVM, véletlen erdő)</a></li>
   <li><a href="#alkalmazas">Alkalmazás – a gyakorlat teljes munkafolyamata</a></li>
   <li><a href="#osszefoglalas">Összefoglalás és döntési táblázat</a></li>
   <li><a href="#kviz">Ellenőrző kvíz</a></li>
@@ -480,6 +482,30 @@ A tesztadat nem része a tanításnak.</p>
 <p>Egy <code>max_depth=3</code>-as bináris fának legfeljebb $2^3=8$ levele lehet. A gyakorlaton pont 8 lett.</p>
 </div>
 
+<div class="box extra"><span class="box-title">➕ Kiegészítés (nem szerepelt a gyakorlaton) – ID3, C4.5, CART: a fa algoritmuscsaládjai</span>
+<p>A tananyag (11. fejezet) a döntési fák klasszikus képviselőjeként az <strong>ID3</strong>-at mutatja be (Ross Quinlan, 1986). Az sklearn fája egy másik családba tartozik. A három legismertebb:</p>
+<div class="table-wrap"><table>
+<tr><th>Algoritmus</th><th>Bemenet</th><th>Vágás</th><th>Kevertség</th><th>Megjegyzés</th></tr>
+<tr><td><strong>ID3</strong></td><td>csak diszkrét (kategorikus) tulajdonságok; a számokat előbb kategóriákba kell sorolni</td><td><strong>többágú</strong>: a tulajdonság minden értékéhez külön gyerekág</td><td>entrópia (információnyereség)</td><td>egy úton egy tulajdonság <strong>nem ismétlődhet</strong>; levél, ha az ág homogén, vagy elfogyott a tulajdonság</td></tr>
+<tr><td>C4.5</td><td>kategorikus és numerikus (küszöbbel)</td><td>többágú / küszöbös</td><td>nyereségarány (<em>gain ratio</em>)</td><td>az ID3 továbbfejlesztése (szintén Quinlan); metszést is végez</td></tr>
+<tr><td><strong>CART</strong></td><td>kategorikus és numerikus</td><td><strong>bináris</strong> (mindig két gyerek)</td><td>Gini (vagy entrópia)</td><td>regresszióra is; az sklearn <code>DecisionTreeClassifier</code>-e ennek optimalizált változata</td></tr>
+</table></div>
+<p>A tananyag a fákat szerkezet szerint is csoportosítja: <em>bináris</em> fák (két gyerek), <em>többágú</em> fák, <em>nem lineáris</em> fák (bonyolultabb feltétel a csomópontban), és <em>döntési erdők</em> (több fa együttese, lásd a <a href="#lepes10">10. lépést</a>).</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 4 – Egy ID3-vágás: többágú felosztás entrópiával</span>
+<p>9 hallgató, 6 yes és 3 no. A szak szerint: BI [2 yes, 1 no], CS [1 yes, 2 no], ME [3 yes, 0 no]. Mekkora az ID3 információnyeresége a „szak” tulajdonságra?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Gyökér: $H=-\left(\tfrac69\log_2\tfrac69+\tfrac39\log_2\tfrac39\right)\approx 0{,}918$.
+Gyerekek: $H(\text{BI})=H(\text{CS})\approx 0{,}918$ (2–1 arány), $H(\text{ME})=0$ (tiszta).</p>
+<p>Súlyozott entrópia: $\tfrac39\cdot 0{,}918+\tfrac39\cdot 0{,}918+\tfrac39\cdot 0=0{,}612$. Információnyereség: $0{,}918-0{,}612=0{,}306$.
+Az ID3 itt <strong>három</strong> gyerekágat hoz létre egyszerre (nem „CS-es-e?” kérdést tesz fel, mint az sklearn), és a „szak” ezen az úton többet nem kerülhet sorra.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – a sok értékű tulajdonság csapdája</span>
+<p>Mi lenne, ha az ID3 a <code>student_id</code>-t is megkapná? Minden hallgató külön ágra kerülne, minden gyerek tiszta lenne (entrópia 0), így a nyereség a lehető legnagyobb: a gyökér teljes entrópiája. Az ID3 tehát <strong>a sok különböző értékű tulajdonságokat részesíti előnyben</strong>, akkor is, ha semmit nem jelentenek. Ezt a C4.5 nyereségaránya részben ellensúlyozza – de az azonosítót eleve ki kell hagyni (<a href="#lepes1">1. lépés</a>).</p>
+</div>
+
 <div class="box tip"><span class="box-title">💡 Hüvelykujjszabály – szabály kiolvasása</span>
 <p>Egy <strong>szabály = egy út a gyökértől egy levélig</strong>. Az út feltételei <strong>ÉS</strong>-sel kapcsolódnak, a levél címkéje a következmény:
 „HA feltétel₁ ÉS feltétel₂ ÉS … AKKOR osztály”. Ahány levél, annyi szabály. A fa bal ága mindig az „igaz” (≤) ág.</p>
@@ -800,6 +826,24 @@ Több adat inkább a <em>túltanulás</em> ellen hat.</li>
 a tanítóhalmazt $k$ részre bontjuk, és felváltva mindegyiken validálunk. A teszthalmazt csak a legvégén, egyszer használjuk. A túltanulás másik ellenszere a fa <strong>metszése</strong> (<em>pruning</em>), sklearn-ben <code>ccp_alpha</code>.</p>
 </div>
 
+<div class="box extra"><span class="box-title">➕ Kiegészítés (a tananyag 11. fejezetéből) – a túltanulás elleni eszközök rendszerezve</span>
+<p>A tananyag a túltanulás kezelését három részre bontja: az <strong>ok</strong> kiderítése, a <strong>felismerés</strong> (tanító ≫ teszt / validáció), és a <strong>kivédés</strong>. Két tipikus ok: a modell bonyolultabb a kívánatosnál (a véletlen zajt is szabályként tanulja), illetve túl sokszor ismételte a tanítóhalmazt. A kivédés eszközeit összefoglalóan <strong>regularizációs technikáknak</strong> nevezzük:</p>
+<ul>
+<li><strong>A modell egyszerűsítése</strong>: a paraméterek nagy értékeinek büntetése, illetve a döntési folyamat rövidítése (fánál: ágak levágása, mélység- és levélkorlát; neurális hálónál: elemek kikapcsolása).</li>
+<li><strong>A tanulás rövidítése</strong>: feltételhez kötött leállás (korai leállítás validációs halmaz alapján – a 6. leckében).</li>
+<li><strong>A tanítóadat kiigazítása</strong>: mesterséges zaj hozzáadása, egyes szeletek elhagyása, új adatokkal bővítés, hogy a kategóriák egyenletesebben szerepeljenek.</li>
+</ul>
+<p>A döntési fa sklearn-es „szerkezetkorlátai” közül a gyakorlaton kettőt használtunk; a tananyag továbbiakat is felsorol:</p>
+<div class="table-wrap"><table>
+<tr><th>Paraméter</th><th>Mit korlátoz</th></tr>
+<tr><td><code>max_depth</code></td><td>a fa mélységét (gyakorlat: 3)</td></tr>
+<tr><td><code>min_samples_leaf</code></td><td>a levelekben lévő minták minimális számát (gyakorlat: 5)</td></tr>
+<tr><td><code>min_samples_split</code></td><td>egy belső csomópont felosztásához legalább ennyi minta kell</td></tr>
+<tr><td><code>max_leaf_nodes</code></td><td>a levelek számának maximumát</td></tr>
+<tr><td><code>max_features</code></td><td>hány tulajdonság közül választhat egy vágásnál (a véletlen erdő ezt használja ki, <a href="#lepes10">10. lépés</a>)</td></tr>
+</table></div>
+</div>
+
 <details class="box practice"><summary>✏️ Gyakorlás – Alul- és túltanulás (5 feladat)</summary>
 <ol>
   <li><p>Tanító-accuracy 0,62, teszt 0,60; a többségi osztály aránya 0,60. Mit diagnosztizálsz?</p>
@@ -816,6 +860,280 @@ a tanítóhalmazt $k$ részre bontjuk, és felváltva mindegyiken validálunk. A
 </details>
 
 <div class="quiz" data-quiz="l05-lepes8"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes9">
+<h2>9. lépés – Küszöb, ROC-görbe és AUC; specificitás; többosztályos átlagolás</h2>
+<p style="font-size:.92em"><em>Ez a lépés nem szerepelt a gyakorlaton: az ütemterv 3–4. témaköre („minőségi mérőszámok”) és a tananyag 11. fejezete (3.1. pont) alapján egészítettük ki.</em></p>
+
+<h4>Kis eset – a fa valójában valószínűséget mond</h4>
+<p>A fa levele nemcsak címkét ad, hanem arányt is: a [4 no, 3 yes] levélbe jutó hallgatóra $P(\text{yes})=3/7\approx 0{,}429$. A <code>predict</code> ezt egy <strong>0,5-ös küszöbbel</strong> alakítja „no”-vá.
+Mi lenne, ha a küszöböt 0,4-re vennénk? Akkor ez a levél is „yes”-t mondana: több átmenőt találnánk meg, de több bukót is átmenőnek mondanánk. A gyakorlat fája a 29 teszthallgatóra ötféle értéket ad:</p>
+<div class="table-wrap"><table>
+<tr><th class="num">$P(\text{yes})$ (levél)</th><th class="num">0</th><th class="num">0,429</th><th class="num">0,655</th><th class="num">0,8</th><th class="num">1</th></tr>
+<tr><td>valódi no</td><td class="num">3</td><td class="num">1</td><td class="num">2</td><td class="num">1</td><td class="num">1</td></tr>
+<tr><td>valódi yes</td><td class="num">1</td><td class="num">3</td><td class="num">10</td><td class="num">1</td><td class="num">6</td></tr>
+</table></div>
+<p>Ahány küszöb, annyi konfúziós mátrix. Egyetlen szám kellene, ami <em>minden küszöbre egyszerre</em> mondja meg, mennyire jól választja szét a modell a két osztályt.</p>
+
+<div class="box def"><span class="box-title">Definíció – Specificitás, valódi és hamis pozitív arány</span>
+<p>$$\text{TPR}=\text{recall}=\frac{TP}{TP+FN}\qquad \text{specificitás}=\frac{TN}{TN+FP}\qquad \text{FPR}=\frac{FP}{FP+TN}=1-\text{specificitás}$$</p>
+<ul>
+<li><strong>Specificitás</strong> (<em>specificity</em>, valódi negatív arány): a valóban negatív esetek mekkora részét mondta a modell negatívnak. Ez a negatív osztály recallja (a balanced accuracy második tagja, <a href="#lepes7">7. lépés</a>).</li>
+<li><strong>Hamis pozitív arány</strong> (FPR): a negatívok mekkora részére adott téves riasztást.</li>
+</ul>
+<p><strong>Miért kell?</strong> A recall csak a pozitívokat nézi. Egy „mindenki pozitív” modell recallja 1 – a specificitása viszont 0. A kettő együtt mutatja meg a valódi képet.</p>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – ROC-görbe és AUC</span>
+<p>A <strong>ROC-görbe</strong> (<em>Receiver Operating Characteristic</em>) minden lehetséges küszöbre ábrázolja a $(\text{FPR},\ \text{TPR})$ pontot: vízszintesen a téves riasztások aránya, függőlegesen a megtalált pozitívok aránya.
+A küszöböt 1-ről 0 felé csökkentve a görbe a $(0,0)$ pontból a $(1,1)$-be fut.</p>
+<p>Az <strong>AUC</strong> (<em>Area Under the Curve</em>) a görbe alatti terület a $[0,1]\times[0,1]$ négyzetben:</p>
+<ul>
+<li>AUC = 1: tökéletes szétválasztás (van olyan küszöb, ahol TPR = 1 és FPR = 0);</li>
+<li>AUC = 0,5: a véletlen találgatás szintje (az átló);</li>
+<li>Értelmezés: annak a valószínűsége, hogy egy véletlen pozitív eset <strong>nagyobb</strong> pontszámot kap, mint egy véletlen negatív (holtversenyt fél ponttal számolva).</li>
+</ul>
+<p>sklearn: <code>roc_curve(y_true, p)</code>, <code>roc_auc_score(y_true, p)</code>, ahol <code>p = model.predict_proba(X_test)[:, 1]</code> (a <code>"yes"</code> oszlopa).</p>
+<p><strong>Miért jó?</strong> Nem függ egyetlen önkényes küszöbtől és – mivel csak a sorrendet nézi – az osztályaránytól sem: a többségi alapmodell konstans pontszámot ad, így az AUC-ja pontosan 0,5, akármilyen kiegyensúlyozatlan az adat.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – A gyakorlat fájának specificitása</span>
+<p>Teszt-mátrix (pozitív = yes): TP = 17, FN = 4, FP = 4, TN = 4. Mennyi a specificitás és az FPR?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Specificitás $=\tfrac{4}{4+4}=0{,}5$, FPR $=\tfrac48=0{,}5$. A bukók felét a fa átmenőnek mondja – ugyanaz, mint a „no” osztály recallja a 6. lépés 3. példájában.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – ROC-görbe és AUC kézzel, 6 hallgató</span>
+<p>Pontszámok ($P(\text{yes})$) csökkenő sorrendben: A 0,9 (yes), B 0,8 (yes), C 0,7 (no), D 0,6 (yes), E 0,4 (no), F 0,2 (no). 3 pozitív, 3 negatív.</p>
+<details class="solution"><summary>Megoldás</summary>
+<div class="table-wrap"><table>
+<tr><th>küszöb (≥)</th><th class="num">TP</th><th class="num">FP</th><th class="num">TPR</th><th class="num">FPR</th></tr>
+<tr><td>0,9</td><td class="num">1</td><td class="num">0</td><td class="num">1/3</td><td class="num">0</td></tr>
+<tr><td>0,8</td><td class="num">2</td><td class="num">0</td><td class="num">2/3</td><td class="num">0</td></tr>
+<tr><td>0,7</td><td class="num">2</td><td class="num">1</td><td class="num">2/3</td><td class="num">1/3</td></tr>
+<tr><td>0,6</td><td class="num">3</td><td class="num">1</td><td class="num">1</td><td class="num">1/3</td></tr>
+<tr><td>0,4</td><td class="num">3</td><td class="num">2</td><td class="num">1</td><td class="num">2/3</td></tr>
+<tr><td>0,2</td><td class="num">3</td><td class="num">3</td><td class="num">1</td><td class="num">1</td></tr>
+</table></div>
+<p>Terület: FPR 0-tól 1/3-ig a görbe 2/3 magasan halad, 1/3-tól 1-ig 1 magasan: $\tfrac13\cdot\tfrac23+\tfrac23\cdot 1=\tfrac89\approx 0{,}889$.</p>
+<p>Párokkal: 3·3 = 9 (pozitív, negatív) pár. A 0,9 és a 0,8 mindhárom negatívnál nagyobb (6 pár), a 0,6 kettőnél (E, F). $8/9=0{,}889$ – ugyanaz. Az sklearn <code>roc_auc_score</code>-ja is 0,889-et ad.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – A gyakorlat fája és hálója a teszten</span>
+<p>A kis eset táblázatából a fa ROC-pontjai (küszöb csökkenő sorrendben):</p>
+<div class="table-wrap"><table>
+<tr><th>küszöb (≥)</th><th class="num">1</th><th class="num">0,8</th><th class="num">0,655</th><th class="num">0,429</th><th class="num">0</th></tr>
+<tr><td>TP / FP</td><td class="num">6 / 1</td><td class="num">7 / 2</td><td class="num">17 / 4</td><td class="num">20 / 5</td><td class="num">21 / 8</td></tr>
+<tr><td>(FPR; TPR)</td><td class="num">(0,125; 0,286)</td><td class="num">(0,25; 0,333)</td><td class="num">(0,5; 0,810)</td><td class="num">(0,625; 0,952)</td><td class="num">(1; 1)</td></tr>
+</table></div>
+<details class="solution"><summary>Megoldás – mit látunk?</summary>
+<p>A (0,5; 0,810) pont épp a 0,5-ös küszöb, vagyis a gyakorlat konfúziós mátrixa (17 TP, 4 FP). A fa AUC-ja (sklearn) <strong>0,676</strong>. A 6. gyakorlat (8, 4)-es MLP-jéé ugyanezen a teszten <strong>0,845</strong>, a többségi alapmodellé 0,5.</p>
+<p>A fának csak 5 különböző pontszáma van (ahány levélbe tesztpélda jut), ezért a görbéje néhány nagy lépcsőből áll. A háló minden hallgatóra más valószínűséget ad, ezért finomabban rangsorol. Az AUC itt már egyértelműbben különbséget tesz a fa és a háló között, mint az accuracy (0,724 vs 0,793).</p></details>
+</div>
+
+<h4>Kettőnél több osztály</h4>
+<p>Ha a szakot jósolnánk (1. lépés, 5. gyakorló feladat), a konfúziós mátrix 3 × 3-as. Precision, recall és F1 <strong>osztályonként</strong> számolható („ez az osztály a pozitív, a többi a negatív”), utána átlagolunk.</p>
+
+<div class="box def"><span class="box-title">Definíció – Többosztályos átlagolás (<code>average=</code>)</span>
+<ul>
+<li><strong>Makroátlag</strong> (<code>macro</code>): az osztályonkénti értékek sima átlaga – minden osztály egyforma súlyú, akármilyen kicsi.</li>
+<li><strong>Súlyozott átlag</strong> (<code>weighted</code>): az osztályok valódi elemszámával (<em>support</em>) súlyozott átlag – a nagy osztályok többet számítanak.</li>
+<li><strong>Mikroátlag</strong> (<code>micro</code>): az összes TP, FP, FN összeadása után egyszer számolunk. Egycímkés többosztályos feladatban a mikro precision = mikro recall = mikro F1 = <strong>accuracy</strong>.</li>
+</ul>
+<p>A <code>classification_report</code> a <code>macro avg</code> és <code>weighted avg</code> sorokat írja ki.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 4 – Három szak</span>
+<p>Sor = valódi, oszlop = jósolt (BI, CS, ME): BI [6, 3, 1], CS [2, 15, 3], ME [1, 1, 8]. 40 hallgató.</p>
+<details class="solution"><summary>Megoldás</summary>
+<div class="table-wrap"><table>
+<tr><th>osztály</th><th class="num">TP</th><th class="num">precision</th><th class="num">recall</th><th class="num">F1</th><th class="num">support</th></tr>
+<tr><td>BI</td><td class="num">6</td><td class="num">6/9 = 0,667</td><td class="num">6/10 = 0,600</td><td class="num">0,632</td><td class="num">10</td></tr>
+<tr><td>CS</td><td class="num">15</td><td class="num">15/19 = 0,789</td><td class="num">15/20 = 0,750</td><td class="num">0,769</td><td class="num">20</td></tr>
+<tr><td>ME</td><td class="num">8</td><td class="num">8/12 = 0,667</td><td class="num">8/10 = 0,800</td><td class="num">0,727</td><td class="num">10</td></tr>
+</table></div>
+<p>Precision: oszlop szerint (a BI-nak jósoltak: 6 + 2 + 1 = 9). Recall: sor szerint.
+Makro F1 $=(0{,}632+0{,}769+0{,}727)/3=0{,}709$; súlyozott F1 $=(10\cdot0{,}632+20\cdot0{,}769+10\cdot0{,}727)/40=0{,}724$;
+accuracy = mikro F1 $=(6+15+8)/40=0{,}725$. (sklearn-nel ellenőrizve.)</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktatók</span>
+<ul>
+<li>Az AUC-hoz <strong>valószínűség</strong> (pontszám) kell, nem a 0/1 jóslat: <code>predict_proba(...)[:, 1]</code>, nem <code>predict</code>. A címkékből számolt „AUC” csak egyetlen ROC-pontot lát.</li>
+<li>Az FPR nem „1 − precision”, hanem „1 − specificitás”: a nevezője a valódi negatívok száma, nem a pozitívnak jósoltaké.</li>
+<li>0,5 alatti AUC nem „még rosszabb a véletlennél”, hanem fordított sorrendet jelez (felcserélt pozitív osztály, rossz oszlop a <code>predict_proba</code>-ból).</li>
+<li>A küszöb hangolása is döntés a modellről: ha a <em>teszten</em> választod ki a legjobb küszöböt, a teszt-eredmény optimista lesz (mint a mélységnél, <a href="#lepes8">8. lépés</a>).</li>
+<li>Kiegyensúlyozatlan osztályoknál a súlyozott átlag elrejti a kis osztály gyengeségét – a makroátlag mutatja meg.</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia</span>
+<p><em>specificity</em> = specificitás, valódi negatív arány · <em>true / false positive rate</em> (TPR / FPR) = valódi / hamis pozitív arány · <em>threshold</em> = küszöb · <em>ROC curve</em> = ROC-görbe · <em>AUC</em> = görbe alatti terület ·
+<em>macro / weighted / micro average</em> = makro / súlyozott / mikroátlag · <em>support</em> = az osztály valódi elemszáma. A tananyag a recallt „emlékezés”-nek is hívja.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Specificitás, ROC, AUC, átlagolás (5 feladat)</summary>
+<ol>
+  <li><p>TN = 50, FP = 10. Mennyi a specificitás és az FPR?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Specificitás $=50/60\approx 0{,}833$; FPR $=10/60\approx 0{,}167$ (a kettő összege 1).</p></details></li>
+  <li><p>Négy hallgató: yes 0,9 és 0,6; no 0,7 és 0,3. Hol van a ROC-pont 0,65-ös küszöbnél, és mennyi az AUC?</p>
+    <details class="solution"><summary>Megoldás</summary><p>0,65 fölött: 0,9 (yes) és 0,7 (no) → TP = 1, FP = 1 → (FPR; TPR) = (0,5; 0,5).
+    AUC párokkal: 0,9 &gt; 0,7 ✓, 0,9 &gt; 0,3 ✓, 0,6 &gt; 0,3 ✓, 0,6 &lt; 0,7 ✗ → $3/4=0{,}75$.</p></details></li>
+  <li><p>A gyakorlat fájánál a küszöböt 0,4-re csökkentjük (a 0,429-es levél is yes lesz). Mennyi lesz a recall, a specificitás és az accuracy? (A kis eset táblázatát használd.)</p>
+    <details class="solution"><summary>Megoldás</summary><p>yes-t mond a 0,429-es, 0,655-ös, 0,8-as és 1-es pontszámra: TP $=3+10+1+6=20$, FP $=1+2+1+1=5$, így FN = 1, TN = 3.
+    Recall $=20/21=0{,}952$; specificitás $=3/8=0{,}375$; accuracy $=23/29=0{,}793$. Az accuracy nőtt – de ezt a küszöböt a teszten választottuk, így a 0,793 optimista szám.</p></details></li>
+  <li><p>Két osztály: A recallja 0,9 (90 elem), B recallja 0,3 (10 elem). Makro- és súlyozott átlag?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Makro: $(0{,}9+0{,}3)/2=0{,}6$. Súlyozott: $(90\cdot0{,}9+10\cdot0{,}3)/100=0{,}84$. A súlyozott átlag „eltakarja”, hogy a kis osztályt alig ismeri fel a modell.</p></details></li>
+  <li><p>Mennyi az AUC-ja egy modellnek, amely mindenkire 0,7-et mond? És mi a kapcsolata a többségi alapmodellel?</p>
+    <details class="solution"><summary>Megoldás</summary><p>0,5: minden (pozitív, negatív) pár holtverseny (fél pont), a ROC-görbe az átló. A többségi alapmodell is konstans pontszámot ad, így az AUC-ja is 0,5 – az accuracy-val ellentétben az AUC nem „jutalmazza” a semmittevést.</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l05-lepes9"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes10">
+<h2>10. lépés – Az osztályozás szerepe a BI-ban és további osztályozó eszközök</h2>
+<p style="font-size:.92em"><em>A gyakorlaton csak döntési fát (és a 6. gyakorlaton MLP-t) használtunk. Ez a lépés az ütemterv 3. témakörét („az osztályozás szerepe és eszközei”) és a tananyag 11. fejezetét dolgozza fel; a futtatási eredmények a mi kiegészítéseink.</em></p>
+
+<h4>Kis eset – miért éppen osztályozás?</h4>
+<p>A tananyag indító kérdése: <em>hogyan tud egy gépi tanulási rendszer korábbi példák alapján döntést hozni egy olyan új esetről, amellyel még nem találkozott?</em>
+Egy reklamáció várható típusa, egy ügyfél kategóriája, egy termék minőségi osztálya, egy hitelkérelem kockázata – mind ugyanaz a minta: múltbeli, ismert kimenetű esetekből tanulunk, és egy új esetet <strong>véges sok kategória</strong> egyikébe sorolunk.
+Az üzleti intelligencia egyik fő feladata a döntések támogatása (döntéstámogató rendszerek, DSS – operatív, taktikai és stratégiai szinten), és ennek a gépi tanulásban legtöbbet használt eszköze az osztályozás.</p>
+
+<div class="box def"><span class="box-title">Definíció – Az osztályozás mint leképezés (a tananyag szerint)</span>
+<p>$$f: X \to V$$</p>
+<p>$X$ az objektumok leíró (tulajdonság-) vektorainak halmaza, $V$ a célértékek halmaza. Osztályozásnál $V$ véges, diszkrét (pl. {yes, no}); regressziónál folytonos.
+A modellt a $T=\{(x,v)\}$ tanítóhalmazból építjük fel (ezért felügyelt tanulás), és két fázisa van: <strong>(1) a modell megalkotása</strong> (tanítás), <strong>(2) a modell alkalmazása</strong>, a predikció új esetekre.</p>
+<p><strong>Az osztályozás lépései</strong> (tananyag): 1. a cél meghatározása; 2. az adatok begyűjtése, hitelességük és teljességük ellenőrzése;
+3. adatelemzés, veszteségmentes redukció (felesleges tulajdonságok elhagyása); 4. a modell kiválasztása; 5. a modell paramétereinek beállítása;
+6. tanítás és tesztelés, a minőségi mutatók értékelése; 7. a modell mentése és alkalmazása. A folyamat <strong>iteratív</strong>: egy-egy lépést többször megismétlünk.</p>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Az osztályozó modellek családjai</span>
+<div class="table-wrap"><table>
+<tr><th>Család (tananyag)</th><th>Alapötlet</th><th>Példa-algoritmus · sklearn</th><th>Skálázás kell?</th><th>Értelmezhetőség</th></tr>
+<tr><td>A tanítóhalmaz maga a modell</td><td>az új esetet a hozzá leghasonlóbb tanítópéldák többségi osztályába sorolja</td><td>$k$ legközelebbi szomszéd (kNN) · <code>KNeighborsClassifier</code></td><td>igen (távolság)</td><td>közepes (meg lehet mutatni a szomszédokat)</td></tr>
+<tr><td>Valószínűségi modellek</td><td>a tanítóhalmazból becsült valószínűségekkel a legvalószínűbb osztály</td><td>naiv Bayes · <code>GaussianNB</code>, <code>CategoricalNB</code></td><td>nem</td><td>közepes</td></tr>
+<tr><td>Tulajdonság-intervallum alapú</td><td>elemi „benne van-e az intervallumban?” döntések fába szervezve</td><td>döntési fa · <code>DecisionTreeClassifier</code></td><td>nem</td><td><strong>magas</strong> (szabályok)</td></tr>
+<tr><td>Geometriai modellek</td><td>a pontokat elválasztó (hiper)sík / határ a tulajdonságtérben</td><td>logisztikus regresszió · <code>LogisticRegression</code>; SVM · <code>SVC</code></td><td>igen</td><td>log. regresszió: a súlyok olvashatók; SVM: alacsony</td></tr>
+<tr><td>Neurális hálók</td><td>sok elemi döntési egység (neuron) hálózata</td><td>MLP · <code>MLPClassifier</code> (6. lecke)</td><td>igen</td><td>alacsony („fekete doboz”)</td></tr>
+<tr><td>Együttes (ensemble) modellek</td><td>sok modell (pl. fa) szavazata</td><td>véletlen erdő · <code>RandomForestClassifier</code></td><td>nem</td><td>alacsony–közepes (változófontosság)</td></tr>
+</table></div>
+<p>A tananyag öt családot sorol fel; az együttes modelleket a döntési fáknál (Random Forest) tárgyalja. A logisztikus regressziót és az SVM-et mi soroltuk a geometriai családba (példaként).</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – kNN a 8 hallgatón</span>
+<p>A 4. lépés 8 hallgatója csak a tanulási óraszámmal: 2 no, 3 no, 4 yes, 5 no, 6 yes, 7 yes, 8 yes, 9 yes. Új hallgató: 4,2 óra. Mit mond a kNN $k=1$, $3$, $5$ esetén?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Távolságok 4,2-től: 4 → 0,2 (yes); 5 → 0,8 (no); 3 → 1,2 (no); 6 → 1,8 (yes); 2 → 2,2 (no); 7 → 2,8 (yes) …</p>
+<ul>
+<li>$k=1$: a legközelebbi a 4 órás → <strong>yes</strong>.</li>
+<li>$k=3$: yes, no, no → <strong>no</strong>.</li>
+<li>$k=5$: yes, no, no, yes, no → <strong>no</strong>.</li>
+</ul>
+<p>Az $1$-NN ugyanazt „magolja be”, mint a korlátlan fa (5. lépés: a 3,5 &lt; óra ≤ 4,5 levél egyetlen hallgatón alapul). A nagyobb $k$ simít: a $k$ itt ugyanazt a szerepet játssza, mint a fánál a mélység – kis $k$ → túltanulás, nagy $k$ → alultanulás. (sklearn-nel ellenőrizve.)</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Naiv Bayes ugyanezen a 8 hallgatón</span>
+<p>Két kategorikus tulajdonság: <em>házi</em> (igen/nem) és <em>óra</em> (kevés: ≤ 5, sok: &gt; 5). Új hallgató: házi = igen, óra = kevés. Melyik osztály a valószínűbb?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>A priori: $P(\text{yes})=5/8$, $P(\text{no})=3/8$. A tanítóhalmazból (4. lépés táblázata):
+$P(\text{igen}\mid\text{yes})=3/5$ (5., 6., 8. hallgató), $P(\text{igen}\mid\text{no})=1/3$; $P(\text{kevés}\mid\text{yes})=1/5$ (3. hallgató), $P(\text{kevés}\mid\text{no})=3/3=1$.</p>
+<p>A „naiv” feltevés: osztályon belül a tulajdonságok függetlenek, ezért a feltételes valószínűségek összeszorozhatók:</p>
+<p>$$\text{yes}: \tfrac58\cdot\tfrac35\cdot\tfrac15=0{,}075 \qquad \text{no}: \tfrac38\cdot\tfrac13\cdot 1=0{,}125$$</p>
+<p>A nagyobb nyer: <strong>no</strong>. Normálva: $P(\text{yes}\mid x)=0{,}075/(0{,}075+0{,}125)=0{,}375$.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – Logisztikus regresszió: egyetlen szigmoid neuron</span>
+<p>Legyen $P(\text{yes})=\sigma(1{,}5\cdot\text{óra}-7{,}5)$, ahol $\sigma(z)=1/(1+e^{-z})$. Mennyi 4,2 és 6 óránál, és hol van a döntési határ?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>4,2 óra: $z=6{,}3-7{,}5=-1{,}2$, $\sigma(-1{,}2)\approx 0{,}231$ → no. 6 óra: $z=1{,}5$, $\sigma(1{,}5)\approx 0{,}818$ → yes.
+A határ ott van, ahol $p=0{,}5$, azaz $z=0$: $1{,}5\cdot\text{óra}=7{,}5$ → <strong>5 óra</strong>.</p>
+<p>Ez pontosan a 6. lecke perceptronja, csak lépcső helyett szigmoiddal: <strong>lineáris</strong> határ és valószínűség-kimenet. A neve ellenére osztályozó, nem regresszió.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 4 – SVM: a legszélesebb sáv</span>
+<p>Egy dimenzióban: no-k 1, 2, 3 óránál, yes-ek 6 és 7 óránál. Bármely 3 és 6 közötti küszöb hibátlanul elválaszt. Melyiket választja a (lineáris) SVM?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Azt, amelyik a legközelebbi pontoktól a <strong>legmesszebb</strong> van: a 3 és 6 felezőpontját, <strong>4,5</strong>-öt. A sáv (margó) fél szélessége 1,5. A határt csak a sáv szélén álló pontok határozzák meg (3 és 6) – ezek a <em>támaszvektorok</em> (support vectors); a többi pont elhagyható.
+A perceptron bármelyik elválasztó küszöbnél megállhat; az SVM a legbiztonságosabbat keresi. (sklearn: <code>SVC(kernel="linear")</code> → 4,5.) Nemlineáris határhoz az SVM „kernelt” használ (alapértelmezés: <code>kernel="rbf"</code>).</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 5 – Véletlen erdő: sok fa szavazata</span>
+<p>A tananyag szerint az egyedi fa gyengeségei: hajlamos túltanulni (rosszul általánosít), érzékeny arra, milyen tanítópéldákat és tulajdonságokat kap, és a felépítésében véletlen hatások vannak.
+A <strong>véletlen erdő</strong> (Random Forest) sok fát épít, mindegyiket (1) a tanítóhalmaz egy <strong>véletlen mintáján</strong> és (2) vágásonként a tulajdonságok egy <strong>véletlen részhalmazán</strong>, majd (3) a fák <strong>szavazata</strong> dönt. Egy hallgatóra 5 fa: yes, no, yes, yes, no. Mi a döntés?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>3 : 2 a yes javára → <strong>yes</strong>. Miért stabilabb? Az egyes fák véletlen hibái eltérőek, a szavazásban kiegyenlítik egymást; egyetlen „elfogult” fa nem dönthet egyedül.
+sklearn: <code>RandomForestClassifier(n_estimators=100, random_state=42)</code> (100 fa).</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktatók</span>
+<ul>
+<li><strong>Távolság alapú modellnél (kNN, SVM) és súlyozott összegnél (logisztikus regresszió, MLP) standardizálni kell</strong>, a fánál és a naiv Bayesnél nem. A gyakorlat adatán a kNN ($k=5$) standardizálás nélkül 0,759 / 0,640 (accuracy / balanced acc.), standardizálással 0,793 / 0,741 – a 0–100-as jelenlét „elnyomta” a többi változót.</li>
+<li><strong>Naiv Bayes – a nulla gyakoriság csapdája.</strong> A 8 hallgató között nincs „sok órát tanuló bukott”, így $P(\text{sok}\mid\text{no})=0$, és egy (nem, sok) hallgatóra a no pontszáma $0$ – a modell 100%-ig biztos a yes-ben. Ezért szokás <em>Laplace-simítást</em> használni (minden darabszámhoz +1): így $P(\text{yes}\mid\text{nem, sok})\approx 0{,}81$.</li>
+<li><strong>A „naiv” függetlenség ritkán igaz</strong> (aki többet tanul, valószínűleg a házit is beadja) – a módszer ennek ellenére gyakran jól osztályoz, de a valószínűségei túl magabiztosak lehetnek.</li>
+<li>Az sklearn véletlen erdője nem „egy fa = egy szavazat” elven dönt, hanem a fák <strong>valószínűségeit átlagolja</strong> (puha szavazás). A kettő eltérhet (lásd a 4. gyakorló feladatot).</li>
+</ul>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés – a hat modell a gyakorlat adatán (saját futtatás)</span>
+<p>Ugyanaz a 85/29-es felosztás, mint az 5–6. gyakorlaton. kNN, logisztikus regresszió, SVM és MLP standardizálva (<code>make_pipeline(StandardScaler(), …)</code>), alapbeállításokkal; <code>random_state=42</code>.</p>
+<div class="table-wrap"><table>
+<tr><th>Modell</th><th class="num">tanító acc.</th><th class="num">teszt acc.</th><th class="num">balanced acc.</th><th class="num">AUC</th></tr>
+<tr><td>Többségi alapmodell</td><td class="num">0,706</td><td class="num">0,724</td><td class="num">0,500</td><td class="num">0,500</td></tr>
+<tr><td>Döntési fa (gyakorlat: mélység 3, min. 5/levél)</td><td class="num">0,800</td><td class="num">0,724</td><td class="num">0,655</td><td class="num">0,676</td></tr>
+<tr><td>kNN ($k=5$)</td><td class="num">0,824</td><td class="num">0,793</td><td class="num">0,741</td><td class="num">0,875</td></tr>
+<tr><td>Naiv Bayes (<code>GaussianNB</code>)</td><td class="num">0,835</td><td class="num">0,793</td><td class="num">0,741</td><td class="num">0,833</td></tr>
+<tr><td>Logisztikus regresszió</td><td class="num">0,800</td><td class="num">0,759</td><td class="num">0,717</td><td class="num">0,833</td></tr>
+<tr><td>SVM (RBF kernel)</td><td class="num">0,859</td><td class="num">0,793</td><td class="num">0,702</td><td class="num">0,839</td></tr>
+<tr><td>Véletlen erdő (100 fa)</td><td class="num">1,000</td><td class="num">0,759</td><td class="num">0,679</td><td class="num">0,857</td></tr>
+<tr><td>MLP (8, 4) – 6. gyakorlat</td><td class="num">0,941</td><td class="num">0,793</td><td class="num">0,780</td><td class="num">0,845</td></tr>
+</table></div>
+<ul>
+<li>Minden modell balanced accuracy-je és AUC-ja jobb az alapmodellénél; az egyetlen fa a leggyengébb. Ez összhangban van a tananyaggal: egyetlen fa szemléletes, de instabil.</li>
+<li>Az accuracy-k 0,724–0,793 között vannak: ez 29 hallgatónál <strong>0–2 hallgató</strong> különbség. Ebből nem lehet sorrendet felállítani – erre a keresztvalidáció való (6. lecke, <a href="06-neuralis-halo.html#lepes10">10. lépés</a>).</li>
+<li>A véletlen erdő a tanítón 100%-os, a teszten 0,759: az egyes fái korlát nélkül nőnek, az erdő mégis jobban általánosít, mint egy korlátlan fa (0,655, 8. lépés).</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Hüvelykujjszabály – melyiket válaszd?</span>
+<ul>
+<li>Meg kell <strong>indokolni</strong> a döntést (hitelelutasítás, hallgatói figyelmeztetés)? → döntési fa vagy logisztikus regresszió.</li>
+<li>Kevés adat, kategorikus tulajdonságok, gyors kiindulópont kell? → naiv Bayes.</li>
+<li>Kicsi, alacsony dimenziós adat, „hasonló esetek” logikája? → kNN (standardizálva).</li>
+<li>Táblázatos adat, a pontosság a fő szempont? → véletlen erdő (kevés hangolással is jó).</li>
+<li>Sok adat, bonyolult, nemlineáris összefüggés, kép / szöveg? → neurális háló.</li>
+<li>Mindig: hasonlítsd az <strong>alapmodellhez</strong>, és ugyanazon a felosztáson / keresztvalidációval vesd össze a jelölteket.</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia</span>
+<p><em>decision support system (DSS)</em> = döntéstámogató rendszer · <em>k-nearest neighbors (kNN)</em> = $k$ legközelebbi szomszéd · <em>naive Bayes</em> = naiv Bayes-osztályozó · <em>prior</em> = a priori valószínűség ·
+<em>logistic regression</em> = logisztikus regresszió · <em>support vector machine (SVM)</em> = tartóvektor-gép · <em>margin</em> = margó, sáv · <em>support vectors</em> = támaszvektorok ·
+<em>ensemble</em> = együttes modell · <em>random forest</em> = véletlen erdő · <em>bootstrap sample</em> = visszatevéses véletlen minta · <em>majority / soft voting</em> = többségi / puha szavazás.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – További osztályozók (5 feladat)</summary>
+<ol>
+  <li><p>A 8 hallgatós adaton ($k=3$) mit mond a kNN egy 6,4 órás hallgatóra?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Legközelebbiek: 6 (0,4; yes), 7 (0,6; yes), 5 (1,4; no) → 2 : 1 → <strong>yes</strong>.</p></details></li>
+  <li><p>Naiv Bayes a 2. példa adataival: házi = nem, óra = kevés. Melyik osztály, és mennyi $P(\text{yes}\mid x)$?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$P(\text{nem}\mid\text{yes})=2/5$ (3., 7. hallgató), $P(\text{nem}\mid\text{no})=2/3$ (1., 4.).
+    yes: $\tfrac58\cdot\tfrac25\cdot\tfrac15=0{,}05$; no: $\tfrac38\cdot\tfrac23\cdot 1=0{,}25$ → <strong>no</strong>; $P(\text{yes}\mid x)=0{,}05/0{,}30\approx 0{,}167$.</p></details></li>
+  <li><p>A 3. példa logisztikus modelljével ($\sigma(1{,}5\cdot\text{óra}-7{,}5)$) mennyi a 3 órás hallgató átmenési valószínűsége? Hány óránál lenne 50%?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$z=4{,}5-7{,}5=-3$, $\sigma(-3)\approx 0{,}047$. 50% ott, ahol $z=0$: 5 óránál.</p></details></li>
+  <li><p>Egy erdő 5 fája ennyi $P(\text{yes})$-t ad egy hallgatóra: 0,9; 0,9; 0,4; 0,4; 0,4. Mit dönt a többségi szavazás, és mit az sklearn átlagolása?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Többségi szavazás (0,5-ös küszöbbel fánként): 2 yes, 3 no → <strong>no</strong>. Átlag: $(0{,}9+0{,}9+0{,}4+0{,}4+0{,}4)/5=0{,}6$ → <strong>yes</strong>. A két magabiztos fa „felülírja” a három bizonytalant.</p></details></li>
+  <li><p>Egy bank hitelkérelmeket sorol „magas” / „alacsony” kockázatúba, és jogszabály írja elő, hogy az elutasítást meg kell indokolni. Melyik két modellcsaládot javaslod, és melyiket kerülnéd?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Döntési fa (kiolvasható szabályok) vagy logisztikus regresszió (a súlyok előjele és nagysága megmutatja, mi mennyit nyom a latba). A neurális hálót és a véletlen erdőt indoklási kötelezettségnél nehéz használni – ott a „miért?” nem olvasható ki közvetlenül.</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l05-lepes10"></div>
 </section>
 
 <!-- ============================================================ -->
@@ -885,6 +1203,9 @@ A <code>zero_division=0</code> azért kell, mert ha egy modell egyszer sem jóso
 <li>Konfúziós mátrix → accuracy, precision (oszlop), recall (sor), F1 (harmonikus átlag); mindig egy kijelölt pozitív osztályra.</li>
 <li>Mindig hasonlíts a <strong>többségi alapmodellhez</strong>; kiegyensúlyozatlan adatnál az accuracy félrevezet (0,724 = 0,724).</li>
 <li>Sekély fa → alultanulás; túl mély fa → túltanulás (tanító ↑, teszt ↓).</li>
+<li>A fa algoritmuscsaládjai: ID3 (kategorikus, többágú, entrópia), C4.5, CART (bináris, Gini – ezt használja az sklearn).</li>
+<li>Küszöbtől független értékelés: <strong>ROC-görbe</strong> (FPR–TPR) és <strong>AUC</strong> (0,5 = véletlen, 1 = tökéletes); specificitás $=TN/(TN+FP)$. Több osztálynál makro-, súlyozott és mikroátlag.</li>
+<li>Az osztályozás a BI döntéstámogatásának fő eszköze ($f: X\to V$, véges $V$). Modellcsaládok: kNN, naiv Bayes, döntési fa, geometriai (logisztikus regresszió, SVM), neurális háló, együttes (véletlen erdő).</li>
 </ul>
 
 <h3>Döntési táblázat</h3>
@@ -904,6 +1225,15 @@ A <code>zero_division=0</code> azért kell, mert ha egy modell egyszer sem jóso
 <tr><td>„Jó-e a 72%-os accuracy?”</td><td>Hasonlítsd a többségi alapmodellhez; nézd a kisebbségi osztály recallját / a balanced accuracy-t.</td></tr>
 <tr><td>Tanító és teszt is gyenge</td><td>Alultanulás → bonyolultabb modell (mélyebb fa).</td></tr>
 <tr><td>Tanító kiváló, teszt sokkal rosszabb</td><td>Túltanulás → kisebb <code>max_depth</code>, nagyobb <code>min_samples_leaf</code>.</td></tr>
+<tr><td>„Melyik tulajdonságot választja az ID3?”</td><td>A legkisebb súlyozott (eredő) entrópiájút = legnagyobb információnyereségűt; többágú vágás, egy úton nem ismétlődik.</td></tr>
+<tr><td>„A valódi negatívok hány %-át ismerte fel?”</td><td>Specificitás $\tfrac{TN}{TN+FP}$; FPR $=1-$ specificitás.</td></tr>
+<tr><td>Küszöbtől független összehasonlítás, rangsorolás minősége</td><td>ROC-görbe és AUC (<code>roc_auc_score</code> a <code>predict_proba</code> pozitív oszlopával).</td></tr>
+<tr><td>Több osztály, egy összesítő szám kell</td><td>Makroátlag (minden osztály egyforma súlyú) / súlyozott átlag (support szerint); mikroátlag = accuracy.</td></tr>
+<tr><td>„Melyik a hozzá leghasonlóbb eset?” / új esetet a szomszédai alapján</td><td>kNN (standardizálva); kis $k$ → túltanulás.</td></tr>
+<tr><td>Kategorikus tulajdonságok, valószínűség kell, kevés adat</td><td>Naiv Bayes ($P(\text{osztály})\cdot\prod P(x_j\mid\text{osztály})$); nulla gyakoriságnál Laplace-simítás.</td></tr>
+<tr><td>Lineáris határ + valószínűség, olvasható súlyok</td><td>Logisztikus regresszió $\sigma(\sum w_ix_i+b)$.</td></tr>
+<tr><td>A legszélesebb elválasztó sáv</td><td>SVM (támaszvektorok; nemlineárishoz kernel).</td></tr>
+<tr><td>Egy fa instabil / túltanul, pontosság kell</td><td>Véletlen erdő: véletlen minták + véletlen tulajdonság-részhalmazok + szavazás.</td></tr>
 </table></div>
 </section>
 
@@ -913,7 +1243,7 @@ A <code>zero_division=0</code> azért kell, mert ha egy modell egyszer sem jóso
 </section>
 
 <nav class="pager">
-  <a href="04-hierarchikus-klaszterezes.html">← 4. Hierarchikus klaszterezés</a>
+  <a href="14-suruseg-validalas-kiugrok.html">← 14. Sűrűség, validálás, kiugrók</a>
   <a href="06-neuralis-halo.html">6. Neurális háló →</a>
 </nav>
 </main>

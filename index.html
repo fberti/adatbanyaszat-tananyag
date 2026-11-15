@@ -31,25 +31,44 @@ document.addEventListener("DOMContentLoaded", () => {
 <main>
 <p class="kicker">Miskolci Egyetem · GTK · levelező · 2026/27 ősz</p>
 <h1>Adatbányászat – tananyag</h1>
-<p class="lead">Lépésről lépésre feldolgozott jegyzet a gyakorlati anyagokból és az órai hangfelvételből, megértéshez és vizsgafelkészüléshez. Minden lecke kis, kézzel végigszámolható példával indul, és a gyakorlat valódi adatain és kódján ér véget.</p>
+<p class="lead">Lépésről lépésre feldolgozott jegyzet a gyakorlati és előadásanyagokból, valamint az órai hangfelvételből, megértéshez és vizsgafelkészüléshez. Minden lecke kis, kézzel végigszámolható példával indul, és a gyakorlat valódi adatain és kódján ér véget.</p>
 
 <div class="box tip"><span class="box-title">💡 Hogyan használd?</span>
 <ul>
-<li>A leckéket sorrendben érdemes olvasni: a 3–6. lecke a korábbiakra épít (aggregálás, standardizálás, tanító/teszt felosztás).</li>
+<li>A leckéket a lenti (ütemterv szerinti) sorrendben érdemes olvasni: a későbbiek a korábbiakra építenek (aggregálás, standardizálás, tanító/teszt felosztás).</li>
 <li>A <strong>✏️ Gyakorlás</strong> blokkok és a <strong>🎯 Kvízek</strong> alapból csukva vannak. Előbb próbáld megoldani a feladatot, csak utána nyisd ki a megoldást.</li>
 <li>A kvízeknél a <em>💡 Tipp</em> gomb elindít, de nem árulja el a választ. Az eredményedet a böngésző megjegyzi, és itt, a kártyákon látod.</li>
 <li>A <span style="border-left:3px dashed var(--muted);padding-left:4px">➕ Kiegészítés</span> dobozok olyan anyagot tartalmaznak, ami nem hangzott el a gyakorlaton, de a témához hozzátartozik.</li>
 </ul></div>
 
 <h2>Leckék</h2>
+<p>A sorrend az ütemterv négy témakörét követi. A leckék sorszáma a fájl azonosítója (a gyakorlatok 1–7, az előadásanyagok 10–14), a lapozó gombok a lenti sorrendben visznek végig.</p>
+<h3 class="topic-head">1. témakör – BI és adatbányászat alapjai, feltáró elemzés, kosárelemzés, Python</h3>
 <div class="cards">
-  <a class="card" href="01-adattisztitas.html"><span class="num">1. lecke · 1. gyakorlat</span><h3>Adattisztítás és feltáró elemzés</h3><p>Változótípusok, tisztítási sorrend, IQR, középértékek, boxplot.</p><div class="progress" data-progress="l01-lepes2 l01-lepes5 l01-lepes7 l01-vegso"></div></a>
-  <a class="card" href="02-kosarelemzes.html"><span class="num">2. lecke · 2. gyakorlat</span><h3>Kosárelemzés: Apriori</h3><p>Támogatottság, megbízhatóság, lift, asszociációs szabályok.</p><div class="progress" data-progress="l02-lepes2 l02-lepes3 l02-lepes4 l02-lepes5 l02-vegso"></div></a>
+  <a class="card" href="10-bi-adatbanyaszat-alapok.html"><span class="num">10. lecke · előadás</span><h3>BI és adatbányászat alapfogalmai</h3><p>BI funkciói, KPI, BI-architektúra, a DM 6 lépéses folyamata, feladattípusok, kihívások, gépi tanulás.</p><div class="progress" data-progress="l10-lepes2 l10-lepes3 l10-lepes4 l10-lepes6 l10-lepes8 l10-lepes9 l10-lepes10 l10-vegso"></div></a>
+  <a class="card" href="01-adattisztitas.html"><span class="num">1. lecke · 1. gyakorlat</span><h3>Adattisztítás és feltáró elemzés</h3><p>Változótípusok, adatminőség, tisztítás, IQR, középértékek, eloszlás alakja, előfeldolgozás.</p><div class="progress" data-progress="l01-lepes2 l01-lepes5 l01-lepes7 l01-lepes10 l01-lepes11 l01-vegso"></div></a>
+  <a class="card" href="02-kosarelemzes.html"><span class="num">2. lecke · 2. gyakorlat</span><h3>Kosárelemzés: Apriori</h3><p>Támogatottság, megbízhatóság, lift, asszociációs szabályok, FP-growth, üzleti alkalmazás.</p><div class="progress" data-progress="l02-lepes2 l02-lepes3 l02-lepes4 l02-lepes5 l02-lepes7 l02-vegso"></div></a>
+  <a class="card" href="11-python-adatkezeles.html"><span class="num">11. lecke · előadás</span><h3>Python adatkezelés</h3><p>Lista, halmaz, szótár, lambda, generátor; fájl és CSV, SQL API, pandas DataFrame.</p><div class="progress" data-progress="l11-lepes1 l11-lepes2 l11-lepes7 l11-lepes9 l11-lepes11 l11-lepes13 l11-vegso"></div></a>
+</div>
+<h3 class="topic-head">2. témakör – Adattárház, többdimenziós modell, MDX</h3>
+<div class="cards">
+  <a class="card" href="12-adattarolas-adattarhaz.html"><span class="num">12. lecke · előadás</span><h3>Adattárolás és adattárház</h3><p>Tárolási szintek, OLTP vs. OLAP, Inmon, DW-architektúra, ETL/ELT, adattó, HDFS, NoSQL.</p><div class="progress" data-progress="l12-lepes2 l12-lepes4 l12-lepes6 l12-lepes8 l12-vegso"></div></a>
+  <a class="card" href="13-md-modell-mdx.html"><span class="num">13. lecke · előadás</span><h3>MD modell és MDX</h3><p>Kocka, csillag- és hópehelyséma, slice/dice/roll-up/drill-down, MDX SELECT, FILTER, CROSSJOIN, SSAS.</p><div class="progress" data-progress="l13-lepes2 l13-lepes4 l13-lepes6 l13-lepes8 l13-lepes9 l13-vegso"></div></a>
+  <a class="card" href="07-sql-ablakfuggvenyek.html"><span class="num">7. lecke · előadás</span><h3>SQL ablakfüggvények</h3><p>OVER, PARTITION BY, ablakkeret, RANK, LAG/LEAD, mozgóátlag.</p><div class="progress" data-progress="l07-lepes2 l07-lepes4 l07-lepes5 l07-vegso"></div></a>
+</div>
+<h3 class="topic-head">3. témakör – Szegmentáció, klaszterezés, osztályozás, döntési fa</h3>
+<div class="cards">
   <a class="card" href="03-kmeans.html"><span class="num">3. lecke · 3. gyakorlat</span><h3>K-means szegmentáció</h3><p>Standardizálás, K-means lépései, könyökmódszer, silhouette.</p><div class="progress" data-progress="l03-lepes4 l03-lepes7 l03-lepes9 l03-vegso"></div></a>
   <a class="card" href="04-hierarchikus-klaszterezes.html"><span class="num">4. lecke · 4. gyakorlat</span><h3>Hierarchikus klaszterezés</h3><p>Kapcsolási módok, dendrogram, klaszterszám, K-means vs. HAC.</p><div class="progress" data-progress="l04-lepes1 l04-lepes2 l04-lepes4 l04-lepes5 l04-vegso"></div></a>
-  <a class="card" href="05-dontesi-fa.html"><span class="num">5. lecke · 5. gyakorlat</span><h3>Döntési fa és mérőszámok</h3><p>Gini, entrópia, konfúziós mátrix, precizitás, érzékenység, túltanulás.</p><div class="progress" data-progress="l05-lepes1 l05-lepes3 l05-lepes6 l05-lepes8 l05-vegso"></div></a>
-  <a class="card" href="06-neuralis-halo.html"><span class="num">6. lecke · 6. gyakorlat</span><h3>Neurális háló (MLP)</h3><p>Perceptron, aktiváció, tanítás, veszteség, túltanulás elleni eszközök.</p><div class="progress" data-progress="l06-lepes2 l06-lepes6 l06-lepes9 l06-vegso"></div></a>
-  <a class="card" href="07-sql-ablakfuggvenyek.html"><span class="num">7. lecke · előadás</span><h3>SQL ablakfüggvények</h3><p>OVER, PARTITION BY, ablakkeret, RANK, LAG/LEAD, mozgóátlag.</p><div class="progress" data-progress="l07-lepes2 l07-lepes4 l07-lepes5 l07-vegso"></div></a>
+  <a class="card" href="14-suruseg-validalas-kiugrok.html"><span class="num">14. lecke · előadásanyag</span><h3>Távolságok, DBSCAN, validálás, kiugrók</h3><p>Minkowski, Mahalanobis, Jaccard, koszinusz; DBSCAN; klaszter-validálás; kiugró rekordok.</p><div class="progress" data-progress="l14-lepes2 l14-lepes4 l14-lepes6 l14-lepes7 l14-lepes9 l14-vegso"></div></a>
+  <a class="card" href="05-dontesi-fa.html"><span class="num">5. lecke · 5. gyakorlat</span><h3>Döntési fa és mérőszámok</h3><p>Gini, entrópia, konfúziós mátrix, ROC/AUC, túltanulás, további osztályozók.</p><div class="progress" data-progress="l05-lepes1 l05-lepes3 l05-lepes6 l05-lepes8 l05-lepes9 l05-lepes10 l05-vegso"></div></a>
+</div>
+<h3 class="topic-head">4. témakör – Neurális hálók, a gépi tanulás speciális elemei</h3>
+<div class="cards">
+  <a class="card" href="06-neuralis-halo.html"><span class="num">6. lecke · 6. gyakorlat</span><h3>Neurális háló (MLP)</h3><p>Perceptron, aktiváció, tanítás, Adam/SGD, keresztvalidáció, túltanulás elleni eszközök, BI-alkalmazások.</p><div class="progress" data-progress="l06-lepes2 l06-lepes6 l06-lepes9 l06-lepes10 l06-lepes11 l06-vegso"></div></a>
+</div>
+<h3 class="topic-head">Ismétlés</h3>
+<div class="cards">
   <a class="card" href="08-osszefoglalas.html"><span class="num">8. · ismétlés</span><h3>Összefoglalás</h3><p>Döntési táblázat, képletgyűjtemény, fogalompárok, féléves feladat.</p></a>
   <a class="card" href="09-vizsgagyakorlo.html" style="border-color:var(--quiz)"><span class="num" style="color:var(--quiz)">9. · gyakorló fejezet</span><h3>Vizsgagyakorló</h3><p>Kérdésbank a teljes anyagból: témakör- és nehézségszűrés, gyakorló és vizsga mód, gyenge pontok.</p><div class="progress" id="bank-progress"></div></a>
 </div>
@@ -60,7 +79,8 @@ document.addEventListener("DOMContentLoaded", () => {
 <h2>Források</h2>
 <ul>
 <li>Gyakorlati anyagok: <code>../resources/Gyak1 … Gyak6</code> (PDF, Python-szkriptek, adathalmazok)</li>
-<li>Előadás: <code>../resources/ea/SQL_Window_Functions_Slideshow.pptx.pdf</code></li>
+<li>Előadások: <code>../resources/ea/</code> – Adatbanyaszat_GTK_01, _02, _04, python_dataframe_eloadas, SQL_Window_Functions_Slideshow</li>
+<li>Kiegészítő kurzusanyag: <em>Üzleti intelligencia</em> (NIU Moodle, Kovács–Ispány–Pomázi), <code>../resources/niu/</code> 1–7., 9–11. fejezet és fogalomtár</li>
 <li>Féléves feladat: <code>../resources/FelevesFeladat_2026_levelezo.pdf</code>; ütemterv: <code>../Ütemterv_DMLEV_2025.pdf</code></li>
 <li>A 2026. október 16-i gyakorlat hangfelvételének átirata (4 rész)</li>
 <li>Ajánlott irodalom: M. J. Zaki, W. Meira Jr.: <em>Data Mining and Analysis</em> – <a href="https://dataminingbook.info/">dataminingbook.info</a></li>

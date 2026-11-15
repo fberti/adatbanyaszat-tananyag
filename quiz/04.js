@@ -66,6 +66,17 @@ QUIZZES["l04-lepes2"] = {
       answer: 0,
       hint: "Hány pontpár van két egyelemű klaszter között?",
       explain: "Egyetlen pontpár minimuma, maximuma és átlaga ugyanaz a szám. (Ward-nál a scipy-magasság egyelemű klasztereknél szintén a két pont távolsága.) A 0 magasság csak akkor fordul elő, ha két pont egybeesik."
+    },
+    {
+      type: "match",
+      q: "Párosítsd a kapcsolási módot az előadásanyagban szereplő jellemzőjével!",
+      pairs: [
+        ["Single", "jól kezeli az eltérő nagyságú klasztereket, de a zajpontok „hidat” verhetnek"],
+        ["Complete", "kevésbé érzékeny a zajra, de hajlamos a nagy klasztereket kettévágni"],
+        ["Ward", "lépésenként a négyzetes eltérésösszeg legkisebb növekedését választja"]
+      ],
+      hint: "Single: elég egy közeli pontpár. Complete: a legtávolabbi pontpár dönt, ezért a nagy átmérőjű klaszter „drága”.",
+      explain: "A single egyetlen közeli pontpárral összeköt – ezért a zajpontokból lánc lesz, viszont a különböző méretű vagy elnyújtott csoportokat is követi. A complete a teljes átmérőt nézi: egy hídpont nem elég az összevonáshoz, de egy nagy, kiterjedt klasztert inkább kettévág. A Ward az SSE növekedését minimalizálja."
     }
   ]
 };
@@ -142,6 +153,19 @@ QUIZZES["l04-lepes5"] = {
       answer: 0,
       hint: "Nézd meg, milyen metódusai vannak a sklearn AgglomerativeClustering osztálynak.",
       explain: "Az AgglomerativeClustering-nek csak fit_predict metódusa van, ami az összes pontot újraklaszterezi (a régi címkék is változhatnak). Ezért írja a feladat: „amennyiben az alkalmazott módszer ezt lehetővé teszi”. A K-means predict-je viszont közvetlenül működik."
+    },
+    {
+      type: "single",
+      q: "Hogyan működik a felosztó (divizív) hierarchikus klaszterezés az előadásanyag szerint?",
+      options: [
+        "Egyetlen közös klaszterből indul, és lépésenként a legnagyobb hibájú (SSE-jű) klasztert vágja ketté – pl. 2-közép futással (felező K-közép).",
+        "Minden pont külön klaszterből indul, és lépésenként a két legközelebbit vonja össze.",
+        "Véletlen k középpontból indul, és a pontokat iterációnként átsorolja.",
+        "A sűrű tartományokat köti össze, a ritka pontokat zajnak jelöli."
+      ],
+      answer: 0,
+      hint: "Felosztó = felülről lefelé; az agglomeratív épp a fordított irány.",
+      explain: "A divizív módszer felülről lefelé halad: mindig a „legrosszabb” (legnagyobb SSE-jű) klasztert vágja ketté. A második opció az agglomeratív HAC, a harmadik a K-means, a negyedik a DBSCAN leírása."
     }
   ]
 };

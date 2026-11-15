@@ -397,5 +397,126 @@ BANK.push(
     answer: 3,
     hint: "A tanító-accuracy növelése nem cél. Mit mutat a tanító és a teszt közötti rés?",
     explain: R`A teszt mindkettőnél 0,724, de a rés $0{,}859-0{,}724=0{,}135$ vs $0{,}800-0{,}724=0{,}076$. A levélméret-korlát megakadályozza az 1–2 hallgatós leveleket, így a fa kevésbé illeszkedik a tanítóadat zajára – ugyanazt a teszteredményt egyszerűbb, általánosabb szabályokkal éri el. Alultanulásról akkor beszélnénk, ha a teszt is romlana; hatása pedig volt, hiszen más vágásokat választott.`
+  },
+  {
+    id: "b05-026",
+    topic: "05",
+    level: 2,
+    ref: "05-dontesi-fa.html#lepes5",
+    type: "multi",
+    q: "Melyik állítás igaz az ID3 döntési fára (a tananyag 11. fejezete szerint)?",
+    options: [
+      "A leíró tulajdonságoknak diszkrét, véges értékkészletűnek kell lenniük",
+      "Egy csomópont gyerekágai a tulajdonság lehetséges értékeinek felelnek meg (többágú vágás)",
+      "A gyökértől egy levélig vezető úton ugyanarra a tulajdonságra kétszer is rá lehet kérdezni",
+      "A tulajdonságot a legkisebb eredő (súlyozott) entrópia alapján választja",
+      "Mindig bináris vágást végez, Gini-indexszel, mint az sklearn"
+    ],
+    answer: [0, 1, 3],
+    hint: "Az ID3 a „klasszikus”, kategorikus fa; az sklearn egy másik családot (CART) valósít meg.",
+    explain: "Az ID3 kategorikus tulajdonságokkal dolgozik (a számokat előbb diszkretizálni kell), minden értékhez külön ágat nyit, egy úton nem ismétel tulajdonságot, és az entrópia alapján választ (legnagyobb információnyereség). A bináris, Gini-alapú fa a CART – ezt használja az sklearn."
+  },
+  {
+    id: "b05-027",
+    topic: "05",
+    level: 3,
+    ref: "05-dontesi-fa.html#lepes5",
+    type: "single",
+    q: "9 hallgató (6 yes, 3 no); a szak szerint BI [2 yes, 1 no], CS [1 yes, 2 no], ME [3 yes, 0 no]. Mekkora az ID3 információnyeresége a „szak” tulajdonságra?",
+    options: ["≈ 0,306", "≈ 0,612", "≈ 0,918", "0"],
+    answer: 0,
+    hint: R`Gyökér-entrópia mínusz a gyerekek elemszámmal súlyozott entrópiája ($H$ két osztályra 2–1 aránynál $\approx 0{,}918$).`,
+    explain: R`$H(\text{gyökér})\approx0{,}918$; súlyozott: $\frac39\cdot0{,}918+\frac39\cdot0{,}918+\frac39\cdot0=0{,}612$; nyereség $0{,}918-0{,}612=0{,}306$. A 0,612 a súlyozott entrópia (elmaradt a kivonás), a 0,918 a gyökéré – ennyi lenne a nyereség, ha minden gyerek tiszta volna (pl. a <code>student_id</code>-nál, ezért torzít az ID3 a sok értékű tulajdonságok felé).`
+  },
+  {
+    id: "b05-028",
+    topic: "05",
+    level: 2,
+    ref: "05-dontesi-fa.html#lepes9",
+    type: "single",
+    q: "Egy csalásszűrő teszt-eredménye: TN = 950, FP = 50, TP = 30, FN = 20. Mennyi a hamis pozitív arány (FPR)?",
+    options: ["0,05", "0,625", "0,40", "0,95"],
+    answer: 0,
+    hint: "Az FPR a valódi negatívok közül számolja a téves riasztásokat.",
+    explain: R`FPR $=\frac{FP}{FP+TN}=\frac{50}{1000}=0{,}05$ (specificitás 0,95). A 0,625 az $1-$precision ($50/80$: a riasztások hány százaléka téves) – ennek a nevezője a pozitívnak jósoltak száma, nem a valódi negatívoké. A 0,40 az $1-$recall ($20/50$), a 0,95 a specificitás.`
+  },
+  {
+    id: "b05-029",
+    topic: "05",
+    level: 3,
+    ref: "05-dontesi-fa.html#lepes9",
+    type: "single",
+    q: "Két modell ugyanazon a kiegyensúlyozatlan teszten: a döntési fa accuracy-je 0,724, AUC-ja 0,676; a többségi alapmodell accuracy-je szintén 0,724. Mennyi az alapmodell AUC-ja, és mit mutat ez?",
+    options: [
+      "0,5 – konstans pontszámmal semmit sem rangsorol, így az AUC a fa valódi (ha mérsékelt) előnyét mutatja",
+      "0,724 – az AUC konstans modellnél megegyezik az accuracy-vel",
+      "1 – minden pozitívot megtalál (recall = 1), ezért az AUC is maximális",
+      "0 – egyetlen negatívot sem ismer fel"
+    ],
+    answer: 0,
+    hint: "Konstans pontszámnál minden (pozitív, negatív) pár holtverseny. Hány pontot ér egy holtverseny?",
+    explain: "Az AUC annak a valószínűsége, hogy egy véletlen pozitív nagyobb pontszámot kap, mint egy véletlen negatív; holtverseny fél pont. Konstans pontszámnál ez 0,5 – a ROC-görbe az átló. Az accuracy-vel ellentétben az AUC nem jutalmazza az osztályarányt; a recall = 1 csak egyetlen ROC-pont (az (1; 1) sarok)."
+  },
+  {
+    id: "b05-030",
+    topic: "05",
+    level: 3,
+    ref: "05-dontesi-fa.html#lepes9",
+    type: "single",
+    q: "Három osztály F1-értékei: A 0,9 (support 80), B 0,5 (support 10), C 0,4 (support 10). Mennyi a makro- és a súlyozott F1?",
+    options: ["makro 0,600; súlyozott 0,810", "makro 0,810; súlyozott 0,600", "mindkettő 0,600", "makro 0,600; súlyozott 0,900"],
+    answer: 0,
+    hint: "Makro: sima átlag; súlyozott: support-tal súlyozott átlag.",
+    explain: R`Makro: $(0{,}9+0{,}5+0{,}4)/3=0{,}6$. Súlyozott: $(80\cdot0{,}9+10\cdot0{,}5+10\cdot0{,}4)/100=0{,}81$. A súlyozott átlagot a nagy A osztály felhúzza, a makroátlag megmutatja, hogy a két kis osztályt gyengén ismeri fel a modell.`
+  },
+  {
+    id: "b05-031",
+    topic: "05",
+    level: 2,
+    ref: "05-dontesi-fa.html#lepes10",
+    type: "match",
+    q: "Párosítsd a BI-feladatot a modellválasztás fő szempontjával!",
+    pairs: [
+      ["Hitelkérelem elutasítását jogszabály szerint indokolni kell", "Értelmezhető modell: döntési fa vagy logisztikus regresszió"],
+      ["Új ügyfél besorolása a hozzá leghasonlóbb korábbi ügyfelek alapján", "kNN, standardizált bemenettel"],
+      ["Sok táblázatos adat, a pontosság a fő cél, egy fa instabil", "Véletlen erdő"],
+      ["Gyártósori kamera képeiből hibás termék felismerése", "Neurális háló (képekre: CNN)"]
+    ],
+    hint: "Mi a döntő: az indokolhatóság, a hasonlóság, a stabil pontosság vagy a bonyolult (kép) bemenet?",
+    explain: "Indoklási kötelezettségnél a kiolvasható szabályok/súlyok számítanak; a „hasonló esetek” logika a kNN; az egyedi fa instabilitását az erdő szavazása csökkenti; képekre a neurális hálók (CNN) valók."
+  },
+  {
+    id: "b05-032",
+    topic: "05",
+    level: 2,
+    ref: "05-dontesi-fa.html#lepes10",
+    type: "single",
+    q: "Mi a véletlen erdő (Random Forest) két véletlen eleme, és hogyan születik a döntés?",
+    options: [
+      "Minden fa a tanítóhalmaz véletlen mintáján és a tulajdonságok véletlen részhalmazán épül; a fák együttes szavazata dönt",
+      "Egyetlen fát épít, de a vágások küszöbét véletlenszerűen választja; a legmélyebb levél dönt",
+      "A teszthalmazt osztja véletlen részekre, és a legjobb részen mért fát tartja meg",
+      "A fák mind ugyanazon az adaton épülnek, csak más random_state-tel; a legpontosabb fa dönt egyedül"
+    ],
+    answer: 0,
+    hint: "Az erdő ereje abból jön, hogy a fák hibái eltérnek, és egymást kiegyenlítik.",
+    explain: "A tananyag szerint a fák a tanítóhalmaz véletlen részhalmazán és a tulajdonságok véletlen részhalmazán épülnek, a végső döntést a szavazatok adják (az sklearn a fák valószínűségeit átlagolja). Egyetlen fa vagy a „legjobb fa” kiválasztása nem csökkenti az instabilitást; a teszthalmaz a tanításban nem vehet részt."
+  },
+  {
+    id: "b05-033",
+    topic: "05",
+    level: 3,
+    ref: "05-dontesi-fa.html#lepes10",
+    type: "single",
+    q: "Naiv Bayes egy 8 soros tanítóhalmazon: a bukottak között egyetlen „sok órát tanuló” sincs, így P(sok | no) = 0. Mi történik egy sokat tanuló hallgatónál, és mi a szokásos javítás?",
+    options: [
+      "A no osztály pontszáma 0 lesz, a modell 100%-ig biztos a yes-ben; Laplace-simítással (+1 minden darabszámhoz) ez elkerülhető",
+      "A modell hibát dob, mert 0-val kellene osztani; ilyenkor el kell hagyni a tulajdonságot",
+      "Semmi gond: a naiv Bayes a hiányzó kombinációkat automatikusan az a priori valószínűséggel pótolja",
+      "A yes pontszáma lesz 0, mert a szorzat egyik tényezője 0"
+    ],
+    answer: 0,
+    hint: "A naiv Bayes osztályonként szoroz. Mi lesz egy szorzattal, ha az egyik tényező 0?",
+    explain: "A no pontszáma $P(\\text{no})\\cdot\\ldots\\cdot 0=0$, így a modell minden további bizonyíték nélkül 100%-os yes-t mond – egyetlen hiányzó kombináció miatt. Laplace-simítással (minden darabszámhoz +1) a valószínűség kicsi, de nem 0 lesz (a példában $P(\\text{yes}\\mid x)\\approx0{,}81$). Osztás nincs a képletben, és a yes tényezői nem 0-k."
   }
 );

@@ -54,6 +54,8 @@
   <li><a href="#lepes7">7. lépés – Kvartilisek, IQR, boxplot és kiugró értékek</a></li>
   <li><a href="#lepes8">8. lépés – Új változó és csoportosítás: tételérték, termékenkénti árbevétel</a></li>
   <li><a href="#lepes9">9. lépés – Kétváltozós elemzés alapjai: kovariancia, korreláció, csoportos összehasonlítás</a></li>
+  <li><a href="#lepes10">10. lépés – Az eloszlás alakja és robusztus mutatók; melyik ábra mire való?</a> <em>(kiegészítés)</em></li>
+  <li><a href="#lepes11">11. lépés – Előfeldolgozás a tisztításon túl: aggregálás, mintavétel, transzformáció, kódolás</a> <em>(kiegészítés)</em></li>
   <li><a href="#alkalmazas">Alkalmazás – a gyakorlat teljes munkafolyamata</a></li>
   <li><a href="#osszefoglalas">Összefoglalás és döntési táblázat</a></li>
   <li><a href="#kviz">Ellenőrző kvíz</a></li>
@@ -76,6 +78,10 @@
 <p><strong>Üzleti intelligencia (BI):</strong> azoknak a módszereknek és eszközöknek az összessége, amelyek a vállalat adataiból döntéstámogató információt állítanak elő (adattárház, riportok, OLAP-kockák, irányítópultok). A BI főleg azt mutatja meg, <em>mi történt</em>.</p>
 <p><strong>Adatbányászat (data mining):</strong> nagy adathalmazokban rejtett, nem triviális, hasznos mintázatok (szabályok, csoportok, összefüggések) automatikus vagy félautomatikus feltárása. Más néven a KDD (Knowledge Discovery in Databases) folyamat elemzési lépése. Az adatbányászat már azt is keresi, <em>miért</em> és <em>mi várható</em>.</p>
 <p><strong>Gépi tanulás (machine learning):</strong> olyan algoritmusok, amelyek példákból (adatból) tanulnak, és a tanult összefüggést új adatra alkalmazzák, anélkül hogy a szabályokat kézzel programoznánk.</p>
+</div>
+
+<div class="box tip"><span class="box-title">📚 Részletesen: 10. lecke</span>
+<p>A BI és az adatbányászat alapfogalmait (BI-funkciók, KPI, BI-architektúra, az adatbányászat hatlépéses folyamata, a feladattípusok és a kihívások) a <a href="10-bi-adatbanyaszat-alapok.html">10. lecke</a> tárgyalja részletesen. Itt csak annyi kell belőlük, amennyi a gyakorlat megértéséhez szükséges.</p>
 </div>
 
 <div class="box def"><span class="box-title">Definíció – Felügyelt és felügyelet nélküli tanulás</span>
@@ -162,6 +168,17 @@
 <p><strong>Tárolási típus</strong> (dtype): ahogy a pandas a memóriában tárolja az oszlopot – <code>int64</code>, <code>float64</code>, <code>object</code>/<code>str</code> (szöveg), <code>datetime64</code>, <code>bool</code>. A tartalmi típus és a skála a <em>jelentésről</em> szól, a tárolási típus a <em>technikáról</em>. A kettő eltérhet.</p>
 </div>
 
+<div class="box extra"><span class="box-title">➕ Kiegészítés – Adattábla, rekord, változó, mező, metaadat</span>
+<p><strong>Adattábla</strong> (adatállomány): az adatok téglalap alakú elrendezése, ahol minden sorban ugyanannyi adatelem van, és egy oszlopon belül az adatok típusa azonos. Ilyen egy Excel-munkalap vagy a gyakorlat CSV-fájlja.</p>
+<ul>
+  <li><strong>Rekord</strong> = a tábla egy sora. Más néven adatpont, eset, megfigyelés, egyed, minta.</li>
+  <li><strong>Változó</strong> = a tábla egy oszlopa. Más néven attribútum, jellemző, tulajdonság, dimenzió.</li>
+  <li><strong>Mező</strong> = egy cella: egy rekord egy változójának az értéke.</li>
+</ul>
+<p>A változó lehet <strong>bináris</strong> (két értéke van: igen/nem) vagy <strong>polinomiális</strong> (kettőnél több kategória, pl. a 4 régió). A változóról szóló adat a <strong>metaadat</strong>: a skálája, a típusa (kategorikus/numerikus, diszkrét/folytonos), a megengedett értékek, az összegző statisztikái. A fenti „elvárt” táblázat is metaadat. Ebből dől el, milyen statisztika és milyen algoritmus használható az adott változóra.</p>
+<p>Megjegyzés: a rokon tananyag (niu) az árat és a jövedelmet a folytonos változók példájaként hozza, az órán viszont az egész forintban megadott árat diszkrétnek tekintettük. Mindkét felfogás védhető, ha megindokolod.</p>
+</div>
+
 <div class="box example"><span class="box-title">Kidolgozott példa 1 – A gyakorlat változói</span>
 <div class="table-wrap"><table>
 <tr><th>Változó</th><th>Tartalmi típus</th><th>Skála</th><th>Elvárt tárolási típus</th></tr>
@@ -244,6 +261,23 @@
 <p><strong>Miért?</strong> A hibát csak akkor veszed észre, ha van mihez hasonlítani. Az elvárást az adatgyűjtőtől kell megtudni (szerkezet, típusok, tartományok).</p>
 </div>
 
+<div class="box tip"><span class="box-title">📚 A pandas alapjai: 11. lecke</span>
+<p>Ha a <code>DataFrame</code>, az oszlopkiválasztás (<code>df["col"]</code>), a CSV-beolvasás paraméterei vagy a Python-adatszerkezetek még nem mennek gördülékenyen, nézd át a <a href="11-python-adatkezeles.html">11. leckét</a>. Ez a lecke azokat ismertnek veszi.</p>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés – Az adatminőség dimenziói és a tipikus problémák</span>
+<p>A fenti ellenőrzőlista valójában az <strong>adatminőséget</strong> méri. Az adatminőség azt fejezi ki, mennyire <strong>pontos, teljes, konzisztens, aktuális és érvényes</strong> az adat (niu fogalomtár). Ezek a dimenziók megmondják, mit érdemes egyáltalán ellenőrizni:</p>
+<div class="table-wrap"><table>
+<tr><th>Dimenzió</th><th>Kérdés</th><th>A gyakorlat adatán</th></tr>
+<tr><td><strong>Teljesség</strong></td><td>Megvan-e minden érték?</td><td>6 hiányzó egységár, 4 hiányzó régió</td></tr>
+<tr><td><strong>Érvényesség</strong></td><td>A megengedett típusban és tartományban van-e?</td><td>„unknown” a mennyiség oszlopban</td></tr>
+<tr><td><strong>Konzisztencia</strong></td><td>Ugyanazt mindenhol ugyanúgy jelöljük-e?</td><td>26 terméknév 18 helyett („ coffee ”, „bread”)</td></tr>
+<tr><td><strong>Pontosság</strong></td><td>Egyezik-e a valósággal?</td><td>6 duplikátum: a valóságban egyszer történt tétel kétszer szerepel</td></tr>
+<tr><td><strong>Aktualitás</strong></td><td>Elég friss-e a célhoz?</td><td>három hónap, 2026 eleje – egy tavalyi akció értékeléséhez nem jó</td></tr>
+</table></div>
+<p><strong>Tipikus problématípusok</strong> (niu 3. és 7. fejezet): zaj és kiugró érték; hiányzó adat (NULL); duplikált rekord, amely akár <em>inkonzisztens</em> is lehet (ugyanaz az ügyfél két sorban, eltérő családi állapottal); eltérő formátum („2024-12-01” és „12/01/2024”); hibás érték (999 éves életkor, 0 Ft-os rendelés); elgépelés („Budapet”); kapcsolati hiba (a rendelés nem létező ügyfélre hivatkozik). Az adatminőség biztosítása két folyamat: <strong>validálás</strong> (ellenőrzés típus, tartomány, formátum szerint) és <strong>tisztítás</strong> (javítás).</p>
+</div>
+
 <div class="box example"><span class="box-title">Kidolgozott példa 1 – Miért float64 a unit_price?</span>
 <p>Az egységár minden kitöltött cellában egész szám, mégis <code>float64</code>.</p>
 <details class="solution"><summary>Megoldás</summary><p>Mert 6 cella üres. A hiányzó értéket a pandas <code>NaN</code>-nal jelöli, ami lebegőpontos érték. Egy hagyományos <code>int64</code> oszlop nem tárolhat <code>NaN</code>-t, ezért az egész oszlop <code>float64</code> lesz. Ha a hiányokat pótoltuk, visszakonvertálhatjuk egészre.</p></details>
@@ -281,6 +315,10 @@
 <!-- ===================================================== 4 -->
 <section id="lepes4">
 <h2>4. lépés – Tisztítás I.: duplikátumok és szövegegységesítés</h2>
+
+<div class="box tip"><span class="box-title">📚 Az ETL-folyamatban hol a helye: 12. lecke</span>
+<p>Vállalati környezetben a tisztítás nem egy notebookban történik, hanem az adattárházat töltő ETL/ELT-folyamat „átalakítás” (transform) lépésében, automatizáltan és naplózva. Ezt a <a href="12-adattarolas-adattarhaz.html">12. lecke</a> mutatja be. Itt a módszereket kézzel, pandasban végezzük el.</p>
+</div>
 
 <h4>Kis eset</h4>
 <p>Egy hatsoros, kitalált nyers tábla (a gyakorlat hibatípusaival):</p>
@@ -335,6 +373,15 @@ df["product"] = df["product"].replace("", pd.NA)</code></pre>
 </ul>
 </div>
 
+<div class="box extra"><span class="box-title">➕ Kiegészítés – Inkonzisztens duplikátum: a kulcs ismétlődik, a többi mező nem</span>
+<p>A teljes duplikátumszűrés csak a <em>minden mezőben</em> egyező sorokat találja meg. A niu-tananyag példájában ugyanaz az ügyfél (azonos személyi szám) két sorban szerepel, de az egyikben „Házas”, a másikban „Nőtlen” a családi állapota. Ez a <strong>duplikált rekord</strong>: a valóság egy objektumához két rekord tartozik, és a kettő ellentmond egymásnak. A <code>drop_duplicates()</code> nem veszi észre.</p>
+<pre><code class="language-python"># Mely kulcsok fordulnak elő többször? (csak megnézzük, nem törlünk!)
+key = ["transaction_id", "product"]          # egy kosárban egy termék egyszer
+clean_df[clean_df.duplicated(subset=key, keep=False)].sort_values(key)</code></pre>
+<p>Ha találsz ilyet, nem tudod gépiesen eldönteni, melyik sor a helyes. Meg kell nézni a forrást, vagy szabályt kell hozni (pl. a frissebb rekord nyer), és ezt dokumentálni. A gyakorlat adatán ez a lekérdezés a duplikátumtörlés és az egységesítés után <strong>0 sort</strong> ad: nincs olyan kosár, amelyben ugyanaz a termék két, eltérő mennyiségű sorban szerepelne.</p>
+<p>Ez nem mond ellent a lenti 5. gyakorló feladatnak. Ott a <code>subset</code>-tel <em>törlünk</em>, ami adatvesztés. Itt csak <em>keresünk</em> vele.</p>
+</div>
+
 <details class="box practice"><summary>✏️ Gyakorlás – Duplikátumok és szövegek (5 feladat)</summary>
 <ol>
   <li><p>Egy táblában az egyik sor háromszor szerepel azonosan, a többi egyedi. Mennyi a <code>duplicated().sum()</code>, és hány sort töröl a <code>drop_duplicates()</code>?</p>
@@ -379,6 +426,15 @@ df["product"] = df["product"].replace("", pd.NA)</code></pre>
 <tr><td><strong>Pótlás csoporton belül / szabály alapján</strong></td><td>ha egy üzleti szabály megmondja a helyes értéket (pl. termékenként állandó ár)</td><td><code>df[c].fillna(df[kulcs].map(lookup))</code></td></tr>
 </table></div>
 <p><strong>Miért gond mindkettő?</strong> A törlés csökkenti a mintát és torzíthatja az eloszlást; a pótlás „kitalált” értéket visz be. Ezért kell dokumentálni, és fontos döntésnél több tisztítási változattal is lefuttatni az elemzést: ha az eredmény erősen függ a tisztítástól, azt jelezni kell.</p>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés – További hiánykezelési módok (niu 3. fejezet)</span>
+<ul>
+  <li><strong>Figyelmen kívül hagyás az elemzésben:</strong> a sor megmarad, csak az adott számításból marad ki. A pandas statisztikái ezt alapból így csinálják (<code>mean()</code>, <code>median()</code> kihagyja a NaN-t). Hátránya, hogy sok modellező algoritmus nem támogatja.</li>
+  <li><strong>Helyettesítés a relatív gyakoriságok szerint:</strong> a hiányzó régió helyére véletlenszerűen húzunk egy régiót a meglévő arányokkal (West 29%, North 26%, East 26%, South 19%). Előnye, hogy <em>nem torzítja az eloszlást</em>. A módusszal való pótlás ezzel szemben a leggyakoribb értéket aránytalanul gyakorivá teszi.</li>
+  <li><strong>Becslés modellel:</strong> a hiányzó értéket a többi változóból jósoljuk (pl. regresszióval). Ez a legpontosabb lehet, de ez a legbonyolultabb is.</li>
+  <li><strong>A hiány mint információ:</strong> a hiány ténye maga is jelenthet valamit (pl. aki nem adja meg a jövedelmét). Ilyenkor érdemes egy <code>volt_hiany</code> jelzőoszlopot (0/1) megtartani a pótlás mellett.</li>
+</ul>
 </div>
 
 <div class="box thm"><span class="box-title">Szabály – A tisztítás sorrendje (a gyakorlat szerint)</span>
@@ -801,6 +857,285 @@ product_revenue.head(5)                                            # top 5</code
 </details>
 </section>
 
+<!-- ===================================================== 10 -->
+<section id="lepes10">
+<h2>10. lépés – Az eloszlás alakja és robusztus mutatók; melyik ábra mire való?</h2>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés (az ütemterv „feltáró adatelemzés, statisztikai alapok” része; a gyakorlaton nem szerepelt)</span>
+<p>A gyakorlaton az átlag és a medián összevetéséig jutottunk (6. lépés). A rokon tananyag (niu 3. fejezet) az összegző statisztikák négy csoportját kéri: <strong>eloszlás</strong> (gyakoriság, módusz, kvantilisek), <strong>helyzet</strong> (átlag, medián, csonkolt átlag), <strong>szóródás</strong> (terjedelem, szórás, AAD, MAD, IQR) és <strong>alak</strong> (ferdeség, csúcsosság). Ez a lépés pótolja, ami még hiányzik, és azt is megmutatja, melyik ábrát mikor érdemes választani.</p>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Feltáró adatelemzés (EDA)</span>
+<p>A <strong>feltáró adatelemzés</strong> (Exploratory Data Analysis) az a lépés, amelyben megismerjük az adatok eloszlását, a köztük lévő kapcsolatokat, mintázatokat és trendeket, még modellezés előtt. Három célja van: megérteni az adat szerkezetét, kihasználni az ember mintafelismerő képességét, és kiválasztani a megfelelő előfeldolgozási és modellezési módszert.</p>
+<p>Eszközei: <strong>összegző statisztikák</strong>, <strong>adatvizualizáció</strong>, és nagy, többdimenziós adatnál az <strong>OLAP</strong> (On-Line Analytical Processing: összesítések lekérdezése dimenziók mentén).</p>
+</div>
+
+<h4>Kis eset</h4>
+<p>Két bolt 5–5 vásárlója ennyi akciós terméket vett:</p>
+<ul>
+  <li>A bolt: $2,\ 2,\ 2,\ 3,\ 6$</li>
+  <li>B bolt: $0,\ 3,\ 4,\ 4,\ 4$</li>
+</ul>
+<p>Mindkettő átlaga $3$, és a szórásuk is ugyanannyi ($s \approx 1{,}73$). Mégsem egyformák. Az A boltban a legtöbben keveset vettek, és egyetlen nagy vásárlás „húzza fel” az átlagot, ezért a medián ($2$) az átlag <em>alatt</em> van. A B bolt ennek tükörképe: a legtöbben sokat vettek, egy vásárló semmit, és ő húzza le az átlagot; a medián ($4$) az átlag <em>fölött</em> van. Az átlag és a szórás ezt a különbséget nem mutatja. Ehhez alakmutató kell.</p>
+
+<figure>
+<svg viewBox="0 0 630 175" role="img" aria-label="Jobbra ferde, szimmetrikus és balra ferde eloszlás hisztogramja" font-family="Inter, system-ui, sans-serif" font-size="12">
+  <g fill="var(--accent)">
+    <!-- jobbra ferde: 10 8 5 3 2 1 1 -->
+    <rect x="20" y="30" width="24" height="100"/><rect x="46" y="50" width="24" height="80"/><rect x="72" y="80" width="24" height="50"/><rect x="98" y="100" width="24" height="30"/><rect x="124" y="110" width="24" height="20"/><rect x="150" y="120" width="24" height="10"/><rect x="176" y="120" width="24" height="10"/>
+    <!-- szimmetrikus: 2 5 9 10 9 5 2 -->
+    <rect x="225" y="110" width="24" height="20"/><rect x="251" y="80" width="24" height="50"/><rect x="277" y="40" width="24" height="90"/><rect x="303" y="30" width="24" height="100"/><rect x="329" y="40" width="24" height="90"/><rect x="355" y="80" width="24" height="50"/><rect x="381" y="110" width="24" height="20"/>
+    <!-- balra ferde: 1 1 2 3 5 8 10 -->
+    <rect x="430" y="120" width="24" height="10"/><rect x="456" y="120" width="24" height="10"/><rect x="482" y="110" width="24" height="20"/><rect x="508" y="100" width="24" height="30"/><rect x="534" y="80" width="24" height="50"/><rect x="560" y="50" width="24" height="80"/><rect x="586" y="30" width="24" height="100"/>
+  </g>
+  <g stroke="currentColor" opacity=".5"><line x1="15" y1="130" x2="205" y2="130"/><line x1="220" y1="130" x2="410" y2="130"/><line x1="425" y1="130" x2="615" y2="130"/></g>
+  <g fill="currentColor" text-anchor="middle">
+    <text x="110" y="150">jobbra ferde (ferdeség &gt; 0)</text><text x="110" y="166" opacity=".8">módusz &lt; medián &lt; átlag</text>
+    <text x="315" y="150">szimmetrikus (≈ 0)</text><text x="315" y="166" opacity=".8">átlag ≈ medián ≈ módusz</text>
+    <text x="520" y="150">balra ferde (ferdeség &lt; 0)</text><text x="520" y="166" opacity=".8">átlag &lt; medián &lt; módusz</text>
+  </g>
+</svg>
+<figcaption>A ferdeség iránya a hosszabb „farok” oldala. A középértékek sorrendje hüvelykujjszabály, nem tétel (lásd a buktatót lent).</figcaption>
+</figure>
+
+<div class="box def"><span class="box-title">Definíció – Alakmutatók: ferdeség és csúcsosság</span>
+<p>Jelölje $m_k = \frac{1}{n}\sum_{i=1}^{n}(x_i-\bar x)^k$ a $k$-adik centrális momentumot ($m_2$ a nem korrigált variancia).</p>
+<p>$$\text{ferdeség: } g_1 = \frac{m_3}{m_2^{3/2}}, \qquad \text{csúcsosság (lapultság): } g_2 = \frac{m_4}{m_2^{2}} - 3.$$</p>
+<ul>
+  <li>$g_1 &gt; 0$: <strong>jobbra ferde</strong> (hosszú jobb farok, néhány nagy érték); $g_1 \approx 0$: szimmetrikus; $g_1 &lt; 0$: <strong>balra ferde</strong>.</li>
+  <li>$g_2 &gt; 0$: <strong>csúcsosabb</strong>, vastagabb farkú, mint a normális eloszlás (több szélsőséges érték); $g_2 &lt; 0$: <strong>lapultabb</strong> (az értékek egyenletesebben terülnek szét). A normális eloszlásra $g_2 = 0$ – ezért a $-3$.</li>
+</ul>
+<p><strong>Miért köb?</strong> A páratlan hatvány megtartja az eltérés előjelét, és a nagy eltéréseket felnagyítja. Ha a nagy pozitív eltérések vannak túlsúlyban, az összeg pozitív. A negyedik hatvány már előjel nélküli: azt méri, mennyire a szélső értékekből jön a szóródás. A nevező mindkét esetben mértékegység nélkülivé teszi a mutatót.</p>
+<p><strong>pandas:</strong> <code>s.skew()</code> és <code>s.kurt()</code>. Ezek a mintából becsült, korrigált változatot számolják, ami kis mintán érezhetően eltér a fenti képlettől (lásd a buktatót).</p>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Hüvelykujjszabály – mekkora ferdeség sok?</span>
+<p>$|g_1| &lt; 0{,}5$: nagyjából szimmetrikus · $0{,}5$–$1$: mérsékelten ferde · $&gt; 1$: erősen ferde. Erősen ferde változónál a „tipikus értéket” a medián írja le jobban, a hiányt is mediánnal pótold (5. lépés), és érdemes logaritmust venni (11. lépés).</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Ferdeség kézzel</span>
+<p>Számold ki az A bolt ($2,2,2,3,6$) ferdeségét a $g_1$ képlettel.</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>$\bar x = 3$. Eltérések: $-1,-1,-1,0,3$.</p>
+<p>$m_2 = \frac{1+1+1+0+9}{5} = 2{,}4$, $\quad m_3 = \frac{-1-1-1+0+27}{5} = 4{,}8$.</p>
+<p>$$g_1 = \frac{4{,}8}{2{,}4^{3/2}} = \frac{4{,}8}{3{,}718} \approx 1{,}29.$$</p>
+<p>Erősen jobbra ferde: egyetlen nagy eltérés ($+3$, a köbe $27$) uralja az összeget. A B bolt tükörkép, ezért ott $g_1 \approx -1{,}29$. (A pandas <code>skew()</code> erre $1{,}92$-t ad – kis mintán a korrekció nagy.)</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – A gyakorlat változóinak alakja</span>
+<pre><code class="language-python">data[["quantity", "unit_price", "line_total"]].agg(["mean", "median", "skew", "kurt"])</code></pre>
+<details class="solution"><summary>Megoldás (valódi adat, 6945 tétel; kosarakra 1151 kosár)</summary>
+<div class="table-wrap"><table>
+<tr><th>Változó</th><th class="num">átlag</th><th class="num">medián</th><th class="num">ferdeség</th><th class="num">csúcsosság</th><th>Értelmezés</th></tr>
+<tr><td>quantity</td><td class="num">1,52</td><td class="num">1</td><td class="num">0,96</td><td class="num">−0,33</td><td>mérsékelten jobbra ferde; lapult, mert csak 3 értéke van</td></tr>
+<tr><td>unit_price (tételenként)</td><td class="num">936,74</td><td class="num">750</td><td class="num">1,45</td><td class="num">1,26</td><td>erősen jobbra ferde: a kávé és a csirke húzza</td></tr>
+<tr><td>line_total</td><td class="num">1424,24</td><td class="num">1100</td><td class="num">2,25</td><td class="num">6,45</td><td>erősen ferde, vastag jobb farok</td></tr>
+<tr><td>kosárérték (kosaranként összeg)</td><td class="num">8593,7</td><td class="num">8050</td><td class="num">0,44</td><td class="num">−0,56</td><td>nagyjából szimmetrikus</td></tr>
+<tr><td>kosárméret (termékszám)</td><td class="num">6,03</td><td class="num">6</td><td class="num">−0,15</td><td class="num">−1,05</td><td>szimmetrikus, lapult: 2 és 9 között széles a terítés</td></tr>
+</table></div>
+<p>Tanulság: a tételszintű változók erősen ferdék, de ha kosaranként összeadjuk őket, az eloszlás jóval szimmetrikusabb lesz. A ferdeség tehát a megfigyelési egységtől is függ.</p></details>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Robusztus helyzet- és szóródási mutatók</span>
+<ul>
+  <li><strong>Csonkolt átlag</strong> (trimmed mean, $p$%): rendezés után a minta mindkét végéről levágjuk az adatok $p$%-át, és a maradék átlagát vesszük. <code>scipy.stats.trim_mean(x, 0.2)</code> – a 0,2 itt végenként 20%.</li>
+  <li><strong>Átlagos abszolút eltérés</strong> (AAD): $\frac{1}{n}\sum |x_i - \bar x|$ – az eltérések átlaga négyzetre emelés nélkül.</li>
+  <li><strong>Medián abszolút eltérés</strong> (MAD): $\operatorname{medián}\big(|x_i - \operatorname{medián}(x)|\big)$. <code>(s - s.median()).abs().median()</code> vagy <code>scipy.stats.median_abs_deviation(s)</code>.</li>
+</ul>
+<p><strong>Miért kellenek?</strong> Az átlag és a szórás minden értéket felhasznál, a szórás ráadásul négyzetre emel, így egy kiugró nagyon elhúzza. A csonkolt átlag a szélső értékeket eldobja, a MAD mediánokra épül. Ezért ezek <strong>robusztusak</strong>, mint a medián és az IQR. Az AAD a kettő között van: nem emel négyzetre, de átlagra épül.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – Egy kiugró hatása (a 6. lépés adatán)</span>
+<p>Adat: $2,\ 3,\ 3,\ 5,\ 7,\ 10$, illetve a 10 helyett 40-nel. Számold ki mindkettőre a 20%-os csonkolt átlagot, az AAD-t és a MAD-ot.</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>20% hat adatból végenként $\lfloor 0{,}2\cdot 6\rfloor = 1$ érték. Mindkét adatsorban marad $3,3,5,7$, így a csonkolt átlag $4{,}5$.</p>
+<p>MAD (medián 4 mindkettőnél): $|x-4|$ = $2,1,1,1,3,6$, illetve $2,1,1,1,3,36$. Rendezve a 3. és 4. érték átlaga: $(1+2)/2 = 1{,}5$ mindkettőnél.</p>
+<div class="table-wrap"><table>
+<tr><th>Adat</th><th class="num">átlag</th><th class="num">csonkolt átlag</th><th class="num">medián</th><th class="num">szórás</th><th class="num">AAD</th><th class="num">MAD</th></tr>
+<tr><td>…, 10</td><td class="num">5</td><td class="num">4,5</td><td class="num">4</td><td class="num">3,03</td><td class="num">2,33</td><td class="num">1,5</td></tr>
+<tr><td>…, 40</td><td class="num">10</td><td class="num">4,5</td><td class="num">4</td><td class="num">14,81</td><td class="num">10</td><td class="num">1,5</td></tr>
+</table></div>
+<p>A szórás közel ötszörösére nő, az AAD a négyszeresére, a robusztus mutatók nem mozdulnak. Valódi adaton (<code>unit_price</code>): átlag 936,74, 20%-os csonkolt átlag 794,07, medián 750; szórás 561,91, AAD 404,95, MAD 200.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktatók</span>
+<ul>
+  <li><strong>„Jobbra ferde → módusz &lt; medián &lt; átlag” csak hüvelykujjszabály.</strong> A <code>line_total</code> ferdesége 2,25, a módusza mégis 2200 – nagyobb az átlagnál (1424). Diszkrét adaton a módusz csak a leggyakoribb <em>egyetlen</em> érték: itt 410 tétel ér 2200 Ft-ot (321 darab egy kávé, 89 darab két narancslé).</li>
+  <li><strong>Kis mintán a ferdeség és a csúcsosság bizonytalan, és a képletek eltérnek.</strong> A pandas korrigált képletet használ, a <code>scipy.stats.skew</code> alapból a $g_1$-et. A $2,3,3,5,7,40$ adatra: $g_1 = 1{,}73$, de a pandas szerint $2{,}37$; a csúcsosság $g_2 = 1{,}09$, a pandas szerint $5{,}69$. Kézi feladatnál mindig a megadott képletet használd.</li>
+  <li><strong>Csúcsosság: 0 vagy 3?</strong> A pandas és az Excel (<code>CSÚCSOSSÁG</code>) a $-3$-mal korrigált „többletcsúcsosságot” adja (normális = 0). Egyes könyvek $-3$ nélkül írják (normális = 3).</li>
+  <li><strong>A pandas régi <code>mad()</code> függvénye</strong> (2.0-ban kivezették) az <em>átlagos</em> abszolút eltérést (AAD) számolta, nem a medián abszolút eltérést. Régi kódban ne keverd össze.</li>
+  <li><strong>A standardizálás nem változtat az alakon.</strong> Eltolás és nyújtás után a ferdeség ugyanannyi marad (3. lecke, 4. lépés). Az alakot csak nemlineáris transzformáció (pl. logaritmus) változtatja meg.</li>
+</ul>
+</div>
+
+<h4>Melyik ábra mire való?</h4>
+<div class="box def"><span class="box-title">Döntési segéd – ábratípus a feltáró elemzésben</span>
+<div class="table-wrap"><table>
+<tr><th>Mit vizsgálsz?</th><th>Ábra</th><th>pandas / matplotlib</th></tr>
+<tr><td>egy kategorikus változó gyakoriságai</td><td>oszlopdiagram (sok kategóriánál vízszintes); torta csak 3–5 kategóriánál, rész–egész arányhoz</td><td><code>s.value_counts().plot.barh()</code></td></tr>
+<tr><td>egy diszkrét numerikus, kevés értékkel</td><td>gyakorisági oszlopdiagram (8. lépés)</td><td><code>s.value_counts().sort_index().plot.bar()</code></td></tr>
+<tr><td>egy folytonos vagy sok értékű numerikus: alak</td><td>hisztogram</td><td><code>s.plot.hist(bins=20)</code></td></tr>
+<tr><td>egy numerikus: kvartilisek, kiugrók; csoportok összevetése</td><td>dobozábra (boxplot)</td><td><code>df.boxplot(column="x", by="csoport")</code></td></tr>
+<tr><td>időbeli alakulás</td><td>vonaldiagram; időszakok összevetésére oszlopdiagram</td><td><code>df.groupby("date")["y"].sum().plot()</code></td></tr>
+<tr><td>két numerikus kapcsolata</td><td>szórásdiagram (scatter)</td><td><code>df.plot.scatter(x="a", y="b")</code></td></tr>
+<tr><td>két kategorikus kapcsolata</td><td>halmozott oszlopdiagram, a kereszttábla hőtérképe</td><td><code>pd.crosstab(a, b).plot.bar(stacked=True)</code></td></tr>
+<tr><td>sok numerikus egyszerre</td><td>mátrixdiagram (páronkénti szórásdiagramok), korrelációs hőtérkép, párhuzamos tengely ábra, csillagábra</td><td><code>pd.plotting.scatter_matrix(df)</code>, <code>pd.plotting.parallel_coordinates(df, "csoport")</code></td></tr>
+</table></div>
+<p>A változópárok mutatóit (korreláció, csoportos átlag, kereszttábla) a <a href="#lepes9">9. lépés</a> táblázata foglalja össze. A vizualizáció részletesebben a rokon tananyag 8. fejezetében szerepel; az ütemtervnek nem önálló témája.</p>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Ábrabuktatók</span>
+<ul>
+  <li><strong>A hisztogram osztályközeinek száma</strong> megváltoztatja a képet: túl kevés oszlop elfedi az alakot, túl sok zajos lesz. Próbálj ki 2–3 különböző <code>bins</code> értéket.</li>
+  <li><strong>Tortadiagram 18 termékre</strong> olvashatatlan: a szeletek szögét a szem rosszul hasonlítja össze. Rendezett, vízszintes oszlopdiagram kell (mint az Alkalmazás rész árbevétel-ábrája).</li>
+  <li><strong>Nem nulláról induló tengely</strong> oszlopdiagramon felnagyítja a különbségeket. Oszlopnál a tengely 0-tól induljon.</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia</span>
+<p><em>skewness</em> = ferdeség · <em>kurtosis</em> = csúcsosság, lapultság (<em>excess kurtosis</em> = többletcsúcsosság) · <em>trimmed mean</em> = csonkolt átlag · <em>mean absolute deviation (AAD)</em> = átlagos abszolút eltérés · <em>median absolute deviation (MAD)</em> = medián abszolút eltérés · <em>EDA</em> = feltáró adatelemzés · <em>scatter matrix / pair plot</em> = mátrixdiagram · <em>parallel coordinates</em> = párhuzamos tengely ábra · <em>star / radar chart</em> = csillagábra, pókhálóábra · <em>heatmap</em> = hőtérkép.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Alak, robusztus mutatók, ábraválasztás (5 feladat)</summary>
+<ol>
+  <li><p>Adat: $1,\ 1,\ 1,\ 1,\ 6$. Átlag, medián, és a $g_1$ ferdeség?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Átlag $10/5 = 2$, medián $1$. Eltérések: $-1,-1,-1,-1,4$. $m_2 = (4\cdot 1 + 16)/5 = 4$, $m_3 = (-4 + 64)/5 = 12$. $g_1 = 12/4^{3/2} = 12/8 = 1{,}5$: erősen jobbra ferde.</p></details></li>
+  <li><p>Egy vizsga pontszámainak ferdesége a pandas szerint $-1{,}2$. Mit jelent ez, és melyik nagyobb valószínűleg: az átlag vagy a medián?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Erősen balra ferde: a legtöbben sok pontot értek el, néhányan nagyon keveset (hosszú bal farok). A kis értékek lefelé húzzák az átlagot, ezért jellemzően átlag &lt; medián.</p></details></li>
+  <li><p>Adat (a 7. lépésből): $10,12,13,15,16,18,40$. Add meg a mediánt, a MAD-ot és a 20%-os csonkolt átlagot.</p>
+    <details class="solution"><summary>Megoldás</summary><p>Medián 15. $|x-15|$: $5,3,2,0,1,3,25$; rendezve $0,1,2,3,3,5,25$, a középső (4.) érték: MAD $= 3$. Csonkolás: $\lfloor 0{,}2\cdot 7\rfloor = 1$ érték végenként, marad $12,13,15,16,18$, átlaga $74/5 = 14{,}8$. (Az átlag $17{,}71$ – a 40 felhúzza.)</p></details></li>
+  <li><p>Melyik ábrát választod? (a) a három hónap napi árbevételének alakulása; (b) a kosárértékek eloszlása; (c) a 18 termék árbevétele; (d) a régió és a vásárolt mennyiség (1, 2, 3) kapcsolata.</p>
+    <details class="solution"><summary>Megoldás</summary><p>(a) vonaldiagram; (b) hisztogram (és/vagy boxplot); (c) rendezett, vízszintes oszlopdiagram – torta nem, 18 szelet túl sok; (d) kereszttábla régiónkénti százalékokkal, halmozott oszlopdiagramon.</p></details></li>
+  <li><p>A <code>line_total</code> csúcsossága $6{,}45$, a kosárméreté $-1{,}05$. Értelmezd mindkettőt.</p>
+    <details class="solution"><summary>Megoldás</summary><p><code>line_total</code>: a normálisnál jóval csúcsosabb, vastag farkú. Sok tétel tipikus értékű, de van néhány nagyon nagy (3 kávé = 6600 Ft, 3 csirke = 7200 Ft), ezért a szórás nagy részét a szélső értékek adják. Kosárméret: lapult, a 2–9 termékes kosarak viszonylag egyenletesen oszlanak el, nincs éles csúcs.</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l01-lepes10"></div>
+</section>
+
+<!-- ===================================================== 11 -->
+<section id="lepes11">
+<h2>11. lépés – Előfeldolgozás a tisztításon túl: aggregálás, mintavétel, transzformáció, kódolás</h2>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés (niu 3. fejezet, 2. rész; a gyakorlaton csak egyes elemei jelentek meg)</span>
+<p>A tisztítás után az adat <em>helyes</em>, de még nem biztos, hogy <em>alkalmas</em> a modellezésre. Az előfeldolgozás további eszközei: a megfelelő rekordok és változók kiválasztása, valamint változók létrehozása és cseréje. A gyakorlatokon ezek közül már többet használtunk, csak nem neveztük meg őket. Itt összegyűjtjük őket.</p>
+</div>
+
+<h4>Kis eset</h4>
+<p>Ugyanabból a 6945 tételből a következő gyakorlatok más-más táblát kérnek:</p>
+<ul>
+  <li><strong>Kosárelemzés</strong> (2. lecke): soronként egy kosár (1151 sor), oszloponként egy termék, 0/1 értékekkel.</li>
+  <li><strong>Vásárlói szegmentáció</strong> (3. lecke): soronként egy vásárló (120 sor), oszlopokban a költés és a vásárlások száma.</li>
+  <li>A K-means távolságot számol. A költés tízezres, a vásárlásszám egyjegyű nagyságrendű, így nyers formában a költés mindent elnyomna.</li>
+</ul>
+<p>Az első kettő a <em>sorokat</em> alakítja át (aggregálás), az első és a harmadik az <em>oszlopokat</em> (binarizálás, skálázás). Ezek a tisztítás utáni előfeldolgozás eszközei.</p>
+
+<div class="box def"><span class="box-title">Definíció – Aggregálás és mintavétel (a sorok átalakítása)</span>
+<p><strong>Aggregálás:</strong> több rekord (vagy változó) összevonása egyetlen rekorddá (változóvá), pl. összeggel, átlaggal, darabszámmal: <code>groupby(...).agg(...)</code>. A 8. lépés kosárértéke is aggregálás volt: 6945 tétel → 1151 kosár. Előnye: kisebb tábla, kevesebb futási idő, kisebb ingadozás, jobban látszanak a trendek. Ára: elvesznek a részletek (az egyes tételek, a napon belüli ingadozás).</p>
+<p><strong>Mintavétel:</strong> a rekordok egy részhalmazának kiválasztása, ha a teljes adat feldolgozása túl drága. Alapelv: a minta legyen <strong>reprezentatív</strong>, vagyis ugyanazt az eredményt adja, mint a teljes adat.</p>
+<div class="table-wrap"><table>
+<tr><th>Mód</th><th>Lényeg</th><th>pandas</th></tr>
+<tr><td>egyszerű véletlen, visszatevés nélkül</td><td>minden rekord egyenlő eséllyel, mindegyik legfeljebb egyszer</td><td><code>df.sample(frac=0.1, random_state=1)</code></td></tr>
+<tr><td>visszatevéses</td><td>egy rekord többször is bekerülhet</td><td><code>df.sample(n=len(df), replace=True, random_state=1)</code></td></tr>
+<tr><td>rétegzett</td><td>az adatot csoportokra (rétegekre) bontjuk, és mindegyikből arányosan veszünk mintát</td><td><code>df.groupby("region").sample(frac=0.1, random_state=1)</code></td></tr>
+</table></div>
+<p>A mintanagyság kompromisszum: a nagy minta reprezentatívabb, de kisebb a megtakarítás. Túl kis mintában a keresett mintázat el is veszhet.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Egyszerű véletlen vagy rétegzett 10%-os minta?</span>
+<p>A tisztított adatból 10%-os mintát veszünk (<code>random_state=1</code>), egyszer egyszerű véletlen, egyszer régió szerint rétegzett módon. Hány tétel jut az egyes régiókba?</p>
+<details class="solution"><summary>Megoldás (valódi adat)</summary>
+<div class="table-wrap"><table>
+<tr><th>Régió</th><th class="num">teljes adat</th><th class="num">elvárt (10%)</th><th class="num">rétegzett</th><th class="num">egyszerű véletlen</th></tr>
+<tr><td>West</td><td class="num">2013</td><td class="num">201,3</td><td class="num">201</td><td class="num">195</td></tr>
+<tr><td>North</td><td class="num">1825</td><td class="num">182,5</td><td class="num">182</td><td class="num">176</td></tr>
+<tr><td>East</td><td class="num">1806</td><td class="num">180,6</td><td class="num">181</td><td class="num">179</td></tr>
+<tr><td>South</td><td class="num">1301</td><td class="num">130,1</td><td class="num">130</td><td class="num">144</td></tr>
+<tr><td>összesen</td><td class="num">6945</td><td class="num">694,5</td><td class="num">694</td><td class="num">694</td></tr>
+</table></div>
+<p>A rétegzett minta (kerekítéstől eltekintve) pontosan megtartja a régiók arányát. Az egyszerű véletlen mintában ebben a futásban a South túl-, a többi régió alulreprezentált. Más <code>random_state</code> mellett más eltérés jönne ki, de az eltérés lehetősége mindig megvan. Kis rétegnél (ritka csoport) ez különösen számít.</p></details>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Változótranszformációk (az oszlopok átalakítása)</span>
+<p>Transzformáció: olyan átalakítás, amelyet a változó <em>minden</em> értékére alkalmazunk.</p>
+<div class="table-wrap"><table>
+<tr><th>Transzformáció</th><th>Mit csinál?</th><th>pandas / NumPy</th></tr>
+<tr><td><strong>Normalizálás</strong> (min–max)</td><td>$x' = \dfrac{x - \min}{\max - \min}$, az értékek a $[0,1]$ intervallumba kerülnek</td><td><code>(s - s.min()) / (s.max() - s.min())</code></td></tr>
+<tr><td><strong>Standardizálás</strong> (z-pontszám)</td><td>$z = \dfrac{x - \bar x}{s}$, az új átlag 0, a szórás 1 – részletesen: <a href="03-kmeans.html">3. lecke</a>, 4. lépés</td><td><code>(s - s.mean()) / s.std()</code></td></tr>
+<tr><td><strong>Diszkretizálás</strong></td><td>numerikus → kategorikus (sávokba sorolás): egyenlő szélességű, egyenlő gyakoriságú vagy szakmai határokkal</td><td><code>pd.cut(s, bins)</code>, <code>pd.qcut(s, q)</code></td></tr>
+<tr><td><strong>Binarizálás</strong> (dummy-kódolás)</td><td>egy kategorikus változóból kategóriánként egy 0/1 oszlop</td><td><code>pd.get_dummies(df["region"], dtype=int)</code></td></tr>
+<tr><td><strong>Elemi függvények</strong></td><td>log, gyök, hatvány; a jobbra ferde eloszlást „kiegyenesíti”: a <code>line_total</code> ferdesége $2{,}25$, logaritmus után $0{,}17$</td><td><code>np.log(s)</code> (csak pozitív értékekre)</td></tr>
+</table></div>
+<p><strong>Vektorizálás:</strong> a szimbolikus (szöveges) adatok számmá alakítása, mert az algoritmusok számokkal dolgoznak. Nominális változónál dummy-kódolással, ordinálisnál sorrendtartó egész kóddal (alap = 1, közép = 2, felső = 3, PhD = 4). A kosár–termék mátrix (2. lecke) is binarizálás: a kosár terméklistájából termékenként egy 0/1 oszlop lesz.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Min–max normalizálás a termékárakra</span>
+<p>A 18 termék ára 250 Ft (ásványvíz) és 2400 Ft (csirke) között van. Mi lesz a kenyér (550 Ft) és a kávé (2200 Ft) normalizált ára?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Terjedelem: $2400 - 250 = 2150$. Kenyér: $\frac{550-250}{2150} = \frac{300}{2150} \approx 0{,}140$. Kávé: $\frac{2200-250}{2150} = \frac{1950}{2150} \approx 0{,}907$. Az ásványvíz 0, a csirke 1 lesz.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – Három sáv: egyenlő szélesség kontra egyenlő gyakoriság</span>
+<p>A 1151 kosár értéke 800 és 22&nbsp;800 Ft között van. Három sávba soroljuk őket <code>pd.cut(s, 3)</code>-mal, illetve <code>pd.qcut(s, 3)</code>-mal. Hány kosár jut egy-egy sávba?</p>
+<details class="solution"><summary>Megoldás (valódi adat)</summary>
+<div class="two-col">
+<div><p><strong>Egyenlő szélességű</strong> (<code>cut</code>), határok kb. 8133 és 15&nbsp;467:</p><p>584 · 485 · 82 kosár</p></div>
+<div><p><strong>Egyenlő gyakoriságú</strong> (<code>qcut</code>, tercilisek), határok 5900 és 10&nbsp;550:</p><p>386 · 382 · 383 kosár</p></div>
+</div>
+<p>Az egyenlő szélességű sávoknál a felső sáv kicsi, mert kevés a nagy értékű kosár. Ez a sáv viszont pont a „legértékesebb” vásárlásokat jelöli. Az egyenlő gyakoriságú sávok egyforma méretűek, de a határaik nem kerek számok. Melyik a jó? A céltól függ. Kerek, kommunikálható határokhoz szakmai határokat érdemes választani (pl. „5000 Ft alatt”).</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 4 – A régió kódolása</span>
+<p>A K-means-hez számmá kell alakítani a <code>region</code> változót. Miért rossz az East = 1, North = 2, South = 3, West = 4 kódolás, és mi a jó?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Az 1–4 kód olyan sorrendet és távolságot visz be, ami nincs: az East és a West távolsága 3 lenne, az East és a North távolsága 1. A régió nominális, ezért dummy-kódolás kell:</p>
+<pre><code class="language-python">pd.get_dummies(data["region"], dtype=int)   # 4 oszlop: East, North, South, West</code></pre>
+<p>Soronként pontosan egy 1-es van, és bármely két különböző régió távolsága ugyanakkora. A <code>drop_first=True</code> elhagyja az első oszlopot (3 marad: North, South, West), mert a negyedik a többiből kikövetkeztethető. Ez lineáris modelleknél fontos.</p></details>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Új változók és dimenziócsökkentés</span>
+<p><strong>Új változók létrehozása</strong>, hogy a fontos információ közvetlenebbül megjelenjen:</p>
+<ul>
+  <li><strong>jellemzőszerkesztés</strong> (feature engineering): meglévő változókból számolt új változó – pl. a <code>line_total</code> (8. lépés), vagy egy tőzsdei idősor napi változása (differencia);</li>
+  <li><strong>jellemzőkinyerés</strong> (feature extraction): magasabb szintű leírók nyers adatból, pl. fényesség és szögletesség egy kép pixeleiből;</li>
+  <li><strong>leképezés új térbe:</strong> pl. idősor Fourier-transzformációja.</li>
+</ul>
+<p><strong>Dimenziócsökkentés:</strong> a változók számának csökkentése. A <strong>dimenzióprobléma</strong> miatt kell: sok változónál az algoritmusok lelassulnak, a pontok ritkán töltik ki a teret, és a távolság- és sűrűségmértékek elveszítik a jelentésüket. Módszerei: lineáris algebrai eljárások (főkomponens-elemzés – PCA, szinguláris felbontás – SVD), illetve <strong>jellemzőszelekció</strong>, azaz a felesleges, lényegtelen változók elhagyása (pl. azonosítók, konstans oszlopok, egymást ismétlő változók).</p>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktatók</span>
+<ul>
+  <li><strong>A min–max érzékeny a kiugróra.</strong> Ha egy elírás miatt a maximális ár 24&nbsp;000 Ft lenne, a kenyér normalizált ára 0,013, a kávéé 0,082 lenne: minden érték a 0 közelébe zsúfolódik. Normalizálás előtt kezeld a kiugrókat (7. lépés), vagy standardizálj.</li>
+  <li><strong>Nominális változót ne kódolj sorszámmal</strong>, ha az algoritmus távolságot vagy átlagot számol (K-means, neurális háló). A sorszám hamis sorrendet visz be.</li>
+  <li><strong>Diszkretizálásnál a határ hova esik?</strong> A <code>pd.cut</code> alapból jobbról zárt sávokat használ: <code>bins=[0, 14, 21, 60, 120]</code> esetén a 14 éves a $(0, 14]$ sávba, a „gyermek” kategóriába kerül. A niu példájában („gyermekkor 0–14, fiatalkor 14–21”) a 14 két helyen is szerepel – ezt mindig egyértelművé kell tenni.</li>
+  <li><strong>Aggregálás után megváltozik a megfigyelési egység</strong> (tétel → kosár → vásárló), és vele a statisztikák jelentése is (lásd a 10. lépés ferdeségtáblázatát).</li>
+  <li><strong>Mintavételnél add meg a <code>random_state</code>-et</strong>, különben minden futás más mintát és más eredményt ad, és nem lehet reprodukálni.</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia</span>
+<p><em>aggregation</em> = aggregálás · <em>sampling (with / without replacement, stratified)</em> = mintavétel (visszatevéses / visszatevés nélküli, rétegzett) · <em>normalization (min–max scaling)</em> = normalizálás · <em>standardization (z-score)</em> = standardizálás · <em>discretization, binning</em> = diszkretizálás, sávokba sorolás · <em>one-hot / dummy encoding</em> = binarizálás, dummy-kódolás · <em>feature engineering / extraction / selection</em> = jellemzőszerkesztés / -kinyerés / -szelekció · <em>dimensionality reduction</em> = dimenziócsökkentés · <em>curse of dimensionality</em> = dimenzióprobléma.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Előfeldolgozási eszközök (5 feladat)</summary>
+<ol>
+  <li><p>Mi a tea (1400 Ft) min–max normalizált ára, ha az árak 250 és 2400 Ft között vannak?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\frac{1400-250}{2150} = \frac{1150}{2150} \approx 0{,}535$.</p></details></li>
+  <li><p>Melyik előfeldolgozási művelet? (a) az életkorból „gyermek / fiatal / felnőtt / idős” kategóriák; (b) a családi állapotból három 0/1 oszlop; (c) a tételértékből (<code>line_total</code>) a logaritmusa; (d) a napi tételekből napi árbevétel.</p>
+    <details class="solution"><summary>Megoldás</summary><p>(a) diszkretizálás; (b) binarizálás (dummy-kódolás); (c) elemi függvény alkalmazása (logaritmus, a ferdeség csökkentésére); (d) aggregálás.</p></details></li>
+  <li><p>Iskolai végzettség (alap, közép, felső, PhD) és családi állapot (nőtlen, házas, elvált). Hogyan alakítanád számmá mindkettőt?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A végzettség ordinális: sorrendtartó egész kód (1, 2, 3, 4). A családi állapot nominális: dummy-kódolás, három 0/1 oszlop (vagy <code>drop_first=True</code>-val kettő). A niu-példa a családi állapotot 1–3-mal kódolja, ez csak akkor elfogadható, ha az algoritmus nem számol vele távolságot vagy átlagot.</p></details></li>
+  <li><p>Egy 10&nbsp;000 ügyfeles táblában az ügyfelek 2%-a morzsolódott le. 500 fős mintát veszel a modellhez. Miért jobb a lemorzsolódás szerint rétegzett minta?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Az elvárt lemorzsolódók száma a mintában $500\cdot 0{,}02 = 10$. Egyszerű véletlen mintánál ez véletlenül lehet sokkal kevesebb vagy több (akár 5 vagy 15), és ilyen kis számnál ez a minta szerkezetét erősen torzítja. A rétegzett minta pontosan 490 maradót és 10 lemorzsolódót tartalmaz.</p></details></li>
+  <li><p>A kosárértékeket három kategóriába akarod sorolni úgy, hogy mindegyikben nagyjából ugyanannyi kosár legyen. <code>pd.cut</code> vagy <code>pd.qcut</code>? Mi történne a másikkal?</p>
+    <details class="solution"><summary>Megoldás</summary><p><code>pd.qcut(s, 3)</code>: tercilisek, 386 / 382 / 383 kosár. A <code>pd.cut(s, 3)</code> egyenlő <em>szélességű</em> sávokat ad, a jobbra ferde eloszlás miatt erősen eltérő létszámmal (584 / 485 / 82).</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l01-lepes11"></div>
+</section>
+
 <!-- ===================================================== Alkalmazás -->
 <section id="alkalmazas">
 <h2>Alkalmazás – a gyakorlat teljes munkafolyamata</h2>
@@ -924,6 +1259,9 @@ print(f"{data['line_total'].sum():,} HUF")   # 9,891,340 HUF</code></pre>
   <li>Középérték: átlag (érzékeny), medián (robusztus), módusz (kategorikusra is). Szóródás: terjedelem, szórás, IQR.</li>
   <li>Kiugró: $Q_1 - 1{,}5\,IQR$ alatt vagy $Q_3 + 1{,}5\,IQR$ fölött. Kiugró ≠ hibás.</li>
   <li>Kétváltozós: numerikus–numerikus korreláció; kategorikus–numerikus csoportos összehasonlítás; kategorikus–kategorikus kereszttábla.</li>
+  <li>Adatminőség: pontosság, teljesség, konzisztencia, aktualitás, érvényesség. Az inkonzisztens duplikátumot (azonos kulcs, eltérő mezők) a teljes duplikátumszűrés nem találja meg.</li>
+  <li>Alak: ferdeség (előjele a hosszabb farok oldala), csúcsosság (normális = 0). Robusztus mutatók: medián, csonkolt átlag, MAD, IQR.</li>
+  <li>Előfeldolgozás a tisztításon túl: aggregálás, mintavétel (egyszerű véletlen, visszatevéses, rétegzett), normalizálás, standardizálás, diszkretizálás, binarizálás (dummy), logaritmus, jellemzőszerkesztés, dimenziócsökkentés.</li>
 </ul>
 
 <h3>Döntési táblázat</h3>
@@ -946,6 +1284,14 @@ print(f"{data['line_total'].sum():,} HUF")   # 9,891,340 HUF</code></pre>
 <tr><td>Diszkrét változó eloszlása</td><td><code>value_counts().sort_index()</code> + oszlopdiagram</td></tr>
 <tr><td>Két numerikus változó kapcsolata</td><td><code>corr()</code> + pontdiagram</td></tr>
 <tr><td>Kategorikus és numerikus változó kapcsolata</td><td><code>groupby(kat)[num].agg(["mean","median"])</code> + csoportonkénti boxplot</td></tr>
+<tr><td>Ugyanaz a kulcs több sorban, eltérő adattal</td><td><code>df[df.duplicated(subset=kulcs, keep=False)]</code> + egyenkénti döntés</td></tr>
+<tr><td>„Milyen alakú az eloszlás?”</td><td><code>skew()</code>, <code>kurt()</code> + hisztogram; átlag és medián összevetése</td></tr>
+<tr><td>Középérték / szóródás kiugrók mellett, a szélső értékek eldobásával</td><td>csonkolt átlag (<code>scipy.stats.trim_mean</code>), MAD, IQR</td></tr>
+<tr><td>Változók $[0,1]$ közé hozása</td><td>min–max normalizálás; átlag 0, szórás 1: standardizálás (3. lecke)</td></tr>
+<tr><td>Numerikus változóból kategóriák</td><td><code>pd.cut</code> (egyenlő szélesség vagy saját határok), <code>pd.qcut</code> (egyenlő gyakoriság)</td></tr>
+<tr><td>Nominális változó számmá alakítása</td><td><code>pd.get_dummies(...)</code>; ordinálisnál sorrendtartó egész kód</td></tr>
+<tr><td>Erősen jobbra ferde, pozitív változó</td><td><code>np.log(...)</code></td></tr>
+<tr><td>Kisebb, de arányos minta csoportonként</td><td>rétegzett mintavétel: <code>df.groupby(csoport).sample(frac=..., random_state=...)</code></td></tr>
 </table></div>
 </section>
 
@@ -957,7 +1303,7 @@ print(f"{data['line_total'].sum():,} HUF")   # 9,891,340 HUF</code></pre>
 </section>
 
 <nav class="pager">
-  <a href="index.html">← Tartalom</a>
+  <a href="10-bi-adatbanyaszat-alapok.html">← 10. BI és adatbányászat alapjai</a>
   <a href="02-kosarelemzes.html">2. Kosárelemzés →</a>
 </nav>
 </main>

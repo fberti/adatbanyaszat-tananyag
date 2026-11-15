@@ -135,6 +135,116 @@ QUIZZES["l06-lepes9"] = {
   ]
 };
 
+QUIZZES["l06-lepes10"] = {
+  title: "Mini-kvíz – Tanítási elvek, keresztvalidáció",
+  questions: [
+    {
+      type: "match",
+      q: "Párosítsd az adathalmazt a szerepével!",
+      pairs: [
+        ["Tanítóhalmaz", "A súlyok (paraméterek) meghatározása"],
+        ["Validációs halmaz", "Hiperparaméterek kiválasztása, korai leállítás"],
+        ["Teszthalmaz", "Egyszeri, végső teljesítménybecslés"]
+      ],
+      hint: "Melyik halmazon milyen döntés születik – és melyiken semmilyen?",
+      explain: "A tanítón a súlyokról, a validáción a beállításokról döntünk; a teszten semmiről, ezért ad független becslést. Ha a teszten választunk beállítást, a teszt is „validációs” lesz, és az eredménye optimista."
+    },
+    {
+      type: "single",
+      q: "85 tanítósor, 5-szörös keresztvalidáció, 8 hiperparaméter-kombináció. Hány modellt tanít a GridSearchCV (alapbeállítással)?",
+      options: ["41", "40", "8", "425"],
+      answer: 0,
+      hint: "Kombinációnként k tanítás – és a végén még egy.",
+      explain: R`$8\cdot5=40$ tanítás a keresztvalidációban, plusz 1 újratanítás a legjobb kombinációval a teljes tanítóhalmazon (<code>refit=True</code>): 41. A 40-ből kimaradt az újratanítás; a 8 a keresztvalidációt hagyja ki; a 425 = 85 · 5 sorokat számol, nem modelleket.`
+    },
+    {
+      type: "single",
+      q: "Miért kell a StandardScaler-t a modellel együtt egy Pipeline-ba tenni keresztvalidációnál?",
+      options: [
+        "Hogy minden foldban csak az ottani tanítórészen illeszkedjen, és a validációs fold ne szivárogjon bele",
+        "Mert a GridSearchCV különben nem tudja standardizálni a célváltozót",
+        "Hogy gyorsabban fusson: a Pipeline csak egyszer standardizál",
+        "Mert MLP-nél a Pipeline nélkül a standardizálás tiltott"
+      ],
+      answer: 0,
+      hint: "Gondolj a 7. lépésre: miért nem illeszthető a scaler a teszten? Itt minden fold egy kis „teszt”.",
+      explain: "Ha a scalert a teljes tanítóhalmazon illesztjük, és utána keresztvalidálunk, minden validációs fold átlaga és szórása benne van a transzformációban – ez adatszivárgás, optimista CV-eredménnyel. A Pipeline foldonként újra illeszt. A célváltozót nem standardizáljuk; a Pipeline ettől nem gyorsabb, hanem helyesebb."
+    },
+    {
+      type: "single",
+      q: "A döntési fa mélységét keresztvalidálva (85 sor) egyik mélység sem éri el a többségi alapmodell 0,706-os CV-pontosságát, a teszten viszont a fa 0,724-et ér el. Mi a helyes következtetés?",
+      options: [
+        "A fa előnye ezen az adaton nem igazolható; a 29 fős teszt egyetlen felosztás, zajos",
+        "A keresztvalidáció hibás, mert kevesebb adaton tanít",
+        "A fa jobb az alapmodellnél, mert a teszten 0,724 > 0,706",
+        "A legmélyebb fát kell választani, mert az tanul a legtöbbet"
+      ],
+      answer: 0,
+      hint: "Melyik becslés használ több adatot a validálásra, és melyik hasonlít ugyanarra a felosztásra?",
+      explain: "A keresztvalidáció mind a 85 sort validálásra is felhasználja (5 × 17), így megbízhatóbb, mint egyetlen 29 fős teszt. A teszten az alapmodell is 0,724 (és a 0,706 tanító-arány nem a teszt alapmodellje) – a fa itt sem jobb. A mélyebb fa CV-ben még rosszabb."
+    }
+  ]
+};
+
+QUIZZES["l06-lepes11"] = {
+  title: "Mini-kvíz – Neurális hálók a BI-ban",
+  questions: [
+    {
+      type: "match",
+      q: "Párosítsd a BI-alkalmazást a feladattípussal!",
+      pairs: [
+        ["Hiteligénylő kockázati besorolása", "Osztályozás"],
+        ["Jövő havi kereslet becslése", "Regresszió / idősor"],
+        ["Ügyfelek csoportosítása előre megadott csoportok nélkül", "Nem felügyelt tanulás (klaszterezés)"],
+        ["Hibás termék felismerése kameraképről", "Képosztályozás (CNN)"]
+      ],
+      hint: "Kategória, szám, címke nélküli csoport vagy kép a kimenet/bemenet?",
+      explain: "A kockázati besorolás véges kategóriát ad (osztályozás), a kereslet folytonos szám (regresszió), a szegmentációhoz nincs címke (nem felügyelt), a kamerakép pedig a CNN tipikus bemenete."
+    },
+    {
+      type: "multi",
+      q: "Melyek az előadás „Q11” kérdésére adható helyes válaszok (a neurális hálós módszerek nehézségei)?",
+      options: [
+        "Nagy adatigény a sok paraméter miatt",
+        "Hajlam a túltanulásra",
+        "Sok hiperparaméter, költséges hangolás",
+        "Nehéz megindokolni egy döntést („fekete doboz”)",
+        "Csak lineáris döntési határt tudnak tanulni",
+        "Nem lehet őket valószínűség becslésére használni"
+      ],
+      answer: [0, 1, 2, 3],
+      hint: "Két opció olyasmit állít, amit a lecke elején épp cáfoltunk (3–4. lépés).",
+      explain: "Adatigény, túltanulás, hiperparaméterek és értelmezhetőség a valódi nehézségek (plusz számításigény, a véletlen kezdősúlyoktól való függés). A lineáris határ a sima perceptron korlátja – az MLP nemlineáris aktivációval épp ezt oldja meg; a szigmoid kimenet pedig valószínűséget ad."
+    },
+    {
+      type: "single",
+      q: "Miért nevezzük a neurális hálót gépi tanulási módszernek?",
+      options: [
+        "Mert a viselkedését meghatározó súlyokat egy algoritmus a tanítóadatból határozza meg, nem kézzel programozzuk",
+        "Mert számítógépen fut",
+        "Mert a felépítése az emberi agy neuronjait utánozza",
+        "Mert mindig pontosabb, mint a statisztikai modellek"
+      ],
+      answer: 0,
+      hint: "Mi „tanul” a hálóban, és miből?",
+      explain: "A gépi tanulás lényege, hogy a döntési modellt az adatokból automatikusan építjük fel: a háló súlyait a hibavisszaterjesztés + optimalizáló állítja be a tanítóhalmaz alapján, hogy új esetekre is általánosítson. A számítógépen futás és az agyi analógia nem ettől lesz tanulás; pontosabb pedig nem mindig."
+    },
+    {
+      type: "single",
+      q: "A gyakorlat (8, 4)-es hálója random_state = 0…9 mellett 0,724 és 0,828 közötti teszt-pontosságot ad. Mit tanulsz ebből?",
+      options: [
+        "Kis adaton egyetlen futás eredménye bizonytalan; több futás / keresztvalidáció átlaga kell, a random_state a reprodukálhatóságot szolgálja",
+        "A 2-es és 3-as random_state a legjobb, ezért azt kell használni",
+        "A neurális háló hibásan működik, mert determinisztikusnak kellene lennie",
+        "A tesztadat hibás, mert a pontosság nem állandó"
+      ],
+      answer: 0,
+      hint: "A kezdősúlyok véletlenek; mi történik, ha a „legjobb” véletlen magot a teszten választjuk ki?",
+      explain: "A veszteségfüggvény nem konvex: más kezdősúlyokról más (lokális) megoldásba jut a tanítás. Kis adaton ez 21–24 helyes hallgató különbséget is jelenthet. A teszten kiválasztott random_state ugyanaz a csalás, mint a teszten kiválasztott beállítás. A random_state rögzítése a megismételhetőséget szolgálja, nem a minőséget."
+    }
+  ]
+};
+
 QUIZZES["l06-vegso"] = {
   title: "Ellenőrző kvíz – Neurális háló",
   questions: [

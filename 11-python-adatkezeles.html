@@ -1,0 +1,1787 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Adatelemzési alapok Pythonban</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script defer src="assets/quiz.js"></script>
+<script defer src="quiz/11.js"></script>          <!-- a lecke kvízei -->
+<script defer src="assets/common.js"></script>    <!-- MINDIG az utolsó -->
+</head>
+<body>
+<nav class="topnav"><div class="inner">
+  <a href="index.html">← Tartalom</a>
+  <span>11. lecke · Python-adatkezelés</span>
+  <span class="spacer"></span>
+  <button id="theme-toggle" type="button" title="Világos/sötét téma">◐</button>
+</div></nav>
+<main>
+<p class="kicker">11. lecke · 1. témakör · előadás</p>
+<h1>Adatelemzési alapok Pythonban: adatszerkezetek, fájlok, SQL, DataFrame</h1>
+<p class="lead">A gyakorlatok minden szkriptje ugyanazokból az építőkockákból áll: lista, halmaz, szótár, fájl- és CSV-kezelés, adatbázis-kapcsolat és pandas DataFrame. Ez a lecke ezeket rakja sorba, kis példákon, valódi (lefuttatott) kimenetekkel.</p>
+
+<section id="motivacio">
+<h2>Motiváció</h2>
+<p>Egy adatbázisban ott van tíz ember életkora és pontszáma. A kérdés: <strong>van-e kapcsolat az életkor és a pontszám között</strong>, és ha van, milyen irányú?</p>
+<p>Ehhez végig kell menned egy teljes láncon: kapcsolódsz az adatbázishoz, lekérdezed a sorokat, Python-adatszerkezetbe (listába, DataFrame-be) teszed őket, számolsz, rendezel, csoportosítasz, végül ábrát rajzolsz. Az előadás pont ezt a láncot mutatja be, a gyakorlatok pedig minden héten használják.</p>
+<p>A lecke végére tudni fogod:</p>
+<ul>
+  <li>melyik Python-adatszerkezet mire való (lista, halmaz, szótár), és miért halmaz a vásárlói kosár;</li>
+  <li>hogyan olvasol és írsz szöveg- és CSV-fájlt, és mitől lesznek „kriksz-krakszok” az ékezetek helyén;</li>
+  <li>hogyan küldesz SQL-parancsot egy adatbázisnak Pythonból, biztonságosan paraméterezve;</li>
+  <li>hogyan hozol létre, címzel, alakítasz, szűrsz, rendezel és csoportosítasz egy pandas DataFrame-et;</li>
+  <li>és mi a válasz a fenti kérdésre (a kovariancia $-13{,}56$, a korreláció $-0{,}40$: gyenge, negatív kapcsolat).</li>
+</ul>
+<div class="box tip"><span class="box-title">💡 Hol tartunk?</span>
+<p>Az előadás eleje az adattárolási szinteket (lokális fájl, adatbázis, adattárház, felhő, adattó) tekinti át – erről a <a href="12-adattarolas-adattarhaz.html">12. lecke</a> szól. Itt a legalsó két szinttel dolgozunk Pythonból: <strong>fájllal</strong> és <strong>relációs adatbázissal</strong>.</p>
+</div>
+</section>
+
+<section id="utiterv">
+<h2>Útiterv</h2>
+<ol class="roadmap">
+  <li><a href="#lepes1">1. lépés – Lista: sorozat, ami bővíthető és rendezhető</a></li>
+  <li><a href="#lepes2">2. lépés – Halmaz: a kosár, ahol nincs sorrend és ismétlés</a></li>
+  <li><a href="#lepes3">3. lépés – Szótár: kulcs–érték párok és számlálás</a></li>
+  <li><a href="#lepes4">4. lépés – Lambda: névtelen függvény, rendezés kulccsal</a></li>
+  <li><a href="#lepes5">5. lépés – Generátor és osztály</a></li>
+  <li><a href="#lepes6">6. lépés – Ábrák matplotlibbel: plot, scatter, hist</a></li>
+  <li><a href="#lepes7">7. lépés – Szövegfájlok: megnyitás, olvasás, írás, kódolás</a></li>
+  <li><a href="#lepes8">8. lépés – CSV-fájlok: a csv modul és a pd.read_csv</a></li>
+  <li><a href="#lepes9">9. lépés – SQL API: kapcsolat, kurzor, paraméteres lekérdezés</a></li>
+  <li><a href="#lepes10">10. lépés – DataFrame: szerkezet, létrehozás, sorok hozzáadása</a></li>
+  <li><a href="#lepes11">11. lépés – Hivatkozás: oszlop, sor, cella (loc, iloc, at, iat)</a></li>
+  <li><a href="#lepes12">12. lépés – Oszlopműveletek, Excel-beolvasás, konverziók</a></li>
+  <li><a href="#lepes13">13. lépés – Keresés, rendezés, csoportképzés</a></li>
+  <li><a href="#alkalmazas">Alkalmazás – adatbázisból DataFrame, statisztika, ábra</a></li>
+  <li><a href="#osszefoglalas">Összefoglalás és döntési táblázat</a></li>
+  <li><a href="#kviz">Ellenőrző kvíz</a></li>
+</ol>
+<div class="box tip"><span class="box-title">💡 Hogyan olvasd?</span>
+<p>Minden kódrészletet lefuttattunk (Python 3.12, pandas 2.3); a kimeneteket szó szerint közöljük. Colabban ugyanezt kapod. Ha a kódot magad gépeled be, egy cellában futtasd a lépés összes sorát, mert a későbbi sorok az előzőkre épülnek.</p>
+<p>A pandas 3.0-tól a szöveges oszlopok típusa <code>object</code> helyett <code>str</code>. Ha helyben újabb pandasod van, a <code>dtype</code>-sorokban ezt az eltérést láthatod – a lényegen nem változtat.</p>
+</div>
+</section>
+
+<!-- ===================================================== 1 -->
+<section id="lepes1">
+<h2>1. lépés – Lista: sorozat, ami bővíthető és rendezhető</h2>
+
+<h4>Kis eset</h4>
+<p>Egy vásárló kosarába sorban kerülnek a termékek. Felírod őket egy listába, hozzáteszel egyet, megnézed a hosszát, majd kiveszed az utoljára betett terméket:</p>
+<pre><code class="language-python">kosar = ["milk", "bread", "coffee"]
+kosar.append("butter")
+print(kosar)
+print(len(kosar))
+utolso = kosar.pop()
+print(utolso)
+print(kosar)</code></pre>
+<pre><code class="language-plaintext">['milk', 'bread', 'coffee', 'butter']
+4
+butter
+['milk', 'bread', 'coffee']</code></pre>
+<p>Megfigyelések: a lista <strong>sorrendet tart</strong> (pozíciók: 0, 1, 2, …), <strong>bővíthető</strong> (<code>append</code> a végére tesz), és a <code>pop()</code> a <strong>végéről</strong> vesz el – mint egy verem (stack) tetejéről.</p>
+
+<div class="box def"><span class="box-title">Definíció – Lista (list)</span>
+<p>Szögletes zárójelben, vesszővel elválasztott elemek sorozata: <code>[e1, e2, …]</code>. Az elemek pozícióval (0-tól) érhetők el, ismétlődhetnek, és bármilyen típusúak lehetnek – akár újabb listák is.</p>
+<div class="table-wrap"><table>
+<tr><th>Művelet</th><th>Mit csinál?</th></tr>
+<tr><td><code>vn = [v(e) for e in exp]</code></td><td><strong>lista-értelmezés</strong> (list comprehension): új lista egy kifejezésből; szűrhető is: <code>[… for e in exp if feltétel]</code></td></tr>
+<tr><td><code>vn.append(x)</code></td><td>egy elemet a végére fűz (ha <code>x</code> lista, beágyazott lista lesz)</td></tr>
+<tr><td><code>vn.pop()</code>, <code>vn.pop(i)</code></td><td>visszaadja és eltávolítja az utolsó (ill. az <code>i</code>-edik) elemet</td></tr>
+<tr><td><code>vn.count(v)</code>, <code>vn.index(v)</code></td><td><code>v</code> előfordulásainak száma; első előfordulásának pozíciója</td></tr>
+<tr><td><code>vn.sort(key=…, reverse=…)</code></td><td>helyben rendez; a <code>key</code> függvény adja a rendezés alapját</td></tr>
+<tr><td><code>sorted(vn)</code></td><td><em>új</em> rendezett listát ad, az eredetit nem bántja</td></tr>
+<tr><td><code>sum</code>, <code>len</code>, <code>min</code>, <code>max</code></td><td>összesítő (aggregáló) függvények; átlag: <code>sum(vn) / len(vn)</code></td></tr>
+</table></div>
+<p><strong>Miért?</strong> Az adatelemzésben a lista a „nyers sorozat”: beolvasott sorok, eredmények gyűjtése egy ciklusban, kosarak listája. Ebből lesz később DataFrame.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Az előadás gyümölcslistája</span>
+<pre><code class="language-python">fruits = ['orange', 'apple', 'pear', 'banana', 'kiwi', 'apple', 'banana']
+print(fruits.count('apple'))
+print(fruits.index('banana'))
+fruits.reverse()
+fruits.append('grape')
+fruits.sort()
+print(fruits)
+print(fruits.pop())</code></pre>
+<details class="solution"><summary>Kimenet és magyarázat</summary>
+<pre><code class="language-plaintext">2
+3
+['apple', 'apple', 'banana', 'banana', 'grape', 'kiwi', 'orange', 'pear']
+pear</code></pre>
+<p>Két <code>'apple'</code> van. Az első <code>'banana'</code> a 3-as pozíción áll (0-tól számolva!). A <code>sort()</code> ábécérendbe tesz, így a <code>pop()</code> az utolsó elemet, a <code>'pear'</code>-t adja vissza.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Lista-értelmezés és összesítés</span>
+<p>Négy termék nettó ára: 550, 2200, 650, 700 Ft. Kérjük a bruttó árakat (27% áfa), a 600 Ft fölötti árakat, és az átlagot.</p>
+<pre><code class="language-python">arak = [550, 2200, 650, 700]
+brutto = [round(a * 1.27) for a in arak]
+print(brutto)
+dragak = [a for a in arak if a &gt; 600]
+print(dragak)
+print(sum(arak), len(arak), min(arak), max(arak), sum(arak) / len(arak))</code></pre>
+<details class="solution"><summary>Kimenet</summary>
+<pre><code class="language-plaintext">[698, 2794, 826, 889]
+[2200, 650, 700]
+4100 4 550 2200 1025.0</code></pre>
+<p>Az átlag $4100 / 4 = 1025$. A Python osztása mindig lebegőpontos számot ad, ezért <code>1025.0</code>.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – Rendezés kulccsal</span>
+<pre><code class="language-python">termekek = ["milk", "tomato sauce", "tea", "bread"]
+termekek.sort()
+print(termekek)
+termekek.sort(key=len)
+print(termekek)
+print(sorted(arak, reverse=True))</code></pre>
+<details class="solution"><summary>Kimenet</summary>
+<pre><code class="language-plaintext">['bread', 'milk', 'tea', 'tomato sauce']
+['tea', 'milk', 'bread', 'tomato sauce']
+[2200, 700, 650, 550]</code></pre>
+<p><code>key=len</code>: minden elemre kiszámolja a hosszát, és aszerint rendez (3, 4, 5, 12 karakter). A <code>reverse=True</code> csökkenő sorrendet kér.</p></details>
+</div>
+
+<div class="two-col">
+  <div class="box example"><span class="box-title">append – beágyazott lista</span>
+<pre><code class="language-python">k = ["milk"]
+k.append(["bread", "butter"])
+print(k, len(k))</code></pre>
+<pre><code class="language-plaintext">['milk', ['bread', 'butter']] 2</code></pre>
+  </div>
+  <div class="box example"><span class="box-title">extend – elemenként</span>
+<pre><code class="language-python">k = ["milk"]
+k.extend(["bread", "butter"])
+print(k, len(k))</code></pre>
+<pre><code class="language-plaintext">['milk', 'bread', 'butter'] 3</code></pre>
+  </div>
+</div>
+<p>Az előadás <code>vn.append([e1,...,en])</code> sora éppen a bal oldali esetet mutatja: így építünk <strong>listák listáját</strong>, például kosarak listáját (egy elem = egy kosár terméklistája).</p>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+  <li><strong>A <code>pop()</code> az utolsó elemet veszi ki, nem az elsőt.</strong> Az előadás diáján „az első elem eltávolítása (verem)” áll – ez elírás: a verem <em>teteje</em> a lista vége. Az első elemhez <code>pop(0)</code> kell.</li>
+  <li><strong>A <code>sort()</code> nem ad vissza semmit.</strong> <code>x = arak.sort()</code> után <code>x</code> értéke <code>None</code>, az <code>arak</code> pedig rendezett. Ha új lista kell, <code>sorted(arak)</code>.</li>
+  <li><strong>A pozíció 0-tól indul:</strong> a 4 elemű lista utolsó eleme <code>vn[3]</code> (vagy <code>vn[-1]</code>).</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Hol látod a gyakorlaton?</span>
+<ul>
+  <li>Gyak3, <code>03_kmeans.py</code>: <code>results.append({"k": k, "inertia": …})</code> – eredmények gyűjtése ciklusban, majd <code>pd.DataFrame(results)</code>.</li>
+  <li>Gyak3: <code>show_k = [k for k in [2, 3, 4] if k in models]</code> – szűrő lista-értelmezés.</li>
+  <li>Gyak2, Demo <code>apriori.py</code>: <code>matching = [i for i, basket in enumerate(baskets, 1) if candidate &lt;= basket]</code> – mely kosarakban van benne a jelölt.</li>
+  <li>Gyak1: <code>df.columns.tolist()</code> – az oszlopnevek listaként.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Listák (5 feladat)</summary>
+<p>Mindegyiknél ugyanaz a kiinduló lista: <code>q = [3, 1, 4, 1, 5, 9, 2, 6]</code>.</p>
+<ol>
+  <li><p>Mit ír ki a <code>print(q.count(1), q.index(1))</code>?</p>
+    <details class="solution"><summary>Megoldás</summary><p><code>2 1</code>. Az 1-es kétszer szerepel; az első előfordulása az 1-es pozíción van (a 0-s pozíción a 3 áll).</p></details></li>
+  <li><p>Mit ad a <code>[v * v for v in q if v % 2 == 0]</code>?</p>
+    <details class="solution"><summary>Megoldás</summary><p><code>[16, 4, 36]</code>. A páros elemek sorrendben: 4, 2, 6; ezek négyzete. A sorrend a <em>q</em>-beli sorrend marad.</p></details></li>
+  <li><p>Mi a <code>sorted(q)[:3]</code> és a <code>sum(q) / len(q)</code> értéke?</p>
+    <details class="solution"><summary>Megoldás</summary><p><code>[1, 1, 2]</code> (a három legkisebb), illetve $31 / 8 = 3{,}875$, kiírva <code>3.875</code>.</p></details></li>
+  <li><p><code>n = [1, 2, 3]; n.append([4, 5])</code>. Mennyi <code>len(n)</code>?</p>
+    <details class="solution"><summary>Megoldás</summary><p>4. Az <code>append</code> a <code>[4, 5]</code> listát <em>egyetlen</em> elemként fűzi hozzá: <code>[1, 2, 3, [4, 5]]</code>. Az <code>extend</code> adott volna 5-öt.</p></details></li>
+  <li><p><code>s = ["kiwi", "fig", "banana", "apple"]; s.sort(key=len)</code>. Mi lesz <code>s</code>?</p>
+    <details class="solution"><summary>Megoldás</summary><p><code>['fig', 'kiwi', 'apple', 'banana']</code> – hosszak: 3, 4, 5, 6. (Azonos hosszúságú elemeknél a rendezés megtartja az eredeti sorrendet – „stabil”.)</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l11-lepes1"></div>
+</section>
+
+<!-- ===================================================== 2 -->
+<section id="lepes2">
+<h2>2. lépés – Halmaz: a kosár, ahol nincs sorrend és ismétlés</h2>
+
+<h4>Kis eset</h4>
+<p>A pénztárnál négy tételt ütnek be: <code>bread, butter, bread, coffee</code>. A kosárelemzésben (<a href="02-kosarelemzes.html">2. lecke</a>) viszont csak az számít, <em>milyen</em> termékek vannak a kosárban, nem az, hogy hányszor és milyen sorrendben. Listából halmazt készítesz:</p>
+<pre><code class="language-python">tetelek = ["bread", "butter", "bread", "coffee"]
+k = set(tetelek)
+print(len(tetelek), len(k))
+print(sorted(k))</code></pre>
+<pre><code class="language-plaintext">4 3
+['bread', 'butter', 'coffee']</code></pre>
+<p>A második <code>bread</code> eltűnt: a halmazban minden elem <strong>legfeljebb egyszer</strong> szerepel. A kosár tehát természeténél fogva halmaz.</p>
+
+<div class="box def"><span class="box-title">Definíció – Halmaz (set)</span>
+<p>Kapcsos zárójelben megadott elemek gyűjteménye: <code>{v1, v2, …}</code>, üres halmaz: <code>set()</code>. Az elemeknek <strong>nincs pozíciójuk, nincs sorrendjük, és nincsenek ismétlődéseik</strong>.</p>
+<div class="table-wrap"><table>
+<tr><th>Művelet</th><th>Jelentés</th><th>Kosárelemzésben</th></tr>
+<tr><td><code>vn.add(v)</code></td><td>elem hozzáadása (ha már benne van, nem történik semmi)</td><td>termék a kosárba</td></tr>
+<tr><td><code>v in vn</code></td><td>tartalmazás vizsgálata (<code>True</code>/<code>False</code>)</td><td>vett-e kenyeret?</td></tr>
+<tr><td><code>a.intersection(b)</code> vagy <code>a &amp; b</code></td><td>metszet: mindkettőben benne van</td><td>közös termékek</td></tr>
+<tr><td><code>a.union(b)</code> vagy <code>a | b</code></td><td>unió: legalább az egyikben</td><td>az összes előforduló termék</td></tr>
+<tr><td><code>a.issubset(b)</code> vagy <code>a &lt;= b</code></td><td>részhalmaz</td><td>tartalmazza-e a kosár az elemhalmazt?</td></tr>
+</table></div>
+<p><strong>Miért?</strong> A támogatottság (support) számlálása pont ennyi: <em>hány kosárnak részhalmaza az adott elemhalmaz?</em> A halmazművelet ezt egyetlen kifejezéssel elvégzi, és gyors is (a <code>in</code> nem nézi végig az összes elemet).</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Az előadás halmazai</span>
+<pre><code class="language-python">x = {1, 2, 3}
+print(type(x))
+x.add(4)
+x.add(4)
+print(x)
+print(3 in x)
+a = {1, 3, 4, 5, 7}
+b = {0, 3, 6, 7, 9}
+print(a.intersection(b))
+print(a.union(b))</code></pre>
+<details class="solution"><summary>Kimenet</summary>
+<pre><code class="language-plaintext">&lt;class 'set'&gt;
+{1, 2, 3, 4}
+True
+{3, 7}
+{0, 1, 3, 4, 5, 6, 7, 9}</code></pre>
+<p>A második <code>add(4)</code> nem változtat semmit. A metszet a két közös elem (3 és 7).</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Két valódi kosár</span>
+<p>A gyakorlat adatából: T0005 = {biscuits, bread, butter, coffee}, T0007 = {bread, butter}.</p>
+<pre><code class="language-python">k1 = {"biscuits", "bread", "butter", "coffee"}   # T0005
+k2 = {"bread", "butter"}                          # T0007
+print(sorted(k1 &amp; k2))
+print(sorted(k1 | k2))
+print(k2 &lt;= k1)
+print("bread" in k2, "milk" in k2)</code></pre>
+<details class="solution"><summary>Kimenet</summary>
+<pre><code class="language-plaintext">['bread', 'butter']
+['biscuits', 'bread', 'butter', 'coffee']
+True
+True False</code></pre>
+<p>A T0007 kosár teljes egészében benne van a T0005-ben, ezért részhalmaz.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – Támogatottság számolása halmazokkal</span>
+<p>Az első 8 kosár a gyakorlat <code>retail_baskets.csv</code> fájljából. Hány kosárban van együtt a kenyér és a vaj?</p>
+<pre><code class="language-python">kosarak = [
+    {"milk", "tomato sauce"},
+    {"biscuits", "bread", "butter", "chicken"},
+    {"orange juice", "pasta"},
+    {"bananas", "biscuits", "coffee", "tea"},
+    {"biscuits", "bread", "butter", "coffee"},
+    {"butter", "cheese", "yoghurt"},
+    {"bread", "butter"},
+    {"milk", "rice", "yoghurt"},
+]
+par = {"bread", "butter"}
+db = sum(1 for kk in kosarak if par &lt;= kk)
+print(db, db / len(kosarak))</code></pre>
+<details class="solution"><summary>Kimenet</summary>
+<pre><code class="language-plaintext">3 0.375</code></pre>
+<p>A 2., 5. és 7. kosárban van együtt a kettő: $\text{support} = 3/8 = 0{,}375$. Pontosan így számol az Apriori-demó is (<code>candidate &lt;= basket</code>).</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+  <li><strong><code>{}</code> nem üres halmaz, hanem üres szótár.</strong> Üres halmaz: <code>set()</code>.</li>
+  <li><strong>A halmaz kiírási sorrendje nem megbízható.</strong> Szövegeket tartalmazó halmaz minden futáskor más sorrendben jelenhet meg. Ha a sorrend fontos (kiírás, összehasonlítás), használd a <code>sorted(halmaz)</code>-t – ezért írtuk mi is így.</li>
+  <li><strong>Halmazra nem lehet pozícióval hivatkozni:</strong> <code>k[0]</code> hibát ad (<code>TypeError</code>).</li>
+  <li><strong>Halmaz nem lehet halmaz eleme vagy szótár kulcsa</strong>, mert módosítható (<code>TypeError: unhashable type: 'set'</code>). Erre való a <code>frozenset</code> – a gyakorlat Apriori-demója ezért tárolja a kosarakat <code>frozenset(basket)</code>-ként, és ezért ilyen az mlxtend <code>itemsets</code> oszlopa is.</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Hol látod a gyakorlaton?</span>
+<ul>
+  <li>Gyak2, Demo <code>apriori.py</code>: <code>baskets = [frozenset(basket) for basket in transactions]</code>, <code>products = set().union(*baskets)</code> (az összes termék), <code>frequent.add(candidate)</code>.</li>
+  <li>Gyak2, <code>01_itemsets.py</code>: <code>drop_duplicates()</code> – ugyanaz a gondolat DataFrame-ben: egy termék kosaranként egyszer.</li>
+  <li>Gyak3, <code>03_kmeans.py</code>: <code>len(set(labels))</code> – hány különböző klasztercímke van.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Halmazok (5 feladat)</summary>
+<ol>
+  <li><p><code>p = {2, 4, 6}; p.add(4); p.add(5)</code>. Mennyi <code>len(p)</code>?</p>
+    <details class="solution"><summary>Megoldás</summary><p>4. A 4 már benne volt, csak az 5 új: <code>{2, 4, 5, 6}</code>.</p></details></li>
+  <li><p>Mit ír ki: <code>print({1, 2, 3} &amp; {2, 3, 4}, {1, 2} | {2, 3})</code>?</p>
+    <details class="solution"><summary>Megoldás</summary><p><code>{2, 3} {1, 2, 3}</code> – metszet, illetve unió.</p></details></li>
+  <li><p>Mennyi <code>len(set("banana"))</code>?</p>
+    <details class="solution"><summary>Megoldás</summary><p>3. A szöveg karakterek sorozata; a különböző karakterek: b, a, n.</p></details></li>
+  <li><p>A <a href="#lepes2">fenti</a> 8 kosárból hányban van vaj (<code>"butter" in kk</code>)? Mennyi a {butter} támogatottsága?</p>
+    <details class="solution"><summary>Megoldás</summary><p>4 kosárban (2., 5., 6., 7.), support $= 4/8 = 0{,}5$.</p></details></li>
+  <li><p>Miért ad hibát a <code>d = {{"bread", "butter"}: 0.375}</code>, és hogyan javítod?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Szótárkulcs csak nem módosítható (hashable) érték lehet, a <code>set</code> módosítható. Javítás: <code>d = {frozenset({"bread", "butter"}): 0.375}</code>. Ráadásul <code>d[frozenset(["butter", "bread"])]</code> is megtalálja, mert a halmaznál a sorrend nem számít.</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l11-lepes2"></div>
+</section>
+
+<!-- ===================================================== 3 -->
+<section id="lepes3">
+<h2>3. lépés – Szótár: kulcs–érték párok és számlálás</h2>
+
+<h4>Kis eset</h4>
+<p>Termékárakat akarsz tárolni úgy, hogy a <em>termék nevével</em> kérdezd le az árat, ne pozícióval. A lista erre kényelmetlen, a halmaz pedig nem tárol értéket. Kell egy harmadik szerkezet:</p>
+<pre><code class="language-python">ar = {"bread": 550, "coffee": 2200, "milk": 450}
+print(ar["coffee"])
+ar["tea"] = 1400      # új kulcs: hozzáadás
+ar["milk"] = 480      # meglévő kulcs: felülírás
+print(ar)
+print(len(ar))</code></pre>
+<pre><code class="language-plaintext">2200
+{'bread': 550, 'coffee': 2200, 'milk': 480, 'tea': 1400}
+4</code></pre>
+
+<div class="box def"><span class="box-title">Definíció – Szótár (dictionary, dict)</span>
+<p>Kulcs–érték párok gyűjteménye: <code>{k1: v1, k2: v2, …}</code> vagy <code>dict()</code>. Olyan, mint egy lista, de az elem „indexe” (a <strong>kulcs</strong>) szöveg vagy más nem módosítható (hashable) érték. Belül hasítótábla (hash table), ezért a kulcs szerinti keresés gyors. Egy kulcs csak egyszer szerepelhet.</p>
+<div class="table-wrap"><table>
+<tr><th>Művelet</th><th>Jelentés</th></tr>
+<tr><td><code>vn[k] = v</code></td><td>új pár hozzáadása, vagy meglévő kulcs értékének felülírása</td></tr>
+<tr><td><code>vn[k]</code></td><td>érték lekérése; ha nincs ilyen kulcs: <code>KeyError</code></td></tr>
+<tr><td><code>vn.get(k, alap)</code></td><td>érték lekérése; ha nincs kulcs, <code>alap</code>-ot (alapból <code>None</code>-t) ad</td></tr>
+<tr><td><code>for k in vn.keys():</code></td><td>ciklus a kulcsokon (<code>vn.values()</code>: értékek, <code>vn.items()</code>: párok)</td></tr>
+<tr><td><code>k in vn</code>, <code>del vn[k]</code></td><td>van-e ilyen <em>kulcs</em>; pár törlése</td></tr>
+</table></div>
+<p><strong>Miért?</strong> Számlálásra, kikeresésre („termék → ár”, „elemhalmaz → támogatottság”) és egy-egy eredménysor tárolására („oszlopnév → érték”) ez a természetes szerkezet.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Az előadás szótára</span>
+<pre><code class="language-python">x = {'a': 13, 'b': [1, 3], 'c': 'xx'}
+print(type(x))
+print(x['b'])
+print(x.get('c'))
+x['f'] = 345
+print(x.keys())
+del x['a']
+print(x)</code></pre>
+<details class="solution"><summary>Kimenet</summary>
+<pre><code class="language-plaintext">&lt;class 'dict'&gt;
+[1, 3]
+xx
+dict_keys(['a', 'b', 'c', 'f'])
+{'b': [1, 3], 'c': 'xx', 'f': 345}</code></pre>
+<p>Az érték bármi lehet (itt lista is). A szótár megőrzi a beszúrás sorrendjét (Python 3.7 óta).</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Számlálás szótárral</span>
+<p>Hányszor fordul elő az egyes termék a tétellistában?</p>
+<pre><code class="language-python">tetelek = ["bread", "butter", "bread", "coffee", "bread", "butter"]
+db = {}
+for t in tetelek:
+    db[t] = db.get(t, 0) + 1
+print(db)
+print(max(db, key=db.get))</code></pre>
+<details class="solution"><summary>Kimenet</summary>
+<pre><code class="language-plaintext">{'bread': 3, 'butter': 2, 'coffee': 1}
+bread</code></pre>
+<p>A <code>db.get(t, 0)</code> az első előfordulásnál 0-t ad, így nem kell külön vizsgálni, láttuk-e már a terméket. A <code>max(db, key=db.get)</code> a legnagyobb értékű <em>kulcsot</em> adja. (Kiegészítés: ugyanez kész eszközzel: <code>collections.Counter(tetelek)</code>.)</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – Szótárak listájából táblázat</span>
+<p>A gyakorlati szkriptek visszatérő mintája: ciklusban egy-egy eredménysort szótárként gyűjtünk, a végén egyben DataFrame-mé alakítjuk.</p>
+<pre><code class="language-python">import pandas as pd
+results = []
+for k in [2, 3, 4]:
+    results.append({"k": k, "negyzet": k * k})
+print(pd.DataFrame(results))</code></pre>
+<details class="solution"><summary>Kimenet</summary>
+<pre><code class="language-plaintext">   k  negyzet
+0  2        4
+1  3        9
+2  4       16</code></pre>
+<p>A szótár kulcsaiból lesznek az oszlopnevek. Gyak3-ban így készül a klaszterszámok összehasonlító táblája (<code>{"k": k, "inertia": …, "silhouette": …}</code>).</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+  <li><strong>Nem létező kulcs:</strong> <code>ar["rice"]</code> → <code>KeyError: 'rice'</code>. Ha a hiány várható, <code>ar.get("rice", 0)</code>.</li>
+  <li><strong>Az <code>in</code> a kulcsok között keres:</strong> <code>"bread" in ar</code> igaz, de <code>550 in ar</code> hamis. Értékre: <code>550 in ar.values()</code>.</li>
+  <li><strong>Az előadás diáján „egy elem hozzáadása a halmazhoz” áll</strong> a szótárnál – értsd: a szótárhoz.</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Hol látod a gyakorlaton?</span>
+<ul>
+  <li>Gyak2, Demo <code>apriori.py</code>: <code>stored_supports[candidate] = support</code> – kulcs egy <code>frozenset</code>, érték a támogatottság.</li>
+  <li>Gyak2, <code>03_associationrules.py</code>: <code>supports = {}</code>, majd <code>for itemset, support in supports.items():</code>.</li>
+  <li>Gyak3: <code>customers.groupby(…).agg(purchase_count=("transaction_id", "nunique"), …)</code> – itt névvel adott argumentumok, de a gondolat ugyanaz: név → számítás.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Szótárak (4 feladat)</summary>
+<ol>
+  <li><p><code>d = {"x": 1, "y": 2}; d["x"] = 10; d["z"] = 3</code>. Mit ír ki a <code>print(sum(d.values()), list(d.keys()))</code>?</p>
+    <details class="solution"><summary>Megoldás</summary><p><code>15 ['x', 'y', 'z']</code>. Az <code>x</code> felülíródott (10), a <code>z</code> új kulcs: $10 + 2 + 3 = 15$.</p></details></li>
+  <li><p>Számold meg a betűket az <code>"abracadabra"</code> szóban a fenti számláló mintával. Mi az eredmény?</p>
+    <details class="solution"><summary>Megoldás</summary><p><code>{'a': 5, 'b': 2, 'r': 2, 'c': 1, 'd': 1}</code> – a kulcsok az első előfordulás sorrendjében.</p></details></li>
+  <li><p>Mit ad <code>ar.get("rice")</code>, és mit <code>ar["rice"]</code>, ha nincs ilyen kulcs?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Az első <code>None</code>-t (nem hiba), a második <code>KeyError</code>-t dob.</p></details></li>
+  <li><p>Írj ciklust, ami az <code>ar</code> szótárból kiírja az 1000 Ft-nál drágább termékeket!</p>
+    <details class="solution"><summary>Megoldás</summary>
+<pre><code class="language-python">for k, v in ar.items():
+    if v &gt; 1000:
+        print(k)</code></pre>
+<p>Kimenet a fenti <code>ar</code>-ra: <code>coffee</code>, <code>tea</code>.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ===================================================== 4 -->
+<section id="lepes4">
+<h2>4. lépés – Lambda: névtelen függvény, rendezés kulccsal</h2>
+
+<h4>Kis eset</h4>
+<p>Termékek és áraik párokban: <code>("bread", 550)</code>… Rendezd őket ár szerint! Az alapértelmezett rendezés a pár <em>első</em> elemét (a nevet) nézi:</p>
+<pre><code class="language-python">termekek = [("bread", 550), ("coffee", 2200), ("milk", 450), ("tea", 1400)]
+print(sorted(termekek))
+print(sorted(termekek, key=lambda t: t[1]))
+print(sorted(termekek, key=lambda t: t[1], reverse=True)[:2])</code></pre>
+<pre><code class="language-plaintext">[('bread', 550), ('coffee', 2200), ('milk', 450), ('tea', 1400)]
+[('milk', 450), ('bread', 550), ('tea', 1400), ('coffee', 2200)]
+[('coffee', 2200), ('tea', 1400)]</code></pre>
+<p>A <code>key=</code> egy <em>függvényt</em> vár, amely minden elemből előállítja a rendezés alapját. Erre az egyszeri, egysoros függvényre nem érdemes <code>def</code>-fel nevet adni – erre való a <strong>lambda</strong>.</p>
+
+<div class="box def"><span class="box-title">Definíció – Lambda függvény</span>
+<p><code>lambda x: kifejezés</code> – egyszerű törzsű, névtelen függvény. A kifejezés értéke a visszatérési érték (nincs <code>return</code>). Argumentumként átadható, például <code>key=</code>-nek.</p>
+<p><code>lambda t: t[1]</code> ugyanaz, mint:</p>
+<pre><code class="language-python">def masodik(t):
+    return t[1]</code></pre>
+<p><strong>Miért?</strong> Rendezésnél, szélsőérték keresésénél (<code>max(…, key=…)</code>), és pandasban (<code>apply</code>, <code>sort_values(key=…)</code>) gyakran kell egy apró, egyszer használt függvény.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Az előadás lambda-példái</span>
+<pre><code class="language-python">print((lambda x: x + 6)(7))
+
+def make_incrementor(n):
+    return lambda x: x + n
+
+f = make_incrementor(42)
+print(f(0))
+print(f(1))
+
+x = [(3, 4), (7, 1), (4, 9), (5, 2)]
+x.sort(key=lambda x: -x[1])
+print(x)</code></pre>
+<details class="solution"><summary>Kimenet</summary>
+<pre><code class="language-plaintext">13
+42
+43
+[(4, 9), (3, 4), (5, 2), (7, 1)]</code></pre>
+<p>A <code>make_incrementor(42)</code> egy olyan függvényt <em>ad vissza</em>, amely 42-t ad hozzá. A <code>-x[1]</code> kulcs a második elem szerint <strong>csökkenő</strong> sorrendet ad (ugyanaz, mint <code>key=lambda x: x[1], reverse=True</code>).</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Függvény mint argumentum</span>
+<pre><code class="language-python">def alkalmaz(f, g):
+    return f(g)
+
+print(alkalmaz(lambda x: x * 3, 6))
+print(max(termekek, key=lambda t: t[1]))
+print(sorted(["Bread", "apple", "Coffee"]))
+print(sorted(["Bread", "apple", "Coffee"], key=str.lower))</code></pre>
+<details class="solution"><summary>Kimenet</summary>
+<pre><code class="language-plaintext">18
+('coffee', 2200)
+['Bread', 'Coffee', 'apple']
+['apple', 'Bread', 'Coffee']</code></pre>
+<p>Az előadás ezt a függvényt <code>eval</code>-nak nevezi – ez felülírja a Python beépített <code>eval</code> függvényét, ezért itt <code>alkalmaz</code> a neve. A nagybetűk a kisbetűk elé kerülnek (karakterkód szerint); <code>key=str.lower</code> kis- és nagybetűtől függetlenül rendez – itt nem is lambda, hanem egy kész függvény a kulcs.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+  <li><strong><code>key=</code>-nek függvényt adj, ne függvényhívást:</strong> <code>key=len</code> a jó, <code>key=len()</code> hiba.</li>
+  <li><strong>A lambda egyetlen kifejezés.</strong> Nincs benne értékadás, ciklus vagy több utasítás; ha ilyen kell, írj <code>def</code>-et.</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Hol látod a gyakorlaton?</span>
+<p>Gyak2, Demo <code>apriori.py</code>: <code>sorted(candidates, key=sorted)</code>. A kulcs itt maga a <code>sorted</code> függvény: minden elemhalmazt ábécérendezett listává alakít, és a listák szerint rendez – így a halmazok kiírási sorrendje mindig ugyanaz. Gyak2, <code>02_apriori.py</code>: <code>product_1, product_2 = sorted(row.itemsets)</code>.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Lambda és rendezés (4 feladat)</summary>
+<ol>
+  <li><p>Mit ad <code>(lambda a, b: a * b)(3, 4)</code>?</p>
+    <details class="solution"><summary>Megoldás</summary><p>12. A lambdának több paramétere is lehet.</p></details></li>
+  <li><p><code>p = [("Anna", 4.8), ("Bela", 3.9), ("Cecil", 4.2)]</code>. Mi a <code>sorted(p, key=lambda t: t[1])[0][0]</code>?</p>
+    <details class="solution"><summary>Megoldás</summary><p><code>'Bela'</code>: átlag szerint növekvő sorrendben ő az első, és a pár 0. eleme a név.</p></details></li>
+  <li><p>Mi lesz <code>sorted(["ccc", "a", "bb"], key=lambda s: -len(s))</code>?</p>
+    <details class="solution"><summary>Megoldás</summary><p><code>['ccc', 'bb', 'a']</code> – a negált hossz szerint növekvő = hossz szerint csökkenő.</p></details></li>
+  <li><p><code>w = ["pear", "fig", "apple"]; w.sort(key=lambda s: s[-1])</code>. Mi lesz <code>w</code>?</p>
+    <details class="solution"><summary>Megoldás</summary><p><code>['apple', 'fig', 'pear']</code> – utolsó betűk: e, g, r.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ===================================================== 5 -->
+<section id="lepes5">
+<h2>5. lépés – Generátor és osztály</h2>
+
+<h4>Kis eset – generátor</h4>
+<p>Egy hatalmas fájl sorait akarod egyenként feldolgozni, de nem akarod mind a memóriába tölteni. Olyan „függvény” kell, amely egy értéket ad, <em>megáll</em>, és a következő kérésre onnan folytatja:</p>
+<pre><code class="language-python">def szamlalo(n):
+    i = 1
+    while i &lt;= n:
+        yield i
+        i = i + 1
+
+g = szamlalo(3)
+print(next(g))
+print(next(g))
+print(next(g))
+next(g)</code></pre>
+<pre><code class="language-plaintext">1
+2
+3
+Traceback (most recent call last):
+  ...
+StopIteration</code></pre>
+<p>A <code>szamlalo(3)</code> hívás még nem futtat semmit, csak létrehoz egy generátorobjektumot. Minden <code>next()</code> a következő <code>yield</code>-ig futtatja a törzset. Amikor a függvény véget ér, a további hívás <code>StopIteration</code>-t dob.</p>
+
+<div class="box def"><span class="box-title">Definíció – Generátor</span>
+<p>Olyan függvény, amelyben <code>return</code> helyett (vagy mellett) <code>yield</code> áll. Hívásakor egy <strong>iterátort</strong> kapsz, amely elemsorozatot állít elő, egyesével:</p>
+<ul>
+  <li>a <code>yield</code> visszaad egy értéket, és a függvény <strong>szünetel</strong>; a vezérlés a hívóhoz kerül;</li>
+  <li>a lokális változók és állapotuk megmaradnak a hívások között;</li>
+  <li>a <code>next(g)</code> kéri a következő értéket; a <code>for</code> ciklus ezt automatikusan teszi, és a <code>StopIteration</code>-nél csendben megáll;</li>
+  <li>a generátor <strong>egyszer</strong> járható be: a végén üres.</li>
+</ul>
+<p><strong>Miért?</strong> Lusta (igény szerinti) kiértékelés: nem kell az egész sorozatot egyszerre tárolni. Nagy fájlnál, adatfolyamnál, végtelen sorozatnál ez döntő.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Az előadás generátorai</span>
+<pre><code class="language-python">def fibonacci_numbers(nums):
+    x, y = 0, 1
+    for _ in range(nums):
+        x, y = y, x + y
+        yield x
+
+def square(nums):
+    for num in nums:
+        yield num ** 2
+
+print(list(fibonacci_numbers(10)))
+print(sum(square(fibonacci_numbers(10))))
+
+def gen(fexp, N):
+    for n in range(N):
+        yield (n, fexp(n))
+
+for y in gen(lambda x: x * x, 5):
+    print(y)</code></pre>
+<details class="solution"><summary>Kimenet</summary>
+<pre><code class="language-plaintext">[1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
+4895
+(0, 0)
+(1, 1)
+(2, 4)
+(3, 9)
+(4, 16)</code></pre>
+<p>A generátorok egymásba fűzhetők: a <code>square</code> a <code>fibonacci_numbers</code> elemeit kapja meg egyenként, és a <code>sum</code> összeadja a négyzeteket – egyetlen közbülső lista nélkül. A <code>gen</code> a 4. lépés lambdáját kapja paraméterként.</p></details>
+</div>
+
+<h4>Kis eset – osztály</h4>
+<p>Egy kosárnak van azonosítója és termékhalmaza, és szeretnél vele „dolgokat csinálni” (terméket hozzáadni, méretet kérdezni). Az adatot és a hozzá tartozó műveleteket egy egységbe zárod:</p>
+<pre><code class="language-python">class Kosar:
+    def __init__(self, azonosito):
+        self.azonosito = azonosito
+        self.termekek = set()
+
+    def hozzaad(self, termek):
+        self.termekek.add(termek)
+
+    def meret(self):
+        return len(self.termekek)
+
+k = Kosar("T0007")
+k.hozzaad("bread")
+k.hozzaad("butter")
+k.hozzaad("bread")
+print(k.azonosito, k.meret())</code></pre>
+<pre><code class="language-plaintext">T0007 2</code></pre>
+
+<div class="box def"><span class="box-title">Definíció – Osztály (class)</span>
+<ul>
+  <li><code>class Nev(Os):</code> – osztálydefiníció; az adatok (attribútumok) és a metódusok egységbe vannak zárva. Zárójelben az ősosztály: <strong>öröklés</strong> (az előadás az egyszeres öröklést emeli ki).</li>
+  <li><code>def __init__(self, args):</code> – a <strong>konstruktor</strong>, a példány létrehozásakor fut le.</li>
+  <li><code>self</code> – hivatkozás az aktuális objektumra; minden metódus első paramétere. A <code>self.x = …</code> az objektum saját adata.</li>
+  <li><code>v = Nev(ertekek)</code> – <strong>objektumpéldány</strong> létrehozása.</li>
+  <li><code>super().metodus()</code> – az ősosztály metódusának hívása.</li>
+</ul>
+<p><strong>Miért?</strong> Saját osztályt az adatelemzésben ritkán írsz, de <em>használsz</em> állandóan: <code>pd.DataFrame(…)</code>, <code>KMeans(n_clusters=3)</code>, <code>TransactionEncoder()</code> mind osztálypéldányt hoz létre, amelynek metódusai (<code>fit_predict</code>, <code>head</code>) és attribútumai (<code>inertia_</code>, <code>shape</code>) vannak.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Öröklés (az előadás példája)</span>
+<pre><code class="language-python">class A(object):
+    def foo(self):
+        print("apple")
+
+class B(A):
+    def foo(self):
+        super().foo()
+        print("tree")
+
+x = A()
+x.foo()
+y = B()
+y.foo()</code></pre>
+<details class="solution"><summary>Kimenet</summary>
+<pre><code class="language-plaintext">apple
+apple
+tree</code></pre>
+<p>A <code>B</code> felülírja (<em>override</em>) a <code>foo</code>-t, de előbb meghívja az ősét. Az előadás <code>super(B, self).foo()</code> alakot használ – ez a régebbi, Python 3-ban is működő írásmód; a rövid <code>super()</code> ugyanazt jelenti.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – Speciális metódusok (az előadás Vector osztálya)</span>
+<pre><code class="language-python">class Vector:
+    def __init__(self, a, b):
+        self.a = a
+        self.b = b
+
+    def __str__(self):
+        return 'Vector (%d, %d)' % (self.a, self.b)
+
+    def __add__(self, other):
+        return Vector(self.a + other.a, self.b + other.b)
+
+v1 = Vector(2, 10)
+v2 = Vector(5, -2)
+print(v1 + v2)</code></pre>
+<details class="solution"><summary>Kimenet</summary>
+<pre><code class="language-plaintext">Vector (7, 8)</code></pre>
+<p>A <code>+</code> jel az <code>__add__</code>-et hívja, a <code>print</code> az <code>__str__</code>-t. Így működik a pandasban is a <code>df["a"] + df["b"]</code>. Figyelem: a dián <code>print v1 + v2</code> áll – ez Python 2-es írásmód, Python 3-ban <code>print(v1 + v2)</code> kell.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+  <li><strong>A <code>self.</code> elhagyása:</strong> ha a konstruktorban <code>n = n</code> áll <code>self.n = n</code> helyett, a változó a függvény végén elvész, és később <code>AttributeError: 'Rossz' object has no attribute 'n'</code>-t kapsz.</li>
+  <li><strong>A generátor kimerül:</strong> ha egyszer végigmentél rajta (pl. <code>list(g)</code>), egy újabb <code>list(g)</code> már <code>[]</code>.</li>
+  <li><strong>Generátort nem lehet indexelni:</strong> <code>g[0]</code> hiba; előbb <code>list(g)</code>.</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Hol látod a gyakorlaton?</span>
+<ul>
+  <li>Generátorkifejezés: Gyak4, <code>hac_animation.py</code>: <code>', '.join(f'P{i+1}' for i in sorted(left))</code> – zárójelben, <code>yield</code> nélkül, ugyanaz a lusta sorozat.</li>
+  <li>Osztálypéldányok: <code>model = KMeans(n_clusters=k, n_init=10, random_state=42)</code>, <code>model.fit_predict(X_scaled)</code>, <code>model.inertia_</code> (Gyak3); <code>encoder = TransactionEncoder()</code> (Gyak2).</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Generátor és osztály (5 feladat)</summary>
+<ol>
+  <li><p>Mit ad <code>list(paros(7))</code>, ha <code>def paros(n): for i in range(n): if i % 2 == 0: yield i</code>?</p>
+    <details class="solution"><summary>Megoldás</summary><p><code>[0, 2, 4, 6]</code>.</p></details></li>
+  <li><p><code>gg = paros(3); print(next(gg), next(gg))</code> – mit ír ki? És mi történik egy harmadik <code>next(gg)</code>-nél?</p>
+    <details class="solution"><summary>Megoldás</summary><p><code>0 2</code>. A range(3) elemei 0, 1, 2, ebből a páros 0 és 2 – több nincs, a harmadik <code>next</code> <code>StopIteration</code>-t dob.</p></details></li>
+  <li><p>Mennyi <code>sum(v * v for v in range(4))</code>?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$0 + 1 + 4 + 9 = 14$. Generátorkifejezés: a négyzeteket egyenként adja a <code>sum</code>-nak.</p></details></li>
+  <li><p>Egészítsd ki: egy <code>AkciosKosar</code> osztály örököljön a <code>Kosar</code>-ból, és legyen egy <code>kedvezmeny</code> attribútuma is.</p>
+    <details class="solution"><summary>Megoldás</summary>
+<pre><code class="language-python">class AkciosKosar(Kosar):
+    def __init__(self, azonosito, kedvezmeny):
+        super().__init__(azonosito)
+        self.kedvezmeny = kedvezmeny
+
+ak = AkciosKosar("T0099", 0.1)
+ak.hozzaad("tea")
+print(ak.azonosito, ak.meret(), ak.kedvezmeny, isinstance(ak, Kosar))</code></pre>
+<p>Kimenet: <code>T0099 1 0.1 True</code>. A <code>hozzaad</code> és a <code>meret</code> metódust az ősosztálytól örökölte.</p></details></li>
+  <li><p>A <code>model = KMeans(n_clusters=3)</code> sorban mi az osztály, mi a példány, és mi a konstruktor paramétere?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Osztály: <code>KMeans</code>; példány: <code>model</code>; a konstruktor (<code>__init__</code>) paramétere: <code>n_clusters=3</code>. A <code>model.fit_predict(X)</code> metódushívás, a <code>model.inertia_</code> attribútum.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ===================================================== 6 -->
+<section id="lepes6">
+<h2>6. lépés – Ábrák matplotlibbel: plot, scatter, hist</h2>
+
+<h4>Kis eset</h4>
+<p>Három havi bevétel (millió Ft): 2,1; 2,6; 2,4. Egy ábrán szeretnéd látni, hogyan alakult:</p>
+<pre><code class="language-python">import matplotlib.pyplot as plt
+
+honap = [1, 2, 3]
+bevetel = [2.1, 2.6, 2.4]
+plt.plot(honap, bevetel, marker="o")
+plt.show()</code></pre>
+<p>Két egyforma hosszú lista: az egyik az x, a másik az y koordinátákat adja. A <code>plt.show()</code> jeleníti meg az ábrát (Colabban a cella végén magától is megjelenik).</p>
+
+<figure>
+<svg viewBox="0 0 690 210" role="img" aria-label="Három alapdiagram: vonaldiagram, pontdiagram, hisztogram" font-family="Inter, system-ui, sans-serif" font-size="11">
+<g transform="translate(0,0)"><text x="115" y="14" text-anchor="middle" fill="currentColor" font-weight="600">plt.plot – vonal</text><line x1="30" y1="170" x2="215" y2="170" stroke="currentColor" opacity=".5"/><line x1="30" y1="25" x2="30" y2="170" stroke="currentColor" opacity=".5"/><text x="122" y="200" text-anchor="middle" fill="currentColor" opacity=".8">hónap</text><polyline fill="none" stroke="var(--accent)" stroke-width="2" points="45.4,150.0 122.5,50.0 199.6,90.0"/><circle cx="45.4" cy="150.0" r="3.5" fill="var(--accent)"/><text x="45.4" y="184" text-anchor="middle" fill="currentColor" opacity=".8">1</text><text x="45.4" y="142.0" text-anchor="middle" fill="currentColor">2,1</text><circle cx="122.5" cy="50.0" r="3.5" fill="var(--accent)"/><text x="122.5" y="184" text-anchor="middle" fill="currentColor" opacity=".8">2</text><text x="122.5" y="42.0" text-anchor="middle" fill="currentColor">2,6</text><circle cx="199.6" cy="90.0" r="3.5" fill="var(--accent)"/><text x="199.6" y="184" text-anchor="middle" fill="currentColor" opacity=".8">3</text><text x="199.6" y="82.0" text-anchor="middle" fill="currentColor">2,4</text></g>
+<g transform="translate(235,0)"><text x="115" y="14" text-anchor="middle" fill="currentColor" font-weight="600">plt.scatter – pontok</text><line x1="30" y1="170" x2="215" y2="170" stroke="currentColor" opacity=".5"/><line x1="30" y1="25" x2="30" y2="170" stroke="currentColor" opacity=".5"/><text x="122" y="200" text-anchor="middle" fill="currentColor" opacity=".8">életkor (age)</text><circle cx="127.9" cy="138.0" r="4" fill="var(--accent)" opacity=".8"/><circle cx="160.6" cy="82.0" r="4" fill="var(--accent)" opacity=".8"/><circle cx="84.4" cy="46.0" r="4" fill="var(--accent)" opacity=".8"/><circle cx="193.2" cy="126.0" r="4" fill="var(--accent)" opacity=".8"/><circle cx="160.6" cy="86.0" r="4" fill="var(--accent)" opacity=".8"/><circle cx="117.1" cy="98.0" r="4" fill="var(--accent)" opacity=".8"/><circle cx="51.8" cy="70.0" r="4" fill="var(--accent)" opacity=".8"/><circle cx="193.2" cy="98.0" r="4" fill="var(--accent)" opacity=".8"/><circle cx="138.8" cy="150.0" r="4" fill="var(--accent)" opacity=".8"/><circle cx="160.6" cy="78.0" r="4" fill="var(--accent)" opacity=".8"/><text x="51.8" y="184" text-anchor="middle" fill="currentColor" opacity=".8">16</text><text x="95.3" y="184" text-anchor="middle" fill="currentColor" opacity=".8">20</text><text x="138.8" y="184" text-anchor="middle" fill="currentColor" opacity=".8">24</text><text x="182.4" y="184" text-anchor="middle" fill="currentColor" opacity=".8">28</text><text x="26" y="154.0" text-anchor="end" fill="currentColor" opacity=".8">15</text><text x="26" y="114.0" text-anchor="end" fill="currentColor" opacity=".8">25</text><text x="26" y="74.0" text-anchor="end" fill="currentColor" opacity=".8">35</text><text x="26" y="34.0" text-anchor="end" fill="currentColor" opacity=".8">45</text></g>
+<g transform="translate(470,0)"><text x="115" y="14" text-anchor="middle" fill="currentColor" font-weight="600">plt.hist – hisztogram</text><line x1="30" y1="170" x2="215" y2="170" stroke="currentColor" opacity=".5"/><line x1="30" y1="25" x2="30" y2="170" stroke="currentColor" opacity=".5"/><text x="122" y="200" text-anchor="middle" fill="currentColor" opacity=".8">pontszám (score)</text><rect x="31.0" y="93.6" width="44.2" height="76.4" fill="var(--accent)"/><text x="53.1" y="89.6" text-anchor="middle" fill="currentColor">3</text><text x="99.4" y="166.0" text-anchor="middle" fill="currentColor">0</text><rect x="123.5" y="42.7" width="44.2" height="127.3" fill="var(--accent)"/><text x="145.6" y="38.7" text-anchor="middle" fill="currentColor">5</text><rect x="169.8" y="119.1" width="44.2" height="50.9" fill="var(--accent)"/><text x="191.9" y="115.1" text-anchor="middle" fill="currentColor">2</text><text x="30.0" y="184" text-anchor="middle" fill="currentColor" opacity=".8">15</text><text x="76.2" y="184" text-anchor="middle" fill="currentColor" opacity=".8">21,5</text><text x="122.5" y="184" text-anchor="middle" fill="currentColor" opacity=".8">28</text><text x="168.8" y="184" text-anchor="middle" fill="currentColor" opacity=".8">34,5</text><text x="215.0" y="184" text-anchor="middle" fill="currentColor" opacity=".8">41</text></g>
+</svg>
+<figcaption>A három alapdiagram. Bal: a fenti bevétel vonaldiagramja. Közép: a 9. lépés adatbázisának tíz embere (életkor–pontszám). Jobb: ugyanők pontszámainak hisztogramja 4 osztállyal.</figcaption>
+</figure>
+
+<div class="box def"><span class="box-title">Definíció – A matplotlib alapműveletei</span>
+<p>A <code>matplotlib.pyplot</code> könyvtáron alapul: <code>import matplotlib.pyplot as plt</code>, majd <code>plt.művelet(…)</code>.</p>
+<div class="table-wrap"><table>
+<tr><th>Hívás</th><th>Ábra</th><th>Mire való?</th></tr>
+<tr><td><code>plt.plot(X, Y, params)</code></td><td>vonaldiagram (egyszerű vonalak)</td><td>időbeli alakulás, függvénygörbe</td></tr>
+<tr><td><code>plt.scatter(X, Y, params)</code></td><td>szórási (pont-) diagram</td><td>két numerikus változó kapcsolata</td></tr>
+<tr><td><code>plt.hist(X, params)</code></td><td>hisztogram</td><td>egy numerikus változó eloszlása</td></tr>
+<tr><td><code>plt.title</code>, <code>plt.xlabel</code>, <code>plt.ylabel</code>, <code>plt.legend</code></td><td>cím, tengelyfeliratok, jelmagyarázat</td><td>az ábra olvashatósága</td></tr>
+</table></div>
+<p>Gyakori paraméterek: <code>color=</code>, <code>label=</code> (a jelmagyarázathoz), <code>marker=</code>, hisztogramnál <code>bins=</code> (osztályok száma).</p>
+<p><strong>Miért?</strong> A feltáró elemzés (<a href="01-adattisztitas.html">1. lecke</a>) első lépése mindig egy ábra: eloszlás (hisztogram), kapcsolat (pontdiagram), trend (vonal).</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Az előadás ábrája: generátor + DataFrame + scatter</span>
+<pre><code class="language-python">import pandas as pd
+import matplotlib.pyplot as plt
+
+def gen(fexp, N):
+    for n in range(N):
+        yield (n, fexp(n))
+
+XY = []
+for y in gen(lambda x: x*x*x, 10):
+    XY.append(y)
+DF = pd.DataFrame(XY, columns=['x', 'y'])
+plt.scatter(DF.x, DF.y, label="X3", color="b")
+
+XY = []
+for y in gen(lambda x: x*x, 10):
+    XY.append(y)
+DF = pd.DataFrame(XY, columns=['x', 'y'])
+plt.scatter(DF.x, DF.y, label="X2", color="r")
+
+plt.title("GRID REPRESENTATION")
+plt.xlabel("X-axis")
+plt.ylabel("Y-axis")
+plt.show()</code></pre>
+<p>Ez a kis program az eddigi lépések mindegyikét használja: generátor (5.), lambda (4.), lista <code>append</code> (1.), és listák listájából DataFrame (10. lépés). Két pontsorozat kerül egy ábrára: kék az $x^3$, piros az $x^2$ értékei $x = 0, …, 9$-re. A <code>label</code> csak akkor jelenik meg, ha <code>plt.legend()</code>-et is hívsz.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Hisztogram osztályhatárai</span>
+<pre><code class="language-python">scores = [18, 32, 41, 21, 31, 28, 35, 28, 15, 33]
+n, bins, patches = plt.hist(scores, bins=4)
+print(n, bins)</code></pre>
+<details class="solution"><summary>Kimenet és magyarázat</summary>
+<pre><code class="language-plaintext">[3. 0. 5. 2.] [15.  21.5 28.  34.5 41. ]</code></pre>
+<p>A tartomány 15–41, 4 egyenlő részre osztva: 6,5 széles osztályok. Az osztályok <strong>balról zártak, jobbról nyitottak</strong>, kivéve az utolsót: $[15;\ 21{,}5)$: 15, 18, 21 → 3; $[21{,}5;\ 28)$: senki → 0; $[28;\ 34{,}5)$: 28, 28, 31, 32, 33 → 5; $[34{,}5;\ 41]$: 35, 41 → 2. A 28-as érték tehát a harmadik osztályba esik. Az előadás sqlite-os példája pontosan ezt a 3–0–5–2 hisztogramot rajzolja.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+  <li><strong>X és Y hossza egyezzen:</strong> eltérő hosszú listákra a <code>plot</code>/<code>scatter</code> <code>ValueError</code>-t ad.</li>
+  <li><strong>A <code>bins</code> megválasztása átrajzolja a képet.</strong> Kevés osztály elfedi a szerkezetet, túl sok zajos lesz. Mindig próbálj ki néhány értéket.</li>
+  <li><strong>Hisztogram ≠ oszlopdiagram.</strong> Diszkrét, kevés értékű változóra (pl. mennyiség 1–2–3) gyakorisági oszlopdiagram (<code>plt.bar</code>) való – lásd 1. lecke.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Ábrák (4 feladat)</summary>
+<ol>
+  <li><p>Melyik ábrát választod: (a) havi árbevétel egy év alatt, (b) életkor és pontszám kapcsolata, (c) a pontszámok eloszlása?</p>
+    <details class="solution"><summary>Megoldás</summary><p>(a) <code>plt.plot</code> (vonal, időbeli alakulás), (b) <code>plt.scatter</code>, (c) <code>plt.hist</code>.</p></details></li>
+  <li><p><code>plt.hist([1, 2, 2, 3, 3, 3, 4, 4, 4, 4], bins=3)</code> – mennyi az egyes osztályok gyakorisága?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Határok: 1, 2, 3, 4. $[1;2)$: 1 db; $[2;3)$: 2 db; $[3;4]$: 3 + 4 = 7 db. Az utolsó osztály zárt, ezért a 4-esek is ide kerülnek: <code>[1, 2, 7]</code>.</p></details></li>
+  <li><p>Két pontsorozatot rajzoltál ugyanarra az ábrára <code>label=</code>-lel, de nem látszik jelmagyarázat. Mi hiányzik?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A <code>plt.legend()</code> hívás. A <code>label</code> önmagában csak megjegyzi a nevet.</p></details></li>
+  <li><p>Miért kell az előadás példájában a generátor eredményét előbb listába gyűjteni, mielőtt DataFrame lesz belőle?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Mert a <code>pd.DataFrame(XY, columns=[…])</code> listák (itt párok) listáját várja, a generátor viszont csak egyszer bejárható sorozat. A <code>for</code> + <code>append</code> (vagy egyszerűen <code>list(gen(…))</code>) „lerögzíti” az értékeket.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ===================================================== 7 -->
+<section id="lepes7">
+<h2>7. lépés – Szövegfájlok: megnyitás, olvasás, írás, kódolás</h2>
+
+<h4>Kis eset</h4>
+<p>Írj egy háromsoros fájlt, aztán olvasd vissza!</p>
+<pre><code class="language-python">fki = open("ki.txt", "w", encoding="utf-8")
+fki.write("first line\n")
+fki.write("second line\n")
+fki.write("third line\n")
+fki.close()
+
+fbe = open("ki.txt", "r", encoding="utf-8")
+tartalom = fbe.read()
+fbe.close()
+print(repr(tartalom))
+print(len(tartalom))</code></pre>
+<pre><code class="language-plaintext">'first line\nsecond line\nthird line\n'
+34</code></pre>
+<p>A szövegfájl valójában egyetlen hosszú karakterlánc, amelyben a sorokat a <code>\n</code> (sorvége) karakter választja el. A <code>write</code> nem tesz magától sorvégét – azt neked kell kiírnod. A <code>repr</code> láthatóvá teszi a <code>\n</code>-eket.</p>
+
+<div class="box def"><span class="box-title">Definíció – Sororientált fájlműveletek</span>
+<div class="table-wrap"><table>
+<tr><th>Művelet</th><th>Mit csinál?</th></tr>
+<tr><td><code>fv = open(fname, mode, encoding=…)</code></td><td>megnyitás; mód: <code>"r"</code> olvasás (alapértelmezett), <code>"w"</code> írás (felülír!), <code>"a"</code> hozzáfűzés, <code>"rb"</code>/<code>"wb"</code> bináris</td></tr>
+<tr><td><code>with open(…) as fv:</code></td><td>a blokk végén a fájl <strong>magától bezárul</strong>, hiba esetén is</td></tr>
+<tr><td><code>fv.read()</code></td><td>a teljes tartalom egyetlen szövegként</td></tr>
+<tr><td><code>fv.readlines()</code></td><td>az összes sor listában, a sorvégekkel együtt</td></tr>
+<tr><td><code>fv.readline()</code></td><td>egyetlen (a következő) sor; a fájl végén üres szöveg <code>''</code></td></tr>
+<tr><td><code>for sor in fv:</code></td><td>soronkénti bejárás (a fájlobjektum maga is iterátor – mint a generátor)</td></tr>
+<tr><td><code>fv.write(s)</code></td><td>szöveg kiírása; teljes sorhoz <code>fv.write(s + "\n")</code></td></tr>
+<tr><td><code>fv.writelines(lista)</code></td><td>szövegek listájának kiírása (sorvéget ez sem tesz!)</td></tr>
+<tr><td><code>fv.close()</code></td><td>bezárás (a pufferelt adat ekkor kerül biztosan a lemezre)</td></tr>
+</table></div>
+<p><strong>Miért?</strong> Minden adatfájl – CSV, log, exportált riport – végső soron szövegfájl. A pandas is ezekre a műveletekre épít.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Háromféle olvasás (az előadás ki.txt példái)</span>
+<pre><code class="language-python">with open("ki.txt", encoding="utf-8") as fbe:
+    sorok = fbe.readlines()
+print(sorok)
+
+with open("ki.txt", encoding="utf-8") as fbe:
+    for i, line in enumerate(fbe, start=1):
+        print(i, line.rstrip("\n"))
+
+with open("ki.txt", encoding="utf-8") as fbe:
+    sor = fbe.readline()
+    while len(sor) &gt; 0:
+        print(sor.rstrip())
+        sor = fbe.readline()
+print("---")</code></pre>
+<details class="solution"><summary>Kimenet</summary>
+<pre><code class="language-plaintext">['first line\n', 'second line\n', 'third line\n']
+1 first line
+2 second line
+3 third line
+first line
+second line
+third line
+---</code></pre>
+<p>A <code>rstrip</code> levágja a sor végéről a <code>\n</code>-t. Nélküle a <code>print</code> két sorvégét írna (a sajátját és a sorét), és minden sor után üres sor jelenne meg – az előadás <code>readlines()</code>-os kimenetén pont ezt látod. A <code>while</code>-os változat a <code>readline()</code> „fájl végén üres szöveg” szabályára épít.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Írás: writelines és hozzáfűzés</span>
+<pre><code class="language-python">with open("ki2.txt", "w", encoding="utf-8") as fki:
+    fki.writelines(["first line\n", "alma\n", "end\n"])
+with open("ki2.txt", "a", encoding="utf-8") as fki:
+    fki.write("plusz\n")
+with open("ki2.txt", encoding="utf-8") as f:
+    print(f.read().splitlines())</code></pre>
+<details class="solution"><summary>Kimenet</summary>
+<pre><code class="language-plaintext">['first line', 'alma', 'end', 'plusz']</code></pre>
+<p>Az <code>"a"</code> mód a fájl végére ír. A <code>splitlines()</code> sorvégek nélküli listát ad – kényelmesebb, mint a <code>split("\n")</code>, ami a záró <code>\n</code> után még egy üres szöveget is adna: <code>['first line', 'second line', 'third line', '']</code>.</p></details>
+</div>
+
+<h4>Kódolás: miért lesz „KÅ‘ kÃ¶vÃ¶n” a „Kő kövön”-ből?</h4>
+<p>A fájl bájtokat tárol, nem betűket. A <strong>kódolás</strong> (encoding) mondja meg, melyik betűnek melyik bájt(sor) felel meg. UTF-8-ban az „ő” két bájt (<code>c5 91</code>), az ékezet nélküli betűk egy-egy bájt. Az előadás kísérletét lefuttattuk:</p>
+<pre><code class="language-python">with open("ki4.txt", "w", encoding="utf-8") as fki:
+    fki.write("Kő kövön ütődnék\n")
+
+for enc in ["utf-8", "cp1252", "cp852"]:
+    with open("ki4.txt", encoding=enc) as f:
+        print(enc, repr(f.read()))</code></pre>
+<pre><code class="language-plaintext">utf-8 'Kő kövön ütődnék\n'
+cp1252 'KÅ‘ kÃ¶vÃ¶n Ã¼tÅ‘dnÃ©k\n'
+cp852 'K┼Ĺ k├Âv├Ân ├╝t┼Ĺdn├ęk\n'</code></pre>
+<p>A fájl 23 bájtos, pedig csak 17 karakter van benne: a 6 ékezetes betű 2-2 bájt. Ha UTF-8 fájlt egybájtos kódolással olvasol, minden ékezetes betű helyén <em>két</em> furcsa karakter jelenik meg. A dián a kódolás nélküli olvasás adta a „KÅ‘…” kimenetet: Windowson az <code>open</code> alapértelmezett kódolása gyakran cp1252 (vagy cp1250), nem UTF-8.</p>
+
+<div class="box def"><span class="box-title">Definíció – Fájlkódolás</span>
+<p>A kódolás meghatározza a karakterek fizikai (bájt-) értékét. Megadása: <code>open(fname, mode, encoding=ce)</code>.</p>
+<div class="table-wrap"><table>
+<tr><th>Kódolás</th><th>Jellemző</th><th>Magyar ékezetek</th></tr>
+<tr><td><code>utf-8</code></td><td>Unicode, változó hosszú (1–4 bájt); ma a szabvány</td><td>mind (ő, ű is), 2 bájton</td></tr>
+<tr><td><code>utf-8-sig</code></td><td>UTF-8 + a fájl elején egy jelölő (BOM); az Excel így ismeri fel</td><td>mind</td></tr>
+<tr><td><code>ascii</code></td><td>7 bites, 128 karakter</td><td><strong>egyik sem</strong> – hibát ad</td></tr>
+<tr><td><code>cp852</code></td><td>régi DOS-os közép-európai kódlap, 1 bájt</td><td>mind, de más bájtértékkel</td></tr>
+<tr><td><code>cp1250</code> / <code>cp1252</code></td><td>Windows közép- / nyugat-európai kódlap</td><td>cp1250: mind; cp1252: ő, ű nincs</td></tr>
+</table></div>
+<p>A kódolást a szövegszerkesztők (pl. Jegyzettömb, VS Code) is mutatják, és mentéskor beállítható.</p>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – ékezetek és az előadás elírásai</span>
+<ul>
+  <li><strong>Mindig add meg az <code>encoding</code>-ot.</strong> Ugyanaz a kód Linuxon/Colabban (alapból UTF-8) jól, Windowson (alapból cp1250/cp1252) rosszul olvashat.</li>
+  <li><strong>Az <code>ascii</code> nem ismeri az ékezeteket:</strong> olvasásnál <code>UnicodeDecodeError</code>, írásnál <code>UnicodeEncodeError: 'ascii' codec can't encode character 'ő'</code> (ez az „ő”).</li>
+  <li><strong>Rossz kódolás nem mindig ad hibát.</strong> A cp1252/cp852 bármilyen bájtot elfogad, csak rossz betűket ad – ezért a kimenetet mindig nézd meg. Az UTF-16-tal olvasás viszont hibát dobott (<code>UnicodeDecodeError</code>), ahogy a dián is.</li>
+  <li><strong>BOM a fájl elején:</strong> a gyakorlat CSV-i <code>utf-8-sig</code> kódolásúak. Sima <code>utf-8</code>-cal olvasva az első sor elején ott marad egy láthatatlan <code>'﻿'</code> karakter (<code>'﻿transaction_id;product\n'</code>), és az első oszlopnév „elromlik”. (A pandas ezt magától kezeli, a sima <code>open</code> és a <code>csv</code> modul nem.)</li>
+  <li><strong>Javítva közöljük a diák elírásait:</strong> <code>fv.open(fname, mode, encoding=ce)</code> helyett <code>open(fname, mode, encoding=ce)</code>; <strong><code>fv.writeline(str)</code> nem létezik</strong> (<code>AttributeError: '_io.TextIOWrapper' object has no attribute 'writeline'</code>) – teljes sorhoz <code>fv.write(str + "\n")</code> vagy <code>writelines</code>; az olvasós példákban <code>fki.close()</code> helyett <code>fbe.close()</code> a helyes (a megnyitott fájl neve <code>fbe</code>).</li>
+  <li><strong><code>for line in fbe.read():</code> és <code>for line in fbe.readline():</code> karakterenként jár be</strong> (egy szövegen végigmenve betűket kapsz), ezért ír ki a dia „1 f, 2 i, 3 r, 4 s, 5 t”-t. Soronként: <code>for line in fbe:</code> vagy <code>fbe.readlines()</code>.</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Hol látod a gyakorlaton?</span>
+<p>Gyak5, <code>01_decision_tree.py</code>: a döntési fa szöveges szabályait így menti:</p>
+<pre><code class="language-python">with open("student_decision_rules.txt", "w", encoding="utf-8") as file:
+    file.write(text_rules)</code></pre>
+<p>A gyakorlat összes <code>read_csv</code>/<code>to_csv</code> hívása pedig <code>encoding="utf-8-sig"</code>-gel dolgozik.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Szövegfájlok (5 feladat)</summary>
+<ol>
+  <li><p>A <code>ki.txt</code> tartalma <code>'first line\nsecond line\nthird line\n'</code>. Mit ad <code>len(open("ki.txt").readlines())</code>, és mit <code>len(open("ki.txt").read())</code>?</p>
+    <details class="solution"><summary>Megoldás</summary><p>3 (sorok), illetve 34 (karakterek, a 3 sorvéggel együtt: $10 + 11 + 10 + 3$).</p></details></li>
+  <li><p>Mi lesz a fájlban: <code>with open("x.txt", "w") as f: f.writelines(["a", "b", "c"])</code>?</p>
+    <details class="solution"><summary>Megoldás</summary><p><code>'abc'</code> – egyetlen sor. A <code>writelines</code> nem tesz sorvégét az elemek közé.</p></details></li>
+  <li><p>Egy fájlt kétszer nyitsz meg <code>"w"</code> módban, és mindkétszer írsz bele egy sort. Hány sor lesz benne? És <code>"a"</code> módban?</p>
+    <details class="solution"><summary>Megoldás</summary><p><code>"w"</code>: 1 (a második megnyitás kiüríti a fájlt). <code>"a"</code>: 2 (hozzáfűz).</p></details></li>
+  <li><p>Egy UTF-8 fájlt <code>cp1252</code>-vel olvasol be. Hibát kapsz, vagy rossz betűket? Mi lesz a „Kő” helyén?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Rossz betűket, hibát nem: <code>'KÅ‘'</code>. Az „ő” két bájtja (<code>c5 91</code>) cp1252-ben két külön karakter (Å és ‘).</p></details></li>
+  <li><p>Miért jobb a <code>with open(…) as f:</code>, mint az <code>open</code> + <code>close</code>?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Mert a blokk végén akkor is bezárja a fájlt, ha közben hiba történt, vagy ha elfelejtenéd a <code>close</code>-t. Írásnál a be nem zárt fájl tartalma részben a pufferben maradhat. (Az előadás olvasós példáiban épp emiatt veszélyes a <code>fki.close()</code> elírás: a <code>fbe</code> nyitva marad.)</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l11-lepes7"></div>
+</section>
+
+<!-- ===================================================== 8 -->
+<section id="lepes8">
+<h2>8. lépés – CSV-fájlok: a csv modul és a pd.read_csv</h2>
+
+<h4>Kis eset</h4>
+<p>Az előadás <code>text1</code> fájlja:</p>
+<pre><code class="language-plaintext">name,age,points
+peter,24,200
+anna,23,250
+tom,18,170
+fred,25,270
+mery,21,210</code></pre>
+<p>Minden sor egy rekord, a mezőket vessző választja el. Soronként olvasva és <code>split(",")</code>-tel darabolva is boldogulnál – de mi van, ha egy mezőben is van vessző (<code>"Kovács, János"</code>)? Erre van kész eszköz:</p>
+<pre><code class="language-python">import csv
+
+with open("text1", encoding="utf-8", newline="") as fbe:
+    fr = csv.reader(fbe)
+    for line in fr:
+        print(line)</code></pre>
+<pre><code class="language-plaintext">['name', 'age', 'points']
+['peter', '24', '200']
+['anna', '23', '250']
+['tom', '18', '170']
+['fred', '25', '270']
+['mery', '21', '210']</code></pre>
+<p>Minden sor egy <strong>szövegekből álló lista</strong>. A <code>'24'</code> még szöveg, nem szám!</p>
+
+<div class="box def"><span class="box-title">Definíció – CSV és a feldolgozás két útja</span>
+<p><strong>CSV</strong> (Comma-Separated Values): szövegfájl, soronként egy rekord, a mezők elválasztó karakterrel (vessző, a magyar gyakorlatban gyakran pontosvessző) tagolva; az első sor általában a fejléc.</p>
+<p><strong>1. út – <code>csv</code> modul</strong> (beépített): <code>fcsv = csv.reader(fv, delimiter=";")</code>, majd <code>for l in fcsv:</code> → minden sor szövegek listája. Írás: <code>csv.writer(f, delimiter=";")</code>, <code>writerow</code>, <code>writerows</code>. Fejléc szerinti hozzáférés: <code>csv.DictReader</code>.</p>
+<p><strong>2. út – pandas</strong>: <code>df = pd.read_csv(fname, …)</code> → közvetlenül DataFrame, a számoszlopok számmá alakítva. Fontos paraméterek:</p>
+<div class="table-wrap"><table>
+<tr><th>Paraméter</th><th>Jelentés</th><th>Példa</th></tr>
+<tr><td><code>sep</code> (= <code>delimiter</code>)</td><td>az értékek elválasztó karaktere</td><td><code>sep=";"</code></td></tr>
+<tr><td><code>encoding</code></td><td>karakterkódolás</td><td><code>encoding="utf-8-sig"</code></td></tr>
+<tr><td><code>header</code></td><td>melyik sor a fejléc; <code>None</code>: nincs fejléc</td><td><code>header=0</code></td></tr>
+<tr><td><code>names</code></td><td>saját oszlopnevek</td><td><code>names=["A", "B", "C"]</code></td></tr>
+<tr><td><code>usecols</code>, <code>nrows</code></td><td>csak ezek az oszlopok; csak ennyi sor</td><td><code>usecols=["product"]</code>, <code>nrows=100</code></td></tr>
+<tr><td><code>index_col</code></td><td>melyik oszlop legyen a sorindex</td><td><code>index_col="name"</code></td></tr>
+<tr><td><code>dtype</code></td><td>oszloptípus kényszerítése</td><td><code>dtype={"customer_id": str}</code></td></tr>
+<tr><td><code>decimal</code></td><td>tizedesjel (magyar fájlnál vessző)</td><td><code>decimal=","</code></td></tr>
+</table></div>
+<p><strong>Miért?</strong> A <code>csv</code> modul akkor jó, ha soronként, kis memóriával kell feldolgozni vagy átalakítani. Elemzéshez szinte mindig a <code>read_csv</code> a gyorsabb út.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Fejléc átugrása és összegzés a csv modullal</span>
+<pre><code class="language-python">with open("text1", encoding="utf-8", newline="") as fbe:
+    fr = csv.reader(fbe)
+    fejlec = next(fr)
+    osszeg = 0
+    for sor in fr:
+        osszeg += int(sor[2])
+print(fejlec, osszeg)</code></pre>
+<details class="solution"><summary>Kimenet</summary>
+<pre><code class="language-plaintext">['name', 'age', 'points'] 1100</code></pre>
+<p>A <code>csv.reader</code> is iterátor, ezért a <code>next(fr)</code> kiveszi az első sort (a fejlécet). Az <code>int(…)</code> kell, különben szövegeket fűznénk össze. $200 + 250 + 170 + 270 + 210 = 1100$.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Ugyanez pandasszal</span>
+<pre><code class="language-python">import pandas as pd
+df = pd.read_csv("text1", delimiter=",")
+print(df)
+print(df.dtypes)</code></pre>
+<details class="solution"><summary>Kimenet</summary>
+<pre><code class="language-plaintext">    name  age  points
+0  peter   24     200
+1   anna   23     250
+2    tom   18     170
+3   fred   25     270
+4   mery   21     210
+name      object
+age        int64
+points     int64
+dtype: object</code></pre>
+<p>A pandas felismerte a fejlécet, és a számoszlopokat <code>int64</code>-re alakította; a sorok 0-tól számozott indexet kaptak. Összeg: <code>df["points"].sum()</code> → 1100.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – A gyakorlat fájlja rossz és jó paraméterekkel</span>
+<pre><code class="language-python">d = pd.read_csv("retail_transactions_cleaned.csv")
+print(d.shape)
+d = pd.read_csv("retail_transactions_cleaned.csv", sep=";", encoding="utf-8-sig")
+print(d.shape)
+print(d.head(3))</code></pre>
+<details class="solution"><summary>Kimenet</summary>
+<pre><code class="language-plaintext">(6945, 1)
+(6945, 7)
+  transaction_id customer_id        date   product  quantity  unit_price region
+0          T0026        C009  2026-01-01  biscuits         1         650   West
+1          T0026        C009  2026-01-01    coffee         2        2200   West
+2          T0038        C012  2026-01-01  biscuits         1         650   West</code></pre>
+<p>Az alapértelmezett elválasztó a vessző. A fájl pontosvesszős, így elsőre <strong>egyetlen</strong> oszlop jön létre, amelynek neve az egész fejlécsor: <code>'transaction_id;customer_id;date;product;quantity;unit_price;region'</code>. A <code>sep=";"</code> a megoldás.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+  <li><strong>Az előadás diáján <code>fcsv = cvs.read(fv)</code> áll – ez kétszeresen elírás.</strong> A modul neve <code>csv</code>, a függvény <code>csv.reader(fv)</code> (a dia saját képernyőképe is így használja).</li>
+  <li><strong>Egy oszlop jött létre?</strong> Rossz a <code>sep</code>. Mindig nézd meg a <code>shape</code>-et és a <code>head()</code>-et beolvasás után.</li>
+  <li><strong>A <code>csv</code> modul mindent szövegként ad:</strong> <code>int()</code>/<code>float()</code> kell. A pandas magától konvertál – de egyetlen hibás érték az egész oszlopot szöveggé teheti (<a href="01-adattisztitas.html#lepes3">1. lecke, 3. lépés</a>).</li>
+  <li><strong>Magyar tizedesvessző:</strong> <code>"1,5"</code> pontosvesszős fájlban <code>decimal=","</code> nélkül szöveg (<code>object</code>) marad.</li>
+  <li><strong>CSV-be mentett lista szöveg lesz.</strong> A Gyak2 <code>retail_baskets.csv</code> fájljában a kosár így áll: <code>['milk', 'tomato sauce']</code>. Visszaolvasva ez egy 24 karakteres <em>szöveg</em>, nem kételemű lista; listává <code>ast.literal_eval(…)</code> alakítja vissza. Ezért dolgozik a <code>02_apriori.py</code> a Colab-munkamenetben még élő <code>product_lists</code> változóval.</li>
+  <li><strong>Megnyitáskor <code>newline=""</code></strong> – a <code>csv</code> modul dokumentációja így kéri, különben Windowson üres sorok jelenhetnek meg íráskor.</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Hol látod a gyakorlaton?</span>
+<p>Minden szkript így kezd: <code>pd.read_csv("…", sep=";", encoding="utf-8-sig")</code>, és így ment: <code>df.to_csv("…", sep=";", encoding="utf-8-sig", index=False)</code>. Az <code>index=False</code> nélkül a 0, 1, 2… sorindex is bekerülne a fájlba, első, névtelen oszlopként. Gyak4, <code>03_hac_k_profile.py</code>: <code>dtype={"customer_id": str}</code> – az azonosító maradjon szöveg.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – CSV (5 feladat)</summary>
+<ol>
+  <li><p><code>pd.read_csv("text1", header=None, names=["A", "B", "C"])</code> – hány sora lesz, és mi lesz az <code>A</code> oszlop első értéke?</p>
+    <details class="solution"><summary>Megoldás</summary><p>6 sor; az első érték <code>'name'</code>. A <code>header=None</code> miatt a fejlécsor is adatsor lett (ezt mutatja az előadás <code>df["A"]</code>-s kimenete). Ráadásul a B és C oszlop emiatt szöveges (<code>object</code>) lesz.</p></details></li>
+  <li><p>Mit ad <code>df[["A", "C"]][2:4]</code> az előző DataFrame-re?</p>
+    <details class="solution"><summary>Megoldás</summary>
+<pre><code class="language-plaintext">      A    C
+2  anna  250
+3   tom  170</code></pre>
+<p>Két oszlop, a 2. és 3. sor (a felső határ nem számít bele).</p></details></li>
+  <li><p>Egy pontosvesszős, UTF-8 BOM-os fájlból csak a <code>product</code> és <code>quantity</code> oszlop első 4 sorát kéred. Írd fel a hívást!</p>
+    <details class="solution"><summary>Megoldás</summary><p><code>pd.read_csv(f, sep=";", encoding="utf-8-sig", usecols=["product", "quantity"], nrows=4)</code>. A gyakorlat fájlján: biscuits 1, coffee 2, biscuits 1, bread 1.</p></details></li>
+  <li><p>A fájl tartalma <code>nev;ar</code> / <code>kenyér;1,5</code> / <code>tej;2,25</code>. Mi a <code>ar</code> oszlop típusa <code>sep=";"</code>-vel, és mi <code>sep=";", decimal=","</code>-vel? Mennyi az összeg az utóbbinál?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Az első esetben <code>object</code> (szöveg), a másodikban <code>float64</code>, az összeg $1{,}5 + 2{,}25 = 3{,}75$.</p></details></li>
+  <li><p>Miért nem jó a <code>sor.split(",")</code> általános CSV-olvasásra?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Mert a CSV-ben egy mező idézőjelek között maga is tartalmazhat vesszőt (<code>"Kovács, János",42</code>), a <code>split</code> ezt két mezőre vágná. A <code>csv.reader</code> és a <code>read_csv</code> kezeli az idézőjeleket.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ===================================================== 9 -->
+<section id="lepes9">
+<h2>9. lépés – SQL API: kapcsolat, kurzor, paraméteres lekérdezés</h2>
+
+<h4>Kis eset</h4>
+<p>Az adatok sokszor nem fájlban, hanem adatbázisban vannak – nagy adathalmaznál szinte mindig. Pythonból négy lépésben dolgozol vele: <strong>kapcsolat → kurzor → SQL-parancs → (commit / eredmény bejárása) → bezárás</strong>. Az előadás Oracle-lel mutatja:</p>
+<pre><code class="language-python">import cx_Oracle
+
+con = cx_Oracle.connect('kl/kl@127.0.0.1/XE')     # felhasználó/jelszó@gép/SID
+print(con.version)
+cmd = con.cursor()
+cmd.execute("insert into autok values(27, 'r67', 'Skoda', 2233)")
+con.commit()
+con.close()</code></pre>
+<p>Ehhez Oracle-szerver kell. Ugyanezt a szerkezetet a Python beépített <strong><code>sqlite3</code></strong> moduljával bárhol (Colabban is) kipróbálhatod: az SQLite egyetlen fájlban (vagy a memóriában) tárolt adatbázis. Az előadás második fele már ezt használja – ezt futtattuk le:</p>
+<pre><code class="language-python">import sqlite3
+
+con = sqlite3.connect("ujdb.db")      # nincs ilyen fájl? létrehozza
+cmd = con.cursor()
+cmd.execute("create table persons (name char(10), age int, score int)")
+table = [
+    ("Tom", 23, 18), ("Anna", 26, 32), ("Peter", 19, 41), ("Fibi", 29, 21), ("Zoli", 26, 31),
+    ("Uzi", 22, 28), ("Maria", 16, 35), ("Som", 29, 28), ("Hanna", 24, 15), ("Tibor", 26, 33),
+]
+cmd.executemany("insert into persons(name, age, score) values (?, ?, ?)", table)
+con.commit()
+print(cmd.rowcount)
+con.close()</code></pre>
+<pre><code class="language-plaintext">10</code></pre>
+
+<div class="box def"><span class="box-title">Definíció – Az adatbázis-API (DB-API) lépései</span>
+<div class="table-wrap"><table>
+<tr><th>Lépés</th><th>cx_Oracle (előadás)</th><th>sqlite3 (kiegészítés)</th></tr>
+<tr><td>kapcsolat megnyitása</td><td><code>con = cx_Oracle.connect("unev/pwd@url/sid")</code></td><td><code>con = sqlite3.connect("fajl.db")</code></td></tr>
+<tr><td>parancsobjektum (kurzor)</td><td colspan="2"><code>cmd = con.cursor()</code></td></tr>
+<tr><td>DML (insert, update, delete) küldése</td><td colspan="2"><code>cmd.execute("DML-SQL")</code>, majd <code>con.commit()</code></td></tr>
+<tr><td>több sor egy paranccsal</td><td><code>cmd.executemany(SQL, param)</code>, helyőrző <code>:1, :2</code></td><td><code>cmd.executemany(SQL, param)</code>, helyőrző <code>?</code></td></tr>
+<tr><td>lekérdezés, kurzorciklus</td><td colspan="2"><code>cmd.execute("SELECT …")</code>, majd <code>for rec in cmd: rec[0] …</code></td></tr>
+<tr><td>soronként, explicit</td><td colspan="2"><code>rec = cmd.fetchone()</code> (a végén <code>None</code>); mind: <code>cmd.fetchall()</code></td></tr>
+<tr><td>paraméteres lekérdezés</td><td><code>cmd.prepare("… where x &gt; :par")</code>, <code>cmd.execute(None, {"par": v})</code></td><td><code>cmd.execute("… where x &gt; :par", {"par": v})</code></td></tr>
+<tr><td>kapcsolat lezárása</td><td colspan="2"><code>con.close()</code></td></tr>
+</table></div>
+<p>Egy sor (rekord) a kurzorból <strong>tuple</strong>: <code>('Tom', 23, 18)</code>, mezői pozícióval érhetők el: <code>rec[0]</code>, <code>rec[1]</code>.</p>
+<p><strong>Miért?</strong> A <em>kapcsolat</em> a hálózati/fájl-erőforrás, a <em>kurzor</em> egy parancs végrehajtója és eredményének „olvasófeje”. A módosítások egy tranzakcióban gyűlnek, és csak a <code>commit</code> teszi őket véglegessé.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Kurzorciklus és fetchone</span>
+<pre><code class="language-python">con = sqlite3.connect("ujdb.db")
+cmd = con.cursor()
+cmd.execute("select * from persons")
+for rec in cmd:
+    print(rec)
+
+cmd.execute("select name, score from persons where age &gt; 25")
+rec = cmd.fetchone()
+while rec is not None:
+    print(rec[0], ":", rec[1])
+    rec = cmd.fetchone()
+print("-------------")</code></pre>
+<details class="solution"><summary>Kimenet</summary>
+<pre><code class="language-plaintext">('Tom', 23, 18)
+('Anna', 26, 32)
+('Peter', 19, 41)
+('Fibi', 29, 21)
+('Zoli', 26, 31)
+('Uzi', 22, 28)
+('Maria', 16, 35)
+('Som', 29, 28)
+('Hanna', 24, 15)
+('Tibor', 26, 33)
+Anna : 32
+Fibi : 21
+Zoli : 31
+Som : 28
+Tibor : 33
+-------------</code></pre>
+<p>A <code>fetchone</code> mindig a következő sort adja, a végén <code>None</code>-t – erre áll meg a <code>while</code>. Ugyanaz a minta, mint a <code>readline</code>-nál (7. lépés).</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Paraméteres lekérdezés</span>
+<pre><code class="language-python">cmd.execute("select name, score from persons where score &gt; :par", {"par": 32})
+for rec in cmd:
+    print(rec)
+
+cmd.execute("select name from persons where age = ? and score &gt; ?", (26, 31))
+print(cmd.fetchall())</code></pre>
+<details class="solution"><summary>Kimenet</summary>
+<pre><code class="language-plaintext">('Peter', 41)
+('Maria', 35)
+('Tibor', 33)
+[('Anna',), ('Tibor',)]</code></pre>
+<p>Az SQL-szövegben csak egy <strong>helyőrző</strong> áll (<code>:par</code> vagy <code>?</code>), az értéket külön adod át: névvel jelölt helyőrzőhöz szótárban, <code>?</code>-hez tuple-ben, sorrendben. Az egyelemű eredménysor is tuple: <code>('Anna',)</code>.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – Miért paraméterezünk? (SQL-injekció)</span>
+<p>Egy webes űrlapon a felhasználó nevet ír be, és te string-összefűzéssel rakod össze a lekérdezést. Mi történik, ha ezt írja be: <code>x' OR '1'='1</code>?</p>
+<pre><code class="language-python">nev = "x' OR '1'='1"
+cmd.execute("select count(*) from persons where name = '" + nev + "'")
+print(cmd.fetchone())
+cmd.execute("select count(*) from persons where name = ?", (nev,))
+print(cmd.fetchone())</code></pre>
+<details class="solution"><summary>Kimenet</summary>
+<pre><code class="language-plaintext">(10,)
+(0,)</code></pre>
+<p>Összefűzéssel a lekérdezés <code>… where name = 'x' OR '1'='1'</code> lesz – a feltétel mindig igaz, és <strong>mind a 10</strong> sort megkapja (rosszabb esetben törölhet is). Paraméterrel a beírt szöveg csak <em>érték</em>, sosem SQL-kód: ilyen nevű ember nincs, 0 találat. Ráadásul az előkészített (kétfázisú) parancsot az adatbázis újrahasznosíthatja, ami gyorsabb.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – és az előadás elírásai javítva</span>
+<ul>
+  <li><strong><code>commit</code> nélkül a módosítás elvész.</strong> Lefuttattunk egy <code>insert</code>-et, majd commit nélkül bezártuk a kapcsolatot: a sor nem került be (<code>count(*)</code> = 0).</li>
+  <li><strong>A dián <code>cms = con.cursor()</code>, majd <code>con.execute(…)</code> áll.</strong> Helyesen: <code>cmd = con.cursor()</code> és <code>cmd.execute(…)</code> – a parancsot a <em>kurzor</em> hajtja végre (a dia képernyőképe is így csinálja). Az sqlite3-ban a <code>con.execute</code> is működik (rövidítés, a háttérben kurzort nyit), a cx_Oracle-ben nem.</li>
+  <li><strong>A dián <code>cmd.execute(None, {par: v1})</code></strong> – a szótár kulcsa szöveg: <code>{"par": v1}</code>; a <code>par</code> idézőjel nélkül egy (nem létező) változó lenne.</li>
+  <li><strong>A <code>:1, :2, :3</code> helyőrző Oracle-ben jó, sqlite3-ban tuple-listával már nem.</strong> Az előadás sqlite-os <code>executemany(… values (:1, :2, :3)", table)</code> sora Python 3.12-ben még lefut, de <code>DeprecationWarning</code>-ot ad, Python 3.14-ben pedig <code>sqlite3.ProgrammingError</code>. Tuple-höz <code>?</code>, szótárhoz <code>:nev</code> kell.</li>
+  <li><strong>Egyelemű paraméter-tuple:</strong> <code>("Anna",)</code> – vesszővel! A <code>("Anna")</code> csak egy zárójelezett szöveg, és 4 paraméternek (betűnek) látszik: <code>Incorrect number of bindings supplied … there are 4 supplied</code>.</li>
+  <li><strong>Bezárt kapcsolaton nem lehet dolgozni:</strong> <code>ProgrammingError: Cannot operate on a closed database.</code></li>
+  <li><strong>A <code>bindarraysize</code> és <code>setinputsizes</code></strong> (dia) cx_Oracle-specifikus teljesítményhangolás; az sqlite3-ban nincs ilyen, és nincs <code>prepare</code> sem – ott a paraméteres <code>execute</code> végzi el a két fázist.</li>
+</ul>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés – mai Oracle-meghajtó</span>
+<p>A <code>cx_Oracle</code> csomag utódja az <code>oracledb</code> (<code>import oracledb</code>, <code>oracledb.connect(user=…, password=…, dsn="127.0.0.1/XE")</code>). A kurzor, <code>execute</code>, <code>commit</code>, <code>fetchone</code> ugyanúgy működik, mert mindkettő a közös Python DB-API szabványt (PEP 249) követi – ezért vihető át szó szerint a fenti sqlite3-as kód szerkezete.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – SQL API (5 feladat)</summary>
+<ol>
+  <li><p>Tedd sorrendbe: <code>con.commit()</code>, <code>con = sqlite3.connect(…)</code>, <code>con.close()</code>, <code>cmd.execute("insert …")</code>, <code>cmd = con.cursor()</code>.</p>
+    <details class="solution"><summary>Megoldás</summary><p>connect → cursor → execute → commit → close.</p></details></li>
+  <li><p>A <code>persons</code> táblára: <code>cmd.execute("select name from persons where age &lt; 20")</code>, majd <code>print(cmd.fetchall())</code>. Mit kapsz?</p>
+    <details class="solution"><summary>Megoldás</summary><p><code>[('Peter',), ('Maria',)]</code> – a 19 és a 16 éves. Minden sor egyelemű tuple.</p></details></li>
+  <li><p>Hány sort ír ki <code>for rec in cmd: print(rec)</code> a <code>cmd.execute("select * from persons where score &gt; :p", {"p": 30})</code> után?</p>
+    <details class="solution"><summary>Megoldás</summary><p>5: Anna 32, Peter 41, Zoli 31, Maria 35, Tibor 33.</p></details></li>
+  <li><p>Írd át biztonságosra: <code>cmd.execute("delete from persons where name = '" + nev + "'")</code>.</p>
+    <details class="solution"><summary>Megoldás</summary><p><code>cmd.execute("delete from persons where name = ?", (nev,))</code> vagy <code>cmd.execute("delete from persons where name = :n", {"n": nev})</code>, utána <code>con.commit()</code>.</p></details></li>
+  <li><p>Egy <code>fetchone()</code>-ciklus soha nem áll meg. Mi lehet a hiba?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A ciklus belsejéből kimaradt az újabb <code>rec = cmd.fetchone()</code>, így a <code>rec</code> sosem lesz <code>None</code>. (Ugyanez a hiba a <code>readline</code>-os ciklusnál.)</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l11-lepes9"></div>
+</section>
+
+<!-- ===================================================== 10 -->
+<section id="lepes10">
+<h2>10. lépés – DataFrame: szerkezet, létrehozás, sorok hozzáadása</h2>
+
+<h4>Kis eset</h4>
+<p>Három hallgató neve, kora és átlaga. Listákkal ez három külön sorozat lenne, szótárral egy „név → adatok” leképezés – de igazából egy <strong>táblázat</strong> kell, sorokkal és oszlopokkal. Az előadás első DataFrame-je:</p>
+<pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({
+    'Nev': ['Anna', 'Bela', 'Cecil'],
+    'Kor': [21, 23, 22],
+    'Atlag': [4.8, 3.9, 4.2]
+})
+print(df)
+print(df.index)
+print(df.columns)
+print(df.values)</code></pre>
+<pre><code class="language-plaintext">     Nev  Kor  Atlag
+0   Anna   21    4.8
+1   Bela   23    3.9
+2  Cecil   22    4.2
+RangeIndex(start=0, stop=3, step=1)
+Index(['Nev', 'Kor', 'Atlag'], dtype='object')
+[['Anna' 21 4.8]
+ ['Bela' 23 3.9]
+ ['Cecil' 22 4.2]]</code></pre>
+<p>A szótár kulcsaiból oszlopnevek lettek, a listákból oszlopok. A sorok automatikusan 0, 1, 2 címkét kaptak.</p>
+
+<div class="box def"><span class="box-title">Definíció – DataFrame</span>
+<p>A pandas kétdimenziós, változtatható méretű, <strong>heterogén</strong> (oszloponként eltérő típusú) táblázatos adatszerkezete, indexekkel. Ideális rendezett adathalmazok, relációs adatbázistáblák, CSV-/Excel-fájlok memóriabeli leképezésére. Három része:</p>
+<ul>
+  <li><strong>index</strong> (sorcímkék): a sorok azonosítói – <code>df.index</code>;</li>
+  <li><strong>columns</strong> (oszlopnevek, fejlécek): minden oszlop külön típusú lehet – <code>df.columns</code>, <code>df.dtypes</code>;</li>
+  <li><strong>values</strong> (adat): az elemi értékek rácsa, NumPy-tömbként – <code>df.values</code>.</li>
+</ul>
+<p>Létrehozás: <code>pd.DataFrame(szótár)</code> (kulcs = oszlopnév, érték = oszlop), <code>pd.DataFrame(listák_listája, columns=[…])</code> (egy belső lista = egy sor), <code>pd.DataFrame(szótárak_listája)</code> (egy szótár = egy sor), vagy fájlból: <code>pd.read_csv</code>, <code>pd.read_excel</code>.</p>
+<p>Egy oszlop vagy sor önmagában <strong>Series</strong>: egydimenziós, címkézett sorozat.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Ugyanaz a táblázat listák listájából</span>
+<pre><code class="language-python">sorok = [['Anna', 21, 4.8], ['Bela', 23, 3.9], ['Cecil', 22, 4.2]]
+df2 = pd.DataFrame(sorok, columns=['Nev', 'Kor', 'Atlag'])
+print(df2.equals(df))
+print(df.shape)
+print(df.dtypes)</code></pre>
+<details class="solution"><summary>Kimenet</summary>
+<pre><code class="language-plaintext">True
+(3, 3)
+Nev       object
+Kor        int64
+Atlag    float64
+dtype: object</code></pre>
+<p>Szótárból <em>oszloponként</em>, listák listájából <em>soronként</em> adod meg az adatot – az eredmény ugyanaz.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Üres DataFrame, sorok hozzáadása (az előadás példája)</span>
+<pre><code class="language-python">df = pd.DataFrame(columns=['Nev', 'Fizetes'])        # 1. üres, csak fejléc
+df.loc[0] = ['Kovacs Janos', 450000]                 # 2. sor .loc-kal
+df.loc[1] = ['Nagy Petra', 520000]
+new_row = pd.DataFrame([['Kiss Gabor', 380000]],     # 3. pd.concat-tal
+                       columns=['Nev', 'Fizetes'])
+df = pd.concat([df, new_row], ignore_index=True)
+print(df)</code></pre>
+<details class="solution"><summary>Kimenet</summary>
+<pre><code class="language-plaintext">            Nev  Fizetes
+0  Kovacs Janos   450000
+1    Nagy Petra   520000
+2    Kiss Gabor   380000</code></pre>
+<p>A <code>df.loc[címke] = […]</code> új címkénél új sort fűz hozzá, meglévőnél <strong>felülírja</strong> a sort. A <code>pd.concat</code> két DataFrame-et fűz egymás alá; az <code>ignore_index=True</code> újraszámozza a sorokat.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – hatékonyság és indexek</span>
+<ul>
+  <li><strong>Soronkénti bővítés ciklusban lassú</strong>, mert minden lépésben újramásolódik a táblázat. Mérésünk: 2000 sor <code>df.loc[i] = …</code>-val kb. 0,8 s, ugyanez listába gyűjtve és a végén egyszer <code>pd.DataFrame(sorok, columns=…)</code>-val kb. 0,01 s – nagyjából 70-szeres különbség, és a sorszámmal nő. <strong>Szabály:</strong> előbb listát építs (1. és 3. lépés), azt alakítsd egyszerre DataFrame-mé.</li>
+  <li><strong><code>ignore_index=True</code> nélkül</strong> a <code>concat</code> megtartja az eredeti indexeket, így ismétlődő címkék lesznek (két 0-s sor). A <code>df.loc[0]</code> ezután <em>két</em> sort adna vissza.</li>
+  <li><strong>A régi <code>df.append(…)</code> metódus megszűnt</strong> (pandas 2.0). Régi Colab-jegyzetekben még láthatod – helyette <code>pd.concat</code>.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – DataFrame létrehozása (4 feladat)</summary>
+<ol>
+  <li><p>Mi a <code>shape</code>-je a <code>pd.DataFrame({'A': [1, 2, 3, 4], 'B': [5, 6, 7, 8]})</code> táblának? Mi a <code>columns</code>?</p>
+    <details class="solution"><summary>Megoldás</summary><p><code>(4, 2)</code> – 4 sor, 2 oszlop; <code>Index(['A', 'B'], dtype='object')</code>.</p></details></li>
+  <li><p>Mit ad <code>pd.DataFrame([{'Nev': 'Anna', 'Kor': 21}, {'Nev': 'Bela', 'Atlag': 3.9}])</code>?</p>
+    <details class="solution"><summary>Megoldás</summary>
+<pre><code class="language-plaintext">    Nev   Kor  Atlag
+0  Anna  21.0    NaN
+1  Bela   NaN    3.9</code></pre>
+<p>A kulcsok uniója adja az oszlopokat; ami hiányzik, <code>NaN</code> (hiányzó érték) lesz – ezért vált a <code>Kor</code> lebegőpontossá.</p></details></li>
+  <li><p>Egy <code>d</code> egysoros DataFrame-re (index: 0) mit ad a <code>pd.concat([d, d]).index.tolist()</code>, és mit az <code>ignore_index=True</code>-val?</p>
+    <details class="solution"><summary>Megoldás</summary><p><code>[0, 0]</code>, illetve <code>[0, 1]</code>.</p></details></li>
+  <li><p>Egy ciklus 100&nbsp;000 eredménysort állít elő. Hogyan építed fel belőlük a DataFrame-et?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A ciklusban <code>sorok.append([…])</code> vagy <code>results.append({…})</code>, a ciklus után egyszer <code>pd.DataFrame(sorok, columns=[…])</code> / <code>pd.DataFrame(results)</code>. Nem <code>df.loc</code>-kal és nem <code>concat</code>-tal soronként.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ===================================================== 11 -->
+<section id="lepes11">
+<h2>11. lépés – Hivatkozás: oszlop, sor, cella (loc, iloc, at, iat)</h2>
+
+<h4>Kis eset</h4>
+<p>Az előadás táblája, most betűs sorcímkékkel:</p>
+<pre><code class="language-python">df = pd.DataFrame({
+    'Nev': ['Anna', 'Bela', 'Cecil'],
+    'Fizetes': [450, 520, 380]
+}, index=['A', 'B', 'C'])
+print(df)
+print(df['Nev'])
+print(df.loc['B'])
+print(df.at['B', 'Fizetes'], df.iat[1, 1])</code></pre>
+<pre><code class="language-plaintext">     Nev  Fizetes
+A   Anna      450
+B   Bela      520
+C  Cecil      380
+A     Anna
+B     Bela
+C    Cecil
+Name: Nev, dtype: object
+Nev        Bela
+Fizetes     520
+Name: B, dtype: object
+520 520</code></pre>
+<p>Szögletes zárójellel <strong>oszlopot</strong> kérsz, <code>.loc</code>-kal <strong>sort</strong> a címkéje alapján. Bela fizetése kétféleképpen: címkével (<code>'B'</code>, <code>'Fizetes'</code>) és pozícióval (1. sor, 1. oszlop, 0-tól számolva).</p>
+
+<div class="box def"><span class="box-title">Definíció – Hivatkozási módok</span>
+<div class="table-wrap"><table>
+<tr><th>Kifejezés</th><th>Mit ad?</th><th>Alapja</th></tr>
+<tr><td><code>df['Oszlop']</code></td><td>egy oszlop, <strong>Series</strong></td><td>oszlopnév</td></tr>
+<tr><td><code>df[['O1', 'O2']]</code></td><td>oszlopok listája, <strong>DataFrame</strong></td><td>oszlopnevek listája</td></tr>
+<tr><td><code>df.loc[címke]</code>, <code>df.loc[címke, 'oszlop']</code>, <code>df.loc[:, 'p1':'p2']</code></td><td>sor / cella / oszloptartomány</td><td><strong>címke</strong> (index értéke, oszlopnév)</td></tr>
+<tr><td><code>df.iloc[pozíció]</code>, <code>df.iloc[i, j]</code></td><td>sor / cella</td><td><strong>pozíció</strong> (0, 1, 2…)</td></tr>
+<tr><td><code>df.at[címke, 'oszlop']</code></td><td>egyetlen cella, gyorsan</td><td>címke</td></tr>
+<tr><td><code>df.iat[i, j]</code></td><td>egyetlen cella, gyorsan</td><td>pozíció</td></tr>
+</table></div>
+<p>Hüvelykujjszabály: <strong>„i” = integer = pozíció</strong>; ami nem „i”-s, az címkével dolgozik. A <code>.loc</code>/<code>.iloc</code> is ad cellát, de egyetlen értékhez az <code>.at</code>/<code>.iat</code> sokkal gyorsabb.</p>
+<p><strong>Miért?</strong> Szűrés, rendezés után a sorcímkék már nem 0, 1, 2 sorrendben állnak. Ekkor élesen elválik, hogy „a 2-es címkéjű sort” vagy „a harmadik sort” kéred.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Series vagy DataFrame?</span>
+<pre><code class="language-python">print(type(df['Nev']).__name__)
+print(type(df[['Nev']]).__name__)
+print(df[['Fizetes', 'Nev']])</code></pre>
+<details class="solution"><summary>Kimenet</summary>
+<pre><code class="language-plaintext">Series
+DataFrame
+   Fizetes    Nev
+A      450   Anna
+B      520   Bela
+C      380  Cecil</code></pre>
+<p>Egy szögletes zárójel: egy oszlop (Series). Két szögletes zárójel: a belső egy <em>lista</em>, az eredmény DataFrame – egyetlen oszloppal is. A lista sorrendje adja az oszlopok sorrendjét.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Szeletelés: loc-nál a vége is benne van</span>
+<pre><code class="language-python">print(df.loc['A':'B'])
+print(df.iloc[0:1])</code></pre>
+<details class="solution"><summary>Kimenet</summary>
+<pre><code class="language-plaintext">    Nev  Fizetes
+A  Anna      450
+B  Bela      520
+    Nev  Fizetes
+A  Anna      450</code></pre>
+<p>A címkés szelet (<code>loc</code>) <strong>tartalmazza</strong> a záró címkét (<code>'B'</code>), a pozíciós szelet (<code>iloc</code>) – a Python-listákhoz hasonlóan – <strong>nem</strong>: a <code>0:1</code> csak a 0. sort adja.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – Számcímkék csapdája</span>
+<pre><code class="language-python">s = pd.DataFrame({'x': [10, 20, 30, 40]}, index=[3, 2, 1, 0])
+print(s.loc[1, 'x'], s.iloc[1, 0])</code></pre>
+<details class="solution"><summary>Kimenet</summary>
+<pre><code class="language-plaintext">30 20</code></pre>
+<p>A <code>loc[1]</code> az <strong>1-es címkéjű</strong> sort keresi (az a 3. sor, értéke 30); az <code>iloc[1]</code> a <strong>második</strong> sort (címkéje 2, értéke 20). Rendezés után (13. lépés) pont ilyen „összekevert” indexed lesz.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+  <li><strong><code>df['B']</code> oszlopot keres</strong>, nem sort: <code>KeyError: 'B'</code>. Sorhoz <code>df.loc['B']</code>.</li>
+  <li><strong><code>df.loc[1]</code> betűs index mellett:</strong> <code>KeyError: 1</code> (nincs 1-es címke); <strong><code>df.iloc['B']</code>:</strong> <code>TypeError</code> (pozíció csak egész lehet).</li>
+  <li><strong>Értékadásnál is <code>loc</code>/<code>at</code>:</strong> <code>df.at['C', 'Fizetes'] = 400</code>, <code>df.loc['A', 'Fizetes'] = 460</code>. A láncolt <code>df['Fizetes']['A'] = 460</code> másolaton dolgozhat, és figyelmeztetést ad (pandas 3-tól biztosan nem módosítja a <code>df</code>-et).</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Hol látod a gyakorlaton?</span>
+<ul>
+  <li>Gyak1, <code>02_cleaning.py</code>: <code>clean_df.loc[outlier_mask, "quantity"] = replacement</code> – feltétellel kijelölt sorok egy oszlopának felülírása; <code>valid_quantities.mode().iloc[0]</code> – a módusz-Series első eleme pozícióval.</li>
+  <li>Gyak3: <code>valid_scores.loc[valid_scores["silhouette"].idxmax(), "k"]</code> – a legnagyobb sziluettű sor címkéje, abból a <code>k</code> oszlop.</li>
+  <li>Gyak5: <code>comparison.iloc[0].accuracy - comparison.iloc[1].accuracy</code>.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Hivatkozás (5 feladat)</summary>
+<p>A tábla: <code>d = pd.DataFrame({'p': ['bread', 'coffee', 'milk', 'tea'], 'ar': [550, 2200, 450, 1400]}, index=[10, 11, 12, 13])</code>.</p>
+<ol>
+  <li><p>Mennyi <code>d.loc[11, 'ar']</code> és <code>d.iloc[1, 1]</code>?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Mindkettő 2200: a 11-es címkéjű sor a második sor, az <code>ar</code> a második oszlop.</p></details></li>
+  <li><p>Mit ad <code>d.iloc[-1]['p']</code>?</p>
+    <details class="solution"><summary>Megoldás</summary><p><code>'tea'</code> – az utolsó sor <code>p</code> értéke (a negatív pozíció hátulról számol).</p></details></li>
+  <li><p>Mit ad <code>d.loc[11:12, 'p'].tolist()</code> és <code>d.iloc[1:2, 0].tolist()</code>?</p>
+    <details class="solution"><summary>Megoldás</summary><p><code>['coffee', 'milk']</code> (loc: a 12-es címke is benne), illetve <code>['coffee']</code> (iloc: a 2. pozíció már nem).</p></details></li>
+  <li><p>Mi a <code>d[['p']].shape</code> és a <code>d['p'].shape</code>?</p>
+    <details class="solution"><summary>Megoldás</summary><p><code>(4, 1)</code> (DataFrame) és <code>(4,)</code> (Series, egydimenziós).</p></details></li>
+  <li><p>Mi történik: <code>d.loc[0, 'ar']</code>?</p>
+    <details class="solution"><summary>Megoldás</summary><p><code>KeyError: 0</code> – nincs 0-s címke (10–13 vannak). Az első sor: <code>d.iloc[0]</code>.</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l11-lepes11"></div>
+</section>
+
+<!-- ===================================================== 12 -->
+<section id="lepes12">
+<h2>12. lépés – Oszlopműveletek, Excel-beolvasás, konverziók</h2>
+
+<h4>Kis eset</h4>
+<p>Egy kételemű névsorhoz hozzáadsz egy kor-oszlopot és egy „aktív” jelzőt, átnevezel egy oszlopot, majd törlöd a jelzőt (az előadás példája):</p>
+<pre><code class="language-python">df = pd.DataFrame({'Nev': ['Anna', 'Bela']})
+df['Kor'] = [21, 23]
+df['Aktiv'] = True                 # konstans: minden sor True
+print(df)
+df.rename(columns={'Nev': 'Teljes_Nev'}, inplace=True)
+del df['Aktiv']
+print(df)</code></pre>
+<pre><code class="language-plaintext">    Nev  Kor  Aktiv
+0  Anna   21   True
+1  Bela   23   True
+  Teljes_Nev  Kor
+0       Anna   21
+1       Bela   23</code></pre>
+
+<div class="box def"><span class="box-title">Definíció – A séma módosítása</span>
+<div class="table-wrap"><table>
+<tr><th>Művelet</th><th>Hatás</th><th>Eredeti <code>df</code>?</th></tr>
+<tr><td><code>df['Uj'] = lista</code></td><td>új oszlop (a lista hossza = sorok száma)</td><td>módosul</td></tr>
+<tr><td><code>df['Uj'] = konstans</code></td><td>a teljes oszlopot kitölti vele</td><td>módosul</td></tr>
+<tr><td><code>df['Uj'] = df['a'] * df['b']</code></td><td>számított oszlop, soronként</td><td>módosul</td></tr>
+<tr><td><code>df.rename(columns={'regi': 'uj'})</code></td><td>átnevezés – <strong>új</strong> DataFrame-et ad vissza</td><td>nem változik</td></tr>
+<tr><td><code>… inplace=True</code></td><td>a meglévő objektumot módosítja, és <code>None</code>-t ad vissza</td><td>módosul</td></tr>
+<tr><td><code>del df['Oszlop']</code></td><td>azonnali törlés</td><td>módosul</td></tr>
+<tr><td><code>df.drop('Oszlop', axis=1)</code> = <code>df.drop(columns=['Oszlop'])</code></td><td>új DataFrame az oszlop nélkül</td><td>nem változik (hacsak nem <code>inplace=True</code>)</td></tr>
+</table></div>
+<p><strong>Miért?</strong> Az elemzés közben folyamatosan számolsz új változókat (tételérték, átlagos kosárérték), és dobod el a feleslegeseket (azonosító, célváltozó a bemenetek közül).</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Számított oszlop és drop</span>
+<pre><code class="language-python">t = pd.DataFrame({'product': ['coffee', 'bread'], 'quantity': [2, 1], 'unit_price': [2200, 550]})
+t['line_total'] = t['quantity'] * t['unit_price']
+print(t)
+print(t.drop(columns=['unit_price']).columns.tolist())</code></pre>
+<details class="solution"><summary>Kimenet</summary>
+<pre><code class="language-plaintext">  product  quantity  unit_price  line_total
+0  coffee         2        2200        4400
+1   bread         1         550         550
+['product', 'quantity', 'line_total']</code></pre>
+<p>Ez az 1. gyakorlat <code>line_total</code>-ja. Gyak5–6-ban így választod le a célváltozót: <code>X_train = train_data.drop(columns=[TARGET])</code>.</p></details>
+</div>
+
+<h4>Excel beolvasása</h4>
+<p>A <code>pd.read_excel</code> egy munkalapot közvetlenül DataFrame-be olvas (háttérkönyvtár kell hozzá: <code>openpyxl</code> az .xlsx-hez; Colabban telepítve van). A tesztfájlunkban 80 hallgató van a <code>Munkalap1</code> lapon:</p>
+<pre><code class="language-python">df = pd.read_excel(
+    'hallgatok.xlsx',
+    sheet_name='Munkalap1',    # munkalap neve (vagy 0-tól számolt sorszáma)
+    header=0,                  # az első sor a fejléc
+    usecols=['Nev', 'Atlag'],  # csak ezek az oszlopok
+    nrows=50                   # csak az első 50 sor
+)
+print(df.shape)
+print(df.head(3))</code></pre>
+<pre><code class="language-plaintext">(50, 2)
+  Nev  Atlag
+0  H1    3.0
+1  H2    3.1
+2  H3    3.2</code></pre>
+
+<div class="box def"><span class="box-title">Definíció – read_excel paraméterek és konverziók</span>
+<p><strong><code>pd.read_excel(fájl, …)</code>:</strong> <code>sheet_name</code> – melyik munkalap (név vagy 0-alapú index; alapból az első; <code>None</code>: az összes, szótárban); <code>header</code> – melyik sor a fejléc; <code>usecols</code> – csak a megadott oszlopok (erőforrás-kímélés); <code>nrows</code> – a beolvasott sorok számának korlátja (teszteléskor hasznos).</p>
+<p><strong>Konverziók:</strong></p>
+<ul>
+  <li><code>df.values.tolist()</code> – a sorok beágyazott Python-listákként (listák listája);</li>
+  <li><code>df.to_numpy()</code> – többdimenziós NumPy-tömb a gyors numerikus műveletekhez (a scikit-learn ezt szereti);</li>
+  <li><code>pd.DataFrame(lista, columns=[…])</code> – beágyazott listából DataFrame; szótárak listája esetén a kulcsok lesznek az oszlopnevek;</li>
+  <li><code>df['oszlop'].tolist()</code> – egyetlen oszlop listaként.</li>
+</ul>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Oda-vissza konverzió (az előadás példája)</span>
+<pre><code class="language-python">df = pd.DataFrame({'A': [1, 2], 'B': [3, 4]})
+lista_forma = df.values.tolist()
+print(lista_forma)
+numpy_tomb = df.to_numpy()
+print(numpy_tomb, numpy_tomb.shape)
+
+adat_lista = [[10, 'Alma'], [20, 'Korte']]
+df_lista = pd.DataFrame(adat_lista, columns=['Ar', 'Gyumolcs'])
+print(df_lista)</code></pre>
+<details class="solution"><summary>Kimenet</summary>
+<pre><code class="language-plaintext">[[1, 3], [2, 4]]
+[[1 3]
+ [2 4]] (2, 2)
+   Ar Gyumolcs
+0  10     Alma
+1  20    Korte</code></pre>
+<p>A <code>tolist</code> <strong>soronként</strong> ad listát: <code>[1, 3]</code> az első sor (A=1, B=3), nem az <code>A</code> oszlop! Az oszlop listaként: <code>df['A'].tolist()</code> → <code>[1, 2]</code>.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+  <li><strong><code>rename</code> az eredmény elmentése nélkül:</strong> <code>d.rename(columns={'a': 'b'})</code> után a <code>d</code> oszlopa továbbra is <code>'a'</code>. Vagy <code>d = d.rename(…)</code>, vagy <code>inplace=True</code> – de a kettőt ne keverd: <code>d = d.rename(…, inplace=True)</code> után <code>d</code> értéke <code>None</code>!</li>
+  <li><strong><code>drop</code> <code>axis=1</code> nélkül sort keres:</strong> <code>t.drop('quantity')</code> → <code>KeyError: "['quantity'] not found in axis"</code>. Az alapértelmezett <code>axis=0</code> a sorokat jelenti.</li>
+  <li><strong>Rossz hosszú lista új oszlopnak:</strong> <code>ValueError: Length of values (3) does not match length of index (2)</code>.</li>
+  <li><strong>Vegyes típusú tábla <code>to_numpy()</code>-ja <code>object</code> tömb</strong> (szöveg és szám együtt) – numerikus számításhoz előbb csak a számoszlopokat válaszd ki.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Oszlopok, Excel, konverziók (5 feladat)</summary>
+<ol>
+  <li><p><code>df = pd.DataFrame({'A': [1, 2], 'B': [3, 4]})</code>. Mit ad <code>df.T.values.tolist()</code>?</p>
+    <details class="solution"><summary>Megoldás</summary><p><code>[[1, 2], [3, 4]]</code>. A <code>.T</code> transzponál (oszlopokból sorok lesznek), így a lista most oszloponként áll össze.</p></details></li>
+  <li><p>Mit ad <code>df.to_dict('records')</code>?</p>
+    <details class="solution"><summary>Megoldás</summary><p><code>[{'A': 1, 'B': 3}, {'A': 2, 'B': 4}]</code> – szótárak listája, soronként. (A 3. lépés „szótárak listájából táblázat” mintájának fordítottja.)</p></details></li>
+  <li><p>Egy Excel-fájl második munkalapjának csak az első 10 sorát kéred. Írd fel a hívást!</p>
+    <details class="solution"><summary>Megoldás</summary><p><code>pd.read_excel(fajl, sheet_name=1, nrows=10)</code> – a <code>sheet_name</code> 0-tól számol.</p></details></li>
+  <li><p><code>r = d.rename(columns={'b': 'c'}, inplace=True)</code>. Mi lesz <code>r</code>, és mi <code>d.columns</code>?</p>
+    <details class="solution"><summary>Megoldás</summary><p><code>r</code> = <code>None</code>; a <code>d</code> oszlopa <code>'c'</code> lett. Az <code>inplace=True</code> helyben módosít és nem ad vissza semmit.</p></details></li>
+  <li><p>Melyik törli az eredeti <code>df</code>-ből a <code>Kor</code> oszlopot: (a) <code>del df['Kor']</code>, (b) <code>df.drop('Kor', axis=1)</code>, (c) <code>df = df.drop('Kor', axis=1)</code>?</p>
+    <details class="solution"><summary>Megoldás</summary><p>(a) és (c). A (b) új DataFrame-et ad vissza, amit senki nem ment el – a <code>df</code> változatlan.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ===================================================== 13 -->
+<section id="lepes13">
+<h2>13. lépés – Keresés, rendezés, csoportképzés</h2>
+
+<h4>Kis eset</h4>
+<p>Nyolc vásárlási tétel, négy kosárból (a gyakorlat adatának kicsinyített mása):</p>
+<pre><code class="language-python">t = pd.DataFrame({
+    'kosar':  ['T1', 'T1', 'T2', 'T2', 'T2', 'T3', 'T4', 'T4'],
+    'termek': ['coffee', 'bread', 'bread', 'butter', 'milk', 'coffee', 'tea', 'bread'],
+    'db':     [2, 1, 1, 1, 2, 1, 1, 3],
+    'ar':     [2200, 550, 550, 800, 450, 2200, 1400, 550],
+    'regio':  ['West', 'West', 'North', 'North', 'North', 'West', 'South', 'South'],
+})
+t['ertek'] = t['db'] * t['ar']
+print(t)</code></pre>
+<pre><code class="language-plaintext">  kosar  termek  db    ar  regio  ertek
+0    T1  coffee   2  2200   West   4400
+1    T1   bread   1   550   West    550
+2    T2   bread   1   550  North    550
+3    T2  butter   1   800  North    800
+4    T2    milk   2   450  North    900
+5    T3  coffee   1  2200   West   2200
+6    T4     tea   1  1400  South   1400
+7    T4   bread   3   550  South   1650</code></pre>
+<p>Három tipikus kérdés: <em>Melyik tételek érnek 1500 Ft-nál többet?</em> (keresés) – <em>Melyik a három legnagyobb tétel?</em> (rendezés) – <em>Mennyi a bevétel régiónként?</em> (csoportképzés). Ezek az előadás Colab-mintapéldáinak témái (sorok keresése, rendezése, csoportképzés).</p>
+
+<div class="box def"><span class="box-title">Definíció – Keresés (szűrés) feltétellel</span>
+<p>A <code>t['ertek'] &gt; 1500</code> egy <strong>logikai Series</strong> (soronként <code>True</code>/<code>False</code>). Ezt szögletes zárójelbe téve a <code>True</code> sorok maradnak meg: <code>t[t['ertek'] &gt; 1500]</code>.</p>
+<ul>
+  <li>Több feltétel: <code>&amp;</code> (és), <code>|</code> (vagy), <code>~</code> (nem) – <strong>minden feltétel zárójelben</strong>: <code>t[(t['regio'] == 'North') &amp; (t['db'] &gt;= 2)]</code>.</li>
+  <li>Értéklista: <code>t[t['termek'].isin(['tea', 'milk'])]</code>.</li>
+  <li>Szöveges feltétel: <code>t.query('regio == "West" and ertek &gt; 1000')</code>.</li>
+  <li>Szűrés + oszlop egyszerre: <code>t.loc[feltétel, 'oszlop']</code>.</li>
+</ul>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Szűrések</span>
+<pre><code class="language-python">print(t[t['ertek'] &gt; 1500])
+print(t[(t['regio'] == 'North') &amp; (t['db'] &gt;= 2)])
+print(t.loc[t['termek'] == 'bread', 'ertek'].sum())</code></pre>
+<details class="solution"><summary>Kimenet</summary>
+<pre><code class="language-plaintext">  kosar  termek  db    ar  regio  ertek
+0    T1  coffee   2  2200   West   4400
+5    T3  coffee   1  2200   West   2200
+7    T4   bread   3   550  South   1650
+  kosar termek  db   ar  regio  ertek
+4    T2   milk   2  450  North    900
+2750</code></pre>
+<p>Figyeld az indexet: a szűrt sorok megtartják eredeti címkéjüket (0, 5, 7). A kenyér összes tételértéke $550 + 550 + 1650 = 2750$.</p></details>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Rendezés és csoportképzés</span>
+<p><strong>Rendezés:</strong> <code>df.sort_values('oszlop', ascending=False)</code>; több kulcs: <code>sort_values(['o1', 'o2'], ascending=[True, False])</code>. Új DataFrame-et ad; a sorcímkék a sorokkal együtt mozognak. Újraszámozás: <code>.reset_index(drop=True)</code>.</p>
+<p><strong>Csoportképzés:</strong> <code>df.groupby('kulcs')['oszlop'].függvény()</code> – „szétválaszt → összesít → összerak”: a sorokat a kulcs értékei szerint csoportokra bontja, minden csoportra kiszámolja az összesítőt (<code>sum</code>, <code>mean</code>, <code>count</code>, <code>nunique</code>…), és az eredményeket egy táblába rakja, a kulcs lesz az index.</p>
+<ul>
+  <li>Több összesítő: <code>.agg(['count', 'sum', 'mean'])</code>;</li>
+  <li>névvel adott eredményoszlopok: <code>.agg(bevetel=('ertek', 'sum'), kosarak=('kosar', 'nunique'))</code>;</li>
+  <li>a kulcs vissza oszlopba: <code>.reset_index()</code>.</li>
+</ul>
+<p><strong>Miért?</strong> A <code>groupby</code> pontosan az SQL <code>GROUP BY</code>-a (<a href="07-sql-ablakfuggvenyek.html">7. lecke</a>); a szűrés a <code>WHERE</code>, a rendezés az <code>ORDER BY</code>.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Rendezés</span>
+<pre><code class="language-python">print(t.sort_values('ertek', ascending=False).head(3))
+print(t.sort_values(['regio', 'ertek'], ascending=[True, False])[['regio', 'termek', 'ertek']])</code></pre>
+<details class="solution"><summary>Kimenet</summary>
+<pre><code class="language-plaintext">  kosar  termek  db    ar  regio  ertek
+0    T1  coffee   2  2200   West   4400
+5    T3  coffee   1  2200   West   2200
+7    T4   bread   3   550  South   1650
+   regio  termek  ertek
+4  North    milk    900
+3  North  butter    800
+2  North   bread    550
+7  South   bread   1650
+6  South     tea   1400
+0   West  coffee   4400
+5   West  coffee   2200
+1   West   bread    550</code></pre>
+<p>A második: régió szerint ábécérendben, azon belül érték szerint csökkenőben. Az index (4, 3, 2, 7…) mutatja, honnan jött a sor – itt jön elő a <a href="#lepes11">11. lépés</a> <code>loc</code>/<code>iloc</code>-különbsége.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – Csoportképzés</span>
+<pre><code class="language-python">print(t.groupby('regio')['ertek'].sum())
+print(t.groupby('regio').agg(tetelek=('termek', 'count'),
+                             bevetel=('ertek', 'sum'),
+                             kosarak=('kosar', 'nunique')).reset_index())
+print(t.groupby('kosar')['termek'].agg(list))</code></pre>
+<details class="solution"><summary>Kimenet</summary>
+<pre><code class="language-plaintext">regio
+North    2250
+South    3050
+West     7150
+Name: ertek, dtype: int64
+   regio  tetelek  bevetel  kosarak
+0  North        3     2250        1
+1  South        2     3050        1
+2   West        3     7150        2
+kosar
+T1          [coffee, bread]
+T2    [bread, butter, milk]
+T3                 [coffee]
+T4             [tea, bread]
+Name: termek, dtype: object</code></pre>
+<p>A harmadik a Gyak2 <code>01_itemsets.py</code> lépése: kosaranként a termékek <em>listája</em> – ebből lesz az Apriori bemenete. A valódi adaton: <code>T0001 [milk, tomato sauce]</code>, <code>T0002 [biscuits, bread, butter, chicken]</code>…, összesen 1151 kosár.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+  <li><strong><code>and</code>/<code>or</code> nem működik Series-en:</strong> <code>t[t['regio'] == 'North' and t['db'] &gt;= 2]</code> → <code>ValueError: The truth value of a Series is ambiguous</code>. Helyette <code>&amp;</code>, <code>|</code>.</li>
+  <li><strong>Zárójel nélkül rossz a műveleti sorrend:</strong> az <code>&amp;</code> erősebben köt, mint a <code>==</code>, így <code>t['regio'] == 'North' &amp; t['db'] &gt;= 2</code> előbb <code>'North' &amp; t['db']</code>-t próbálja kiszámolni → <code>TypeError</code>. Minden feltételt tegyél zárójelbe.</li>
+  <li><strong>A <code>sort_values</code> nem helyben rendez:</strong> <code>t.sort_values('ertek')</code> önmagában semmit nem változtat <code>t</code>-n. <code>t = t.sort_values(…)</code>.</li>
+  <li><strong><code>count</code> vs <code>nunique</code>:</strong> a West régióban 3 tétel van (<code>count</code>), de csak 2 különböző kosár (<code>nunique</code>). Vásárlások számához <code>nunique</code> kell – ahogy Gyak3-ban: <code>purchase_count=("transaction_id", "nunique")</code>.</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Hol látod a gyakorlaton?</span>
+<ul>
+  <li>Gyak1, <code>03_basicstats.py</code>: <code>data.groupby("product")["line_total"].sum().sort_values(ascending=False)</code> – termékenkénti árbevétel; a valódi adaton az élen a <code>coffee 1793000</code>, <code>chicken 1113600</code>, <code>butter 728450</code>.</li>
+  <li>Gyak3, <code>01_standardization.py</code>: vásárlónkénti összesítés névvel adott <code>agg</code>-gal; Gyak2: <code>frequent_pairs.sort_values("support", ascending=False)</code>.</li>
+  <li>Gyak2: <code>frequent_itemsets[frequent_itemsets["product_count"] == 2]</code> – szűrés feltétellel.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Keresés, rendezés, csoportképzés (5 feladat)</summary>
+<p>Mindegyik a fenti <code>t</code> táblára vonatkozik.</p>
+<ol>
+  <li><p>Hány sort ad <code>t[t['regio'] != 'West']</code>?</p>
+    <details class="solution"><summary>Megoldás</summary><p>5 (3 North + 2 South).</p></details></li>
+  <li><p>Mit ad <code>t[t['termek'].isin(['tea', 'milk'])][['kosar', 'termek']]</code>?</p>
+    <details class="solution"><summary>Megoldás</summary>
+<pre><code class="language-plaintext">  kosar termek
+4    T2   milk
+6    T4    tea</code></pre></details></li>
+  <li><p>Melyik termék hozza a legtöbb bevételt? Írd fel a kifejezést, és add meg az eredményt!</p>
+    <details class="solution"><summary>Megoldás</summary><p><code>t.groupby('termek')['ertek'].sum().sort_values(ascending=False)</code> → coffee 6600, bread 2750, tea 1400, milk 900, butter 800. A <code>coffee</code> nyer.</p></details></li>
+  <li><p>Mennyi az átlagos kosárérték? (Előbb kosaranként összegezz!)</p>
+    <details class="solution"><summary>Megoldás</summary><p><code>t.groupby('kosar')['ertek'].sum().mean()</code>. Kosárértékek: T1 4950, T2 2250, T3 2200, T4 3050; átlag $12\,450 / 4 = 3112{,}5$. (A <code>t['ertek'].mean()</code> a <em>tételek</em> átlaga lenne: $12\,450/8 = 1556{,}25$ – más kérdés!)</p></details></li>
+  <li><p>Mit ad <code>t.groupby('regio')['ertek'].agg(['count', 'sum'])</code> a South sorában?</p>
+    <details class="solution"><summary>Megoldás</summary><p><code>count</code> = 2, <code>sum</code> = 3050 (1400 + 1650).</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l11-lepes13"></div>
+</section>
+
+<!-- ===================================================== Alkalmazás -->
+<section id="alkalmazas">
+<h2>Alkalmazás – adatbázisból DataFrame, statisztika, ábra</h2>
+<p>Most megválaszoljuk a <a href="#motivacio">motiváció</a> kérdését: van-e kapcsolat a <code>persons</code> tábla életkora és pontszáma között? A 9. lépés <code>ujdb.db</code> adatbázisával dolgozunk.</p>
+
+<h4>1. út – tisztán SQL-lel (az előadás megoldása)</h4>
+<p>A (minta)kovariancia képlete: $\displaystyle \mathrm{cov}(x,y) = \frac{\sum_i (x_i-\bar x)(y_i-\bar y)}{n-1}$. Az előadás ezt egyetlen SQL-paranccsal számolja ki, allekérdezésekkel:</p>
+<pre><code class="language-python">import sqlite3
+con = sqlite3.connect("ujdb.db")
+cmd = con.cursor()
+cmd.execute("""SELECT sum((age - (SELECT avg(age) FROM persons)) *
+                          (score - (SELECT avg(score) FROM persons)))
+                      / (SELECT count(*) - 1 FROM persons)
+               FROM persons""")
+for res in cmd:
+    print(res)</code></pre>
+<pre><code class="language-plaintext">(-13.555555555555555,)</code></pre>
+
+<h4>2. út – DataFrame-be töltve, pandasszal</h4>
+<pre><code class="language-python">import pandas as pd
+df = pd.read_sql_query("select * from persons", con)
+print(df.head(3))
+print(df.shape)
+print(round(df["age"].cov(df["score"]), 4))
+print(round(df["age"].corr(df["score"]), 3))
+print(df.sort_values("score", ascending=False).head(3))
+con.close()</code></pre>
+<pre><code class="language-plaintext">    name  age  score
+0    Tom   23     18
+1   Anna   26     32
+2  Peter   19     41
+(10, 3)
+-13.5556
+-0.404
+    name  age  score
+2  Peter   19     41
+6  Maria   16     35
+9  Tibor   26     33</code></pre>
+<p>A <code>pd.read_sql_query</code> a kurzor, a ciklus és a <code>pd.DataFrame(…)</code> munkáját egy lépésben elvégzi. A két út ugyanazt a kovarianciát adja: $-13{,}56$.</p>
+
+<h4>3. ábra</h4>
+<pre><code class="language-python">import matplotlib.pyplot as plt
+plt.scatter(df["age"], df["score"])
+plt.xlabel("age")
+plt.ylabel("score")
+plt.show()</code></pre>
+<p>Ez a <a href="#lepes6">6. lépés</a> középső ábrája. A pontfelhő enyhén lefelé tart: a két legfiatalabb (Maria 16, Peter 19) kapta a két legmagasabb pontszámot.</p>
+
+<div class="box tip"><span class="box-title">💡 Válasz a motiváció kérdésére</span>
+<p>A kovariancia negatív ($-13{,}56$): az átlagnál idősebbeknek jellemzően átlag alatti a pontszámuk. A kovariancia nagysága azonban mértékegységfüggő (év × pont), ezért az erősséget a korreláció mutatja: $r = -0{,}40$ – <strong>gyenge–közepes, negatív kapcsolat</strong>. Tíz emberből ez inkább sejtés, mint bizonyíték. (A kovarianciáról és a korrelációról bővebben: <a href="01-adattisztitas.html#lepes9">1. lecke, 9. lépés</a>.)</p>
+</div>
+
+<div class="box tip"><span class="box-title">💡 A teljes lánc egy pillantásra</span>
+<p><strong>forrás</strong> (fájl: <code>open</code> / <code>csv</code> / <code>read_csv</code> / <code>read_excel</code>; adatbázis: <code>connect</code> → <code>cursor</code> → <code>execute</code> / <code>read_sql_query</code>) → <strong>Python-szerkezet</strong> (lista, halmaz, szótár → DataFrame) → <strong>átalakítás</strong> (új oszlop, <code>rename</code>, <code>drop</code>) → <strong>elemzés</strong> (szűrés, <code>sort_values</code>, <code>groupby</code> + <code>agg</code>) → <strong>ábra</strong> (<code>plot</code>, <code>scatter</code>, <code>hist</code>) → <strong>mentés</strong> (<code>to_csv</code>, <code>write</code>, <code>commit</code>).</p>
+</div>
+</section>
+
+<!-- ===================================================== Összefoglalás -->
+<section id="osszefoglalas">
+<h2>Összefoglalás</h2>
+<ul>
+  <li><strong>Lista</strong> <code>[…]</code>: sorrendes, ismétlődhet; <code>append</code>, <code>pop</code> (a végéről!), <code>count</code>, <code>sort(key=…)</code>, lista-értelmezés; <code>sum</code>, <code>len</code>, <code>min</code>, <code>max</code>.</li>
+  <li><strong>Halmaz</strong> <code>{…}</code> / <code>set()</code>: nincs sorrend és ismétlés; <code>add</code>, <code>in</code>, <code>&amp;</code>, <code>|</code>, <code>&lt;=</code>. A kosár halmaz; a támogatottság = hány kosárnak részhalmaza az elemhalmaz.</li>
+  <li><strong>Szótár</strong> <code>{k: v}</code>: kulcs → érték; <code>get(k, 0)</code>-val számlálás; szótárak listájából DataFrame.</li>
+  <li><strong>Lambda</strong>: egysoros névtelen függvény, főleg <code>key=</code>-nek. <strong>Generátor</strong>: <code>yield</code>, <code>next</code>, <code>StopIteration</code>, egyszer bejárható. <strong>Osztály</strong>: <code>__init__</code>, <code>self</code>, öröklés, <code>super()</code>.</li>
+  <li><strong>matplotlib</strong>: <code>plot</code> (trend), <code>scatter</code> (kapcsolat), <code>hist</code> (eloszlás, <code>bins</code>).</li>
+  <li><strong>Fájl</strong>: <code>with open(f, mód, encoding=…)</code>; <code>read</code> / <code>readlines</code> / <code>readline</code>; <code>write</code> + <code>"\n"</code>, <code>writelines</code>. Mindig adj meg kódolást (<code>utf-8</code>, a gyakorlaton <code>utf-8-sig</code>).</li>
+  <li><strong>CSV</strong>: <code>csv.reader</code> (szöveglisták) vagy <code>pd.read_csv(sep=, encoding=, header=, usecols=, nrows=, dtype=, decimal=)</code>.</li>
+  <li><strong>SQL API</strong>: <code>connect</code> → <code>cursor</code> → <code>execute</code> / <code>executemany</code> → <code>commit</code> / kurzorciklus, <code>fetchone</code> → <code>close</code>. Értéket mindig helyőrzővel (<code>?</code>, <code>:par</code>) adj át – SQL-injekció ellen.</li>
+  <li><strong>DataFrame</strong>: index + columns + values; <code>df['o']</code> (Series), <code>df[['o1','o2']]</code>; <code>loc</code>/<code>at</code> címkével, <code>iloc</code>/<code>iat</code> pozícióval; sor hozzáadása <code>loc</code>-kal vagy <code>concat</code>-tal (ciklusban inkább lista!); szűrés <code>df[feltétel]</code>, <code>sort_values</code>, <code>groupby</code> + <code>agg</code>.</li>
+</ul>
+
+<h3>Döntési táblázat</h3>
+<div class="table-wrap"><table>
+<tr><th>Ha a feladatban ez áll…</th><th>…ezt használd</th></tr>
+<tr><td>Sorrendben gyűjtött elemek, eredmények egy ciklusból</td><td>lista + <code>append</code>; a végén <code>pd.DataFrame(lista)</code></td></tr>
+<tr><td>„Új lista minden elem átalakításával / szűrésével”</td><td>lista-értelmezés <code>[f(e) for e in l if …]</code></td></tr>
+<tr><td>Kosár, „milyen termékek”, ismétlődés nélkül; közös / összes elem</td><td>halmaz: <code>set(l)</code>, <code>&amp;</code>, <code>|</code>, részhalmaz <code>&lt;=</code></td></tr>
+<tr><td>Halmaz kell szótárkulcsnak vagy halmaz elemének</td><td><code>frozenset</code></td></tr>
+<tr><td>„Név szerint keress ki”, „számold meg, melyikből hány”</td><td>szótár, <code>d.get(k, 0) + 1</code></td></tr>
+<tr><td>Rendezés egy mező / számított érték szerint</td><td><code>sorted(l, key=lambda t: t[1], reverse=True)</code></td></tr>
+<tr><td>Hosszú sorozat elemenként, memória nélkül</td><td>generátor (<code>yield</code>), <code>next</code>, <code>for</code></td></tr>
+<tr><td>Időbeli alakulás / két változó kapcsolata / eloszlás</td><td><code>plt.plot</code> / <code>plt.scatter</code> / <code>plt.hist(bins=…)</code></td></tr>
+<tr><td>Szövegfájl soronként</td><td><code>with open(f, encoding="utf-8") as fv: for sor in fv:</code></td></tr>
+<tr><td>Ékezetek helyén „Å‘”, „Ã¶”</td><td>rossz kódolással olvasol: <code>encoding="utf-8"</code> (vagy <code>utf-8-sig</code>)</td></tr>
+<tr><td>CSV beolvasása elemzéshez</td><td><code>pd.read_csv(f, sep=";", encoding="utf-8-sig")</code>, utána <code>shape</code>, <code>head()</code></td></tr>
+<tr><td>Csak egy oszlop jött létre beolvasáskor</td><td>rossz a <code>sep</code></td></tr>
+<tr><td>Excel-munkalap, csak néhány oszlop / sor</td><td><code>pd.read_excel(f, sheet_name=, header=, usecols=, nrows=)</code></td></tr>
+<tr><td>Adatbázis-tábla módosítása</td><td><code>cursor</code> → <code>execute</code>/<code>executemany</code> → <code>commit</code></td></tr>
+<tr><td>Lekérdezés felhasználói értékkel</td><td>helyőrző: <code>execute("… where x = ?", (v,))</code> vagy <code>{"par": v}</code></td></tr>
+<tr><td>Lekérdezés eredménye DataFrame-be</td><td><code>pd.read_sql_query(sql, con)</code></td></tr>
+<tr><td>Sor a címkéje / a sorszáma alapján</td><td><code>df.loc[címke]</code> / <code>df.iloc[i]</code>; egy cella: <code>at</code> / <code>iat</code></td></tr>
+<tr><td>Új oszlop, átnevezés, oszloptörlés</td><td><code>df['uj'] = …</code>; <code>rename(columns=…)</code>; <code>del</code> / <code>drop(columns=…)</code></td></tr>
+<tr><td>Sorok egy feltétellel / több feltétellel</td><td><code>df[df['o'] &gt; x]</code> / <code>df[(…) &amp; (…)]</code></td></tr>
+<tr><td>„A legnagyobb / legkisebb N”</td><td><code>sort_values('o', ascending=False).head(N)</code></td></tr>
+<tr><td>„… kategóriánként” (összeg, átlag, darab)</td><td><code>groupby('kat')['o'].agg([...])</code></td></tr>
+<tr><td>DataFrame → lista / NumPy-tömb</td><td><code>df.values.tolist()</code> / <code>df.to_numpy()</code></td></tr>
+</table></div>
+</section>
+
+<!-- ===================================================== Kvíz -->
+<section id="kviz">
+<h2>Ellenőrző kvíz</h2>
+<p>14 kérdés a lecke egészéből, sok „mit ír ki?” feladattal – fejben is megoldhatók. Ha elakadsz, használd a 💡 Tipp gombot.</p>
+<div class="quiz" data-quiz="l11-vegso"></div>
+</section>
+
+<nav class="pager">
+  <a href="02-kosarelemzes.html">← 2. Kosárelemzés</a>
+  <a href="12-adattarolas-adattarhaz.html">12. Adattárolás és adattárház →</a>
+</nav>
+</main>
+</body>
+</html>

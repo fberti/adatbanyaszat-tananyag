@@ -51,6 +51,8 @@
   <li><a href="#lepes7">7. lépés – Standardizálás a tanítóhalmaz paramétereivel</a></li>
   <li><a href="#lepes8">8. lépés – Az <code>MLPClassifier</code> paraméterei és a leállás</a></li>
   <li><a href="#lepes9">9. lépés – Túltanulás: felismerés és ellenszerek</a></li>
+  <li><a href="#lepes10">10. lépés – Tanítási elvek: tanító, validációs és teszthalmaz; keresztvalidáció; hiperparaméter-hangolás</a></li>
+  <li><a href="#lepes11">11. lépés – Neurális hálók a BI-ban: alkalmazások, előnyök és nehézségek</a></li>
   <li><a href="#alkalmazas">Alkalmazás – a 6. gyakorlat: két háló és a döntési fa</a></li>
   <li><a href="#osszefoglalas">Összefoglalás és döntési táblázat</a></li>
   <li><a href="#kviz">Ellenőrző kvíz</a></li>
@@ -129,6 +131,14 @@
 
 <div class="box tip"><span class="box-title">🔤 Terminológia</span>
 <p><em>weight</em> = súly · <em>bias</em> / <em>intercept</em> = eltolás (a scikit-learnben <code>intercepts_</code>) · <em>weighted sum</em> = súlyozott összeg · <em>step function</em> = lépcsőfüggvény · <em>learning rate</em> = tanulási ráta ($\eta$).</p></div>
+
+<div class="box def"><span class="box-title">Az előadás szóhasználata – súly, elfogultság (bias), és mit „jelent” a neuron</span>
+<ul>
+<li><strong>Súly:</strong> minden kapcsolathoz tartozik egy; azt mondja meg, mekkora hatással van az adott bemenet a neuron kimenetére. A súlyok <strong>véletlen értékről indulnak</strong>, és a tanulás során folyamatosan módosulnak (ezért kell a <code>random_state</code> a megismételhetőséghez).</li>
+<li><strong>Elfogultság (bias):</strong> az előadás így nevezi a $b$ eltolást. Minden neuronnak van egy, és „a háló rugalmasságát, a modell jobb illesztését” szolgálja: nélküle a $z=0$ határ mindig átmenne az origón (1. példa: $b=-6$ tolja el a küszöböt). A statisztikai értelemben vett „torzítással” (bias) nem azonos.</li>
+<li><strong>Geometriai jelentés (tananyag):</strong> a súlyvektor a döntési (hiper)sík <em>normálvektora</em>. A $z=\sum w_ix_i+b$ előjele megmondja, a sík melyik oldalán van a pont – a neuron tehát egy elemi „melyik oldalon vagy?” döntést hoz. Ezt a határt vizsgáljuk a <a href="#lepes2">2. lépésben</a>.</li>
+</ul>
+</div>
 
 <details class="box practice"><summary>✏️ Gyakorlás – Perceptron kézzel (5 feladat)</summary>
 <p>Ahol mást nem mondunk: $w_1=0{,}3$, $w_2=1$, $b=-6$, és $\hat y=1$, ha $z\ge 0$.</p>
@@ -284,6 +294,32 @@
 <details class="solution"><summary>Megoldás</summary>
 <p>$7\cdot 8 + 8 = 64$ (1. rejtett) $\;+\; 8\cdot 4 + 4 = 36$ (2. rejtett) $\;+\; 4\cdot 1 + 1 = 5$ (kimenet) $= \mathbf{105}$.</p>
 <p>Ellenőrzés a betanított modellen: <code>model.coefs_</code> alakjai $(7,8)$, $(8,4)$, $(4,1)$, összesen 105 paraméter. A 85 tanítósorhoz képest ez már sok szabadsági fok – ennek még lesz jelentősége (9. lépés).</p></details>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – A háló kvalitatív és kvantitatív leírása; paraméter és hiperparaméter (előadás)</span>
+<ul>
+<li><strong>Kvalitatív leírás</strong>: a hálózat <em>szerkezete</em> (rétegek, neuronok, kapcsolatok), az <em>aktivációs</em> függvény(ek) és a <em>hibafüggvény</em> (veszteség) megadása. Ezt mi döntjük el, a tanítás előtt.</li>
+<li><strong>Hiperparaméterek</strong>: az előadás szerint a rejtett rétegek száma és rétegenként a neuronok száma. Tágabb értelemben minden, amit a tanítás <em>előtt</em> rögzítünk és a tanítás nem változtat: aktiváció, <code>solver</code>, tanulási ráta, <code>alpha</code>, <code>max_iter</code>, batch-méret.</li>
+<li><strong>Kvantitatív rész</strong>: a hálózat éleihez rendelt <strong>súlyok</strong> (és az eltolások). Ezeket a tanítás határozza meg a tanítóadatból – „egy neurális háló tanítása a súlyainak meghatározását jelenti”.</li>
+</ul>
+<p><strong>Miért fontos a különbség?</strong> A súlyokat a tanítóhalmazon optimalizáljuk; a hiperparamétereket nem lehet ugyanígy a tanítóhalmazon „megtanulni” (a nagyobb háló mindig kisebb tanítási veszteséget adna). Hozzájuk külön, a tanításban nem használt adat kell: validáció, keresztvalidáció (<a href="#lepes10">10. lépés</a>).</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – A gyakorlat hálója ebben a felosztásban</span>
+<p>Sorold be: <code>hidden_layer_sizes=(8, 4)</code>; ReLU a rejtett rétegekben; log-loss; <code>alpha=0.0001</code>; a 105 szám a <code>coefs_</code> és <code>intercepts_</code> tömbökben.</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Kvalitatív: a 7–8–4–1 szerkezet, a ReLU (rejtett) és a logisztikus (kimeneti) aktiváció, a log-loss hibafüggvény. Hiperparaméter: a (8, 4) – két rejtett réteg, 8 és 4 neuron –, tágabb értelemben az <code>alpha</code> is.
+Kvantitatív: a 105 betanult súly és eltolás. Ha a (8, 4)-et (16, 8)-ra cseréled, a kvalitatív leírás változik, és a kvantitatív rész 273 számra nő.</p></details>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Neurálisháló-típusok (tananyag)</span>
+<ul>
+<li><strong>MLP</strong>: többrétegű alapháló, egyetlen tulajdonságvektor a bemenete (ezt használjuk). Más hálótípusokban is megjelenik építőelemként.</li>
+<li><strong>CNN</strong> (konvolúciós háló): képek osztályozása – előbb helyi mintákat gyűjt a képből, ezekből tulajdonságvektort állít össze, és azt egy MLP-rész osztályozza.</li>
+<li><strong>RNN</strong> (rekurrens, visszacsatolásos háló; pl. LSTM): szekvenciák, idősorok – megőrzi a korábbi bemenetek hatását.</li>
+<li><strong>Transformer</strong>: jelsorozatok átalakítása; ezen alapulnak a nagy nyelvi modellek.</li>
+</ul>
+<p><em>Mélytanulás</em> (deep learning): a több rejtett réteget tartalmazó, összetettebb architektúrák gyűjtőneve.</p>
 </div>
 
 <div class="box warn"><span class="box-title">⚠ Buktató – ReLU ≠ szigmoid</span>
@@ -505,6 +541,30 @@
 
 <div class="box extra"><span class="box-title">➕ Kiegészítés (nem szerepelt a gyakorlaton) – az optimalizálók</span>
 <p><code>sgd</code>: sima (sztochasztikus) gradiens-lépés, a fenti szabály. <code>adam</code>: minden súlynak saját, adaptív lépésközt számol a korábbi gradiensek átlagából – általában gyorsabb és kevésbé érzékeny a rátára, ezért alapértelmezett. <code>lbfgs</code>: nem batch-ekben dolgozik, hanem az egész adaton egy kvázi-Newton módszerrel; kis adathalmazon gyakran jó. Nála a <code>max_iter</code> nem epochot, hanem optimalizálási iterációt jelent.</p></div>
+
+<div class="box def"><span class="box-title">Definíció – SGD és Adam (az előadás két gradiens alapú optimalizálója)</span>
+<p>Mindkettő a hibavisszaterjesztés által kiszámolt gradienst használja; abban különböznek, <em>mekkorát és merre</em> lépnek vele.</p>
+<ul>
+<li><strong>SGD</strong> (sztochasztikus gradiensereszkedés): minden batch után $w\leftarrow w-\eta\,\dfrac{\partial L}{\partial w}$, minden súlyra <strong>ugyanazzal</strong> a $\eta$-val. „Sztochasztikus”, mert a gradienst egy (véletlen összetételű) batch-en becsüli. A scikit-learn SGD-je alapból <em>lendületet</em> (momentum, 0,9) is használ: a korábbi lépések irányát részben megtartja.</li>
+<li><strong>Adam</strong> (<em>adaptive moment estimation</em>): súlyonként nyilvántartja a gradiensek mozgóátlagát és a gradiensnégyzetek mozgóátlagát, és ezekkel <strong>súlyonként saját lépésközt</strong> számol – ahol a gradiens tartósan kicsi, nagyobbat lép, ahol nagy és ingadozó, óvatosabbat.</li>
+</ul>
+<p><strong>Miért alapértelmezés az Adam?</strong> Kevésbé érzékeny a tanulási ráta megválasztására, és jellemzően kevesebb epoch alatt csökkenti a veszteséget. Az SGD egyszerűbb, és jól behangolt rátával ugyanolyan jó (sőt néha jobban általánosító) modellt adhat – de a rátát hangolni kell.</p>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés – a három solver a gyakorlat adatán (saját futtatás)</span>
+<p>(8, 4)-es háló, minden más a gyakorlat beállítása (<code>learning_rate_init=0.001</code>, <code>alpha=0.0001</code>, <code>max_iter=1000</code>, <code>tol=0.0001</code>, <code>n_iter_no_change=20</code>, <code>random_state=42</code>). Ugyanazokról a kezdősúlyokról indulnak (első veszteség: 0,612).</p>
+<div class="table-wrap"><table>
+<tr><th><code>solver</code></th><th class="num">iteráció</th><th>leállás oka</th><th class="num">végső veszteség</th><th class="num">tanító acc.</th><th class="num">teszt acc.</th></tr>
+<tr><td><code>adam</code></td><td class="num">1000</td><td><code>max_iter</code></td><td class="num">0,185</td><td class="num">0,941</td><td class="num">0,793</td></tr>
+<tr><td><code>sgd</code></td><td class="num">949</td><td><code>tol</code> (20 epoch javulás nélkül)</td><td class="num">0,407</td><td class="num">0,812</td><td class="num">0,759</td></tr>
+<tr><td><code>lbfgs</code></td><td class="num">74</td><td>konvergált</td><td class="num">0,001</td><td class="num">1,000</td><td class="num">0,793</td></tr>
+</table></div>
+<ul>
+<li>Ugyanazzal a 0,001-es rátával az SGD sokkal lassabban halad: 949 epoch után is 0,407 a vesztesége, és a <code>tol</code>-szabály leállítja, mert epochonként már 0,0001-nél kevesebbet javul. Ez az „ugyanaz a ráta minden súlyra” ára.</li>
+<li>Az lbfgs 74 iteráció alatt a tanítóhalmazt hibátlanul megtanulja (veszteség ≈ 0): kis adaton gyors, de túltanulásra hajlamos.</li>
+<li>A teszt-pontosságok 22–23 helyes hallgatót jelentenek a 29-ből – a solver itt főleg a <em>tanítás menetét</em> változtatja meg, nem a végeredményt.</li>
+</ul>
+</div>
 
 <details class="box practice"><summary>✏️ Gyakorlás – Gradiens, ráta, epoch (5 feladat)</summary>
 <ol>
@@ -750,6 +810,220 @@
 </section>
 
 <!-- ============================================================ -->
+<section id="lepes10">
+<h2>10. lépés – Tanítási elvek: tanító, validációs és teszthalmaz; keresztvalidáció; hiperparaméter-hangolás</h2>
+<p style="font-size:.92em"><em>Ez a lépés nem szerepelt a gyakorlaton: az ütemterv 4. témakörét („a gépi tanulás speciális elemei, tanítási elvek, túltanulás elkerülése”) és a tananyag 11. fejezetét dolgozza fel; a futtatások a mi kiegészítéseink.</em></p>
+
+<h4>Kis eset – hol válasszuk ki a beállítást?</h4>
+<p>A 9. lépés kiegészítésében négy beállítást próbáltunk ki, és a <em>teszt</em>en néztük meg, melyik a jobb. Ezzel a teszthalmaz is beleszólt a modell kiválasztásába, így a rajta mért szám már nem „sosem látott adaton” mért eredmény.
+A korai leállítás pedig 85 sorból 9-et vett el validációra – ez olyan zajos volt, hogy a háló 22 epoch után megállt. Két kérdés: <strong>hová tegyük a döntéseket, és hogyan használjuk ki jobban a kevés adatot?</strong></p>
+
+<div class="box def"><span class="box-title">Definíció – A három adathalmaz szerepe</span>
+<div class="table-wrap"><table>
+<tr><th>Halmaz</th><th>Mire való</th><th>Mikor használjuk</th></tr>
+<tr><td><strong>Tanító</strong></td><td>a <em>paraméterek</em> (súlyok, eltolások; fánál a vágások) meghatározása</td><td>minden tanítási lépésben</td></tr>
+<tr><td><strong>Validációs</strong></td><td>a <em>hiperparaméterek</em> kiválasztása, a korai leállítás; „a tanítás alatt időszakos ellenőrzés” (tananyag)</td><td>a tanítás közben / a modellek összevetésekor, többször</td></tr>
+<tr><td><strong>Teszt</strong></td><td>a végső, független teljesítménybecslés</td><td><strong>egyszer</strong>, a legvégén, amikor már minden döntés megszületett</td></tr>
+</table></div>
+<p>A három halmaz <strong>diszjunkt</strong>: egy sor csak az egyikben lehet. A tananyag Keras-példája 70% / 15% / 15%-ot használ, két <code>train_test_split</code>-tel (előbb 30% leválasztása, majd annak felezése).</p>
+<p><strong>Miért három?</strong> Amelyik halmazon döntést hozunk, azon a mért eredmény optimista lesz. A tanítón a súlyokról döntünk, a validáción a beállításokról – a tesztre így marad egy olyan halmaz, amelyről semmilyen döntés nem született.</p>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – $k$-szoros keresztvalidáció</span>
+<p>A tanítóhalmazt $k$ egyforma részre (<em>fold</em>) bontjuk. $k$-szor tanítunk: mindig $k-1$ részen, és a kimaradt egy részen mérünk. Az eredmény a $k$ mérés <strong>átlaga</strong> (és szórása).</p>
+<ul>
+<li>Minden tanítósor pontosan egyszer validációs, $k-1$-szer tanító.</li>
+<li><strong>Rétegzett</strong> változat (<code>StratifiedKFold</code>): minden részben megmarad az osztályarány – kiegyensúlyozatlan adatnál ez kell.</li>
+<li>Tipikus $k$: 5 vagy 10. sklearn: <code>cross_val_score(modell, X_train, y_train, cv=5)</code>.</li>
+</ul>
+<p><strong>Miért?</strong> Egyetlen validációs rész kicsi adatnál nagyon zajos (9 sor: egy hallgató 11 százalékpont). Keresztvalidációval minden sor részt vesz a validálásban, és a szórásból azt is látjuk, mennyire bízhatunk az átlagban.</p>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Hiperparaméter-hangolás rácskereséssel (<code>GridSearchCV</code>)</span>
+<ol>
+<li>Megadjuk a kipróbálandó értékeket (a „rácsot”), pl. <code>{"max_depth": [1, 2, 3, 4, 5, None]}</code>.</li>
+<li>Minden kombinációra $k$-szoros keresztvalidáció a <strong>tanítóhalmazon</strong>.</li>
+<li>A legjobb átlagú kombinációval a modellt a <strong>teljes tanítóhalmazon</strong> újratanítja (<code>refit=True</code>).</li>
+<li>Ezt a modellt mérjük <strong>egyszer</strong> a teszten.</li>
+</ol>
+<p>Tanítások száma: (kombinációk száma) × $k$ + 1. A teljes előkészítést (pl. a <code>StandardScaler</code>-t) <code>Pipeline</code>-ba tesszük, hogy minden foldban csak az ottani tanítórészen illesztődjön.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – 70 / 15 / 15</span>
+<p>1000 sor. Hány sor kerül az egyes halmazokba, és hogyan írod meg?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>700 tanító, 150 validációs, 150 teszt.</p>
+<pre><code class="language-python">X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.3, stratify=y, random_state=42)
+X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, stratify=y_temp, random_state=42)
+scaler = StandardScaler().fit(X_train)       # csak a tanítón!</code></pre></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Keresztvalidáció kézzel</span>
+<p>10 tanítósor, 5 fold (2-2 sor). A modell a kimaradt részeken ennyit talál el: 2, 1, 2, 1, 2. Mennyi a keresztvalidált pontosság és a szórása?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Fold-pontosságok: 1; 0,5; 1; 0,5; 1. Átlag: $4/5=0{,}8$. Szórás: $\sqrt{\tfrac{3\cdot0{,}2^2+2\cdot0{,}3^2}{5}}=\sqrt{0{,}06}\approx0{,}245$.
+Az 5 modell mindegyike 8 soron tanult; a végső modellt mind a 10 soron tanítjuk újra.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – A döntési fa mélysége keresztvalidációval (saját futtatás)</span>
+<p>A gyakorlat 85 tanítósora, rétegzett 5-szörös keresztvalidáció (<code>StratifiedKFold(5, shuffle=True, random_state=42)</code>): minden foldban 68 tanító és 17 validációs sor (ebből 5 „no”).</p>
+<div class="table-wrap"><table>
+<tr><th class="num">max_depth</th><th class="num">1</th><th class="num">2</th><th class="num">3</th><th class="num">4</th><th class="num">5</th><th class="num">korlátlan</th><th class="num">többségi alapmodell</th></tr>
+<tr><td>CV-pontosság (átlag ± szórás)</td><td class="num">0,659 ± 0,108</td><td class="num">0,612 ± 0,047</td><td class="num">0,576 ± 0,086</td><td class="num">0,541 ± 0,094</td><td class="num">0,553 ± 0,071</td><td class="num">0,565 ± 0,080</td><td class="num">0,706</td></tr>
+</table></div>
+<details class="solution"><summary>Megoldás – mit mond ez?</summary>
+<ul>
+<li>A rácskeresés a <strong>mélység 1</strong>-et választja (a foldokban 11, 13, 8, 11, 13 helyes a 17-ből). Az 5. lecke táblázata a teszt alapján a 2-t hozta ki – egyetlen, 29 fős felosztás alapján.</li>
+<li>Meglepő: a tanítóhalmazon belül <em>egyik</em> mélység sem éri el az alapmodell 0,706-ját. A fa 0,724-es teszt-accuracy-je tehát nem bizonyít semmilyen előnyt; a keresztvalidáció ezt becsületesebben mutatja.</li>
+<li>A szórás (0,05–0,11) nagyobb, mint a mélységek közötti különbségek egy része: 85 soron a finom sorrend nem megbízható – a durva trend (a mélyebb fa nem jobb) viszont igen.</li>
+</ul></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 4 – Az MLP hangolása <code>GridSearchCV</code>-vel (saját futtatás)</span>
+<pre><code class="language-python">pipe = Pipeline([("sc", StandardScaler()),
+                 ("mlp", MLPClassifier(max_iter=1000, random_state=42))])
+grid = {"mlp__hidden_layer_sizes": [(8, 4), (16, 8)], "mlp__alpha": [0.0001, 0.1, 1, 3]}
+search = GridSearchCV(pipe, grid, cv=StratifiedKFold(5, shuffle=True, random_state=42),
+                      scoring="accuracy").fit(X_train, y_train)
+print(search.best_params_, search.best_score_, search.score(X_test, y_test))</code></pre>
+<div class="table-wrap"><table>
+<tr><th>CV-pontosság</th><th class="num">alpha = 0,0001</th><th class="num">0,1</th><th class="num">1</th><th class="num">3</th></tr>
+<tr><td>(8, 4)</td><td class="num">0,612</td><td class="num">0,600</td><td class="num">0,706</td><td class="num">0,729</td></tr>
+<tr><td>(16, 8)</td><td class="num">0,694</td><td class="num">0,682</td><td class="num">0,729</td><td class="num"><strong>0,753</strong></td></tr>
+</table></div>
+<details class="solution"><summary>Megoldás – értelmezés</summary>
+<ul>
+<li>8 kombináció × 5 fold = 40 tanítás, plusz 1 újratanítás a teljes tanítóhalmazon.</li>
+<li>Győztes: (16, 8), <code>alpha=3</code>, CV-pontosság 0,753 (szórás 0,114). A teszten <strong>egyszer</strong> mérve: 0,759 (balanced 0,717).</li>
+<li>A gyakorlat beállítása ((8, 4), <code>alpha=0.0001</code>) keresztvalidálva csak 0,612 – a teszten mért 0,793-a valószínűleg részben szerencse. 85 sorhoz 105–273 paraméter: az <strong>erős regularizáció</strong> segít, épp ahogy a 9. lépés elve mondja.</li>
+<li>A hangolt modell teszt-eredménye (0,759) kisebb, mint a hangolatlané (0,793) – és ez rendben van: a 29 fős teszt egy-két hallgatónyi zaja ennyi. A döntést a keresztvalidáció alapján hozzuk, a teszt csak a végső becslés.</li>
+</ul></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktatók</span>
+<ul>
+<li><strong>Standardizálás a felosztás előtt = adatszivárgás – a keresztvalidációban is.</strong> Ha a scalert az egész <code>X_train</code>-re illeszted, és utána keresztvalidálsz, minden validációs fold „belelátott” a saját átlagába. Ezért kell a <code>Pipeline</code>.
+(A tananyag Keras-mintapéldája is a teljes adaton illeszti a scalert – <code>scaler.fit_transform(X)</code> – a felosztás <em>előtt</em>; helyesen a tanítórészen kellene, ahogy a 6. gyakorlat kódja teszi.)</li>
+<li>A <code>GridSearchCV</code>-be a <strong>tanítóhalmazt</strong> adod, nem a teljes adatot – különben a teszt is részt vesz a választásban.</li>
+<li>A keresztvalidáció <em>modellválasztásra és becslésre</em> való; a végső modell egyetlen, a teljes tanítóhalmazon tanított modell (nem az 5 fold-modell).</li>
+<li>Kis adaton a CV-átlag is bizonytalan: két beállítás között a szórásnál kisebb különbség nem bizonyít semmit.</li>
+<li>Minél nagyobb a rács, annál drágább: 5 hiperparaméter × 4 érték × 5 fold = $4^5\cdot5=5120$ tanítás.</li>
+</ul>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés – regularizáció és dropout a neurális hálóban</span>
+<ul>
+<li><strong>L2</strong> (<code>alpha</code>, <em>weight decay</em>): $\sum w^2$-tel bünteti a súlyokat – kicsi, „szétkent” súlyok. <strong>L1</strong> (Lasso, a tananyag említi): $\sum |w|$-vel bünteti, sok súlyt pontosan 0-ra nyom. Az <code>MLPClassifier</code> csak L2-t tud.</li>
+<li><strong>Dropout</strong> (a tananyag szavával: „a neurális háló egyes elemeinek passziválása”): tanítás közben minden lépésben véletlenszerűen kikapcsolja a neuronok egy részét (pl. 50%-ot). A háló így nem támaszkodhat egyetlen neuronra sem, „redundánsan” kell tanulnia. Előrejelzéskor minden neuron működik. 8 neuronos rétegnél 0,5-ös aránnyal lépésenként átlagosan 4 dolgozik. Kerasban: <code>keras.layers.Dropout(0.5)</code>; a scikit-learn MLP-jében nincs.</li>
+<li><strong>Korai leállítás</strong> a validációs veszteség/pontosság alapján (9. lépés) – nagyobb adaton, elég nagy validációs résszel.</li>
+<li><strong>Az adat kiigazítása</strong>: több adat, mesterséges zaj a bemenetekhez, képeknél forgatás/tükrözés (<em>adatbővítés</em>).</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia</span>
+<p><em>training / validation / test set</em> = tanító / validációs / teszthalmaz · <em>k-fold cross-validation</em> = $k$-szoros keresztvalidáció · <em>fold</em> = rész · <em>stratified</em> = rétegzett ·
+<em>hyperparameter tuning</em> = hiperparaméter-hangolás · <em>grid search</em> = rácskeresés · <em>refit</em> = újratanítás · <em>pipeline</em> = feldolgozási lánc · <em>dropout</em> = neuronkiejtés · <em>data augmentation</em> = adatbővítés.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Tanítási elvek (5 feladat)</summary>
+<ol>
+  <li><p>1200 sor, 70 / 15 / 15. Hány sor jut az egyes halmazokba? Melyiken állítod be a <code>StandardScaler</code>-t?</p>
+    <details class="solution"><summary>Megoldás</summary><p>840 / 180 / 180. A scalert csak a 840 tanítósoron illeszted (<code>fit</code>), a másik kettőre <code>transform</code>.</p></details></li>
+  <li><p>85 tanítósor, 5-szörös keresztvalidáció, 6 kipróbált mélység. Hány sor validációs egy foldban, és hány fát tanít a <code>GridSearchCV</code> összesen?</p>
+    <details class="solution"><summary>Megoldás</summary><p>17 validációs, 68 tanító sor foldonként. $6\cdot5=30$ fa a keresztvalidációban, plusz 1 újratanítás: <strong>31</strong>.</p></details></li>
+  <li><p>Fold-pontosságok: 0,8; 0,6; 0,7; 0,9; 0,5. Átlag és (populációs) szórás? Egy másik modellé 0,72 ± 0,15. Melyik a jobb?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Átlag 0,7; szórás $$\sqrt{(0{,}01+0{,}01+0+0{,}04+0{,}04)/5}=\sqrt{0{,}02}\approx0{,}141.$$ A 0,02-es különbség jóval kisebb a szórásnál: ebből nem lehet sorrendet mondani.</p></details></li>
+  <li><p>Mi a hiba ebben a kódban? <code>X_s = StandardScaler().fit_transform(X_train)</code>, majd <code>cross_val_score(MLPClassifier(), X_s, y_train, cv=5)</code>.</p>
+    <details class="solution"><summary>Megoldás</summary><p>A scaler a teljes tanítóhalmazon illeszkedett, így minden validációs fold átlaga és szórása is benne van – enyhe adatszivárgás, optimista CV-eredmény. Helyesen: <code>cross_val_score(make_pipeline(StandardScaler(), MLPClassifier()), X_train, y_train, cv=5)</code>.</p></details></li>
+  <li><p>Egy 8 neuronos rejtett rétegre 0,25-ös dropoutot teszel. Tanításkor lépésenként átlagosan hány neuron dolgozik, és hány előrejelzéskor?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Tanításkor átlagosan $8\cdot0{,}75=6$ (a kikapcsoltak lépésenként mások). Előrejelzéskor mind a 8.</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l06-lepes10"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes11">
+<h2>11. lépés – Neurális hálók a BI-ban: alkalmazások, előnyök és nehézségek</h2>
+<p style="font-size:.92em"><em>Az előadás (BI-alkalmazások, „További témák” Q9–Q11) és a tananyag 11. és 13. fejezete alapján.</em></p>
+
+<h4>Kis eset – csalásfelderítés egy banknál</h4>
+<p>A bank minden kártyás tranzakcióról tudja az összeget, a helyszínt, az időpontot, és azt, hogy a múltban mely tranzakciók bizonyultak csalásnak. A háló „megtanulja az ügyfél normál költési szokásait, és azonnal felismeri a jelentősen eltérő tranzakciókat” (előadás).
+Ez ugyanaz a munkafolyamat, mint a hallgatói adaton: <strong>X</strong> = a tranzakció jellemzői, <strong>y</strong> = csalás / nem csalás; az osztályok erősen kiegyensúlyozatlanok (5. lecke, 7. lépés: a „soha nem csalás” modell 95%-os!), ezért a csalásokra vett recall és precision a fontos mérőszám.</p>
+
+<div class="box def"><span class="box-title">Definíció – Neurális hálók a BI-ban (az előadás felsorolása)</span>
+<div class="table-wrap"><table>
+<tr><th>Alkalmazás</th><th>Bemenet (X)</th><th>Kimenet</th><th>Feladattípus</th></tr>
+<tr><td>Csalásfelderítés</td><td>tranzakció: összeg, helyszín, időpont</td><td>csalás-e</td><td>osztályozás / anomáliafelismerés</td></tr>
+<tr><td>Kockázatértékelés (hitelképesség)</td><td>jövedelem, hiteltörténet, foglalkozás – akár több ezer változó</td><td>kockázati besorolás</td><td>osztályozás</td></tr>
+<tr><td>Tőzsdei előrejelzés</td><td>árfolyamok, hírek, gazdasági mutatók</td><td>várható árfolyam-mozgás</td><td>regresszió / idősor</td></tr>
+<tr><td>Vevői szegmentáció</td><td>vásárlási szokások, böngészés, demográfia</td><td>csoportok (előre nem definiált)</td><td>nem felügyelt (klaszterezés)</td></tr>
+<tr><td>Kereslet-előrejelzés</td><td>múltbeli eladások, szezonalitás, promóciók, versenytársak</td><td>várható kereslet</td><td>regresszió / idősor</td></tr>
+<tr><td>Ajánlórendszer</td><td>az ügyfél korábbi viselkedése</td><td>személyre szabott ajánlás (mit vesz meg / néz meg nagy valószínűséggel)</td><td>rangsorolás, valószínűség-becslés</td></tr>
+<tr><td>Minőségellenőrzés</td><td>a gyártósor kameraképei</td><td>hibás-e a termék</td><td>képosztályozás (CNN)</td></tr>
+<tr><td>Prediktív karbantartás</td><td>szenzoradatok: rezgés, hőmérséklet, nyomás</td><td>mikor kell karbantartás / meghibásodik-e hamarosan</td><td>osztályozás vagy regresszió (idősor)</td></tr>
+<tr><td>Útvonal-optimalizálás</td><td>forgalmi adatok, időjárás, határidők</td><td>szállítási útvonal</td><td>előrejelzés + optimalizálás</td></tr>
+</table></div>
+<p>A „feladattípus” oszlop a mi besorolásunk: a neurális háló nem csak osztályozásra való – regresszióra (<code>MLPRegressor</code>), idősorokra (RNN, LSTM) és nem felügyelt feladatokra is vannak változatai.</p>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Miért hatékony a neurális háló, és miért gépi tanulás? (Q9, Q10)</span>
+<p><strong>Q9 – miért hatékony?</strong></p>
+<ul>
+<li><strong>Univerzális függvényközelítő</strong> (tananyag): elég nagy hálóval szinte bármilyen bemenet–kimenet kapcsolat közelíthető. A kulcs a nemlineáris aktiváció (3. lépés: nélküle a rétegek egyetlen lineáris függvénnyé olvadnak).</li>
+<li><strong>Maga alakítja ki a jellemzőket</strong>: a rejtett rétegek „a bemeneti adatokból bonyolultabb mintázatokat vonnak ki” (előadás) – a 4. lépés XOR-hálójában $h_1$ és $h_2$ ilyen, magától kialakuló új jellemző.</li>
+<li><strong>Skálázódik</strong>: több adattal és több számítási kapacitással (párhuzamos mátrixműveletek, GPU) tovább javul, és sokféle adatra van architektúra (kép: CNN, sorozat: RNN, szöveg: Transformer).</li>
+</ul>
+<p><strong>Q10 – miért gépi tanulási módszer?</strong> Mert a döntési logikát senki nem programozza be: a háló viselkedését a súlyok határozzák meg, és a súlyokat egy algoritmus (hibavisszaterjesztés + gradiens alapú optimalizálás) <strong>a tanítóadatból</strong> határozza meg. A cél, hogy a tanult modell <em>új</em> esetekre is jól általánosítson. (Fogalomtár: a gépi tanulás „a döntési modellek automatikus felépítésére szolgáló módszereket öleli fel”.)</p>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – A neurális hálós módszerek nehézségei (Q11)</span>
+<div class="table-wrap"><table>
+<tr><th>Nehézség</th><th>Hol láttuk ebben a leckében?</th></tr>
+<tr><td><strong>Adatigény</strong> – sok paraméter, sok adat kell</td><td>85 tanítósor, 105 ill. 273 paraméter; keresztvalidálva a gyakorlat hálója 0,612 (<a href="#lepes10">10. lépés</a>)</td></tr>
+<tr><td><strong>Túltanulás</strong></td><td>tanító 94–99%, teszt 79%; emelkedő teszt-veszteség (<a href="#lepes9">9. lépés</a>)</td></tr>
+<tr><td><strong>Sok hiperparaméter</strong>, költséges hangolás</td><td>rétegek, neuronok, aktiváció, solver, ráta, <code>alpha</code>, epoch – egy kis rács is 41 tanítás</td></tr>
+<tr><td><strong>Számításigény</strong></td><td>1000 epoch egy 85 soros adaton; nagy adatnál GPU kell</td></tr>
+<tr><td><strong>A véletlen kezdősúlyoktól függ</strong> (nem konvex veszteség, lokális minimumok)</td><td>a (8, 4)-es háló <code>random_state=0…9</code> mellett 0,724–0,828 teszt-pontosság (21–24 helyes a 29-ből)</td></tr>
+<tr><td><strong>Előkészítést igényel</strong></td><td>standardizálás, one-hot kódolás (<a href="#lepes7">7. lépés</a>)</td></tr>
+<tr><td><strong>„Fekete doboz”</strong>: nehéz megindokolni a döntést</td><td>a fa szabályaival szemben 105 súly (<a href="#alkalmazas">Alkalmazás</a>); a GDPR és a diszkriminációmentesség (előadás: az adatbányászat kihívásai) miatt ez üzletileg is kockázat</td></tr>
+</table></div>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa – Mennyit ér egy szám a véletlen kezdősúlyok mellett?</span>
+<p>A gyakorlat (8, 4)-es hálóját tíz különböző <code>random_state</code>-tel (0–9) tanítottuk, minden más változatlan. Teszt-pontosságok: 0,759; 0,724; 0,828; 0,828; 0,793; 0,724; 0,724; 0,759; 0,793; 0,724. Mit jelent ez a gyakorlat 0,793-as eredményére?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Átlag 0,766, terjedelem 0,724–0,828 (21–24 helyes hallgató). A 0,793 tehát egy lehetséges kimenet a sok közül; ugyanazzal a hálóval ugyanazon az adaton a fa 0,724-ét is kaphattuk volna. Ezért jelentünk kis adaton több futás vagy keresztvalidáció átlagát, és ezért rögzítjük a <code>random_state</code>-et, ha egy eredményt reprodukálni kell.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktatók</span>
+<ul>
+<li>„A neurális háló a leghatékonyabb módszer” (tananyag) – <em>sok adatnál és bonyolult (kép, szöveg, hang) bemenetnél</em> igen. Kicsi, táblázatos adaton egy fa, egy véletlen erdő vagy egy logisztikus regresszió gyakran ugyanolyan jó, olcsóbb és értelmezhetőbb (5. lecke, 10. lépés).</li>
+<li>A vevői szegmentáció <strong>nem</strong> osztályozás: nincsenek előre definiált csoportok, nincs címke – nem felügyelt feladat (mint a K-means).</li>
+<li>Csalásfelderítésnél és karbantartásnál az accuracy félrevezet (ritka a pozitív eset): recall, precision, AUC kell.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – NN a BI-ban (5 feladat)</summary>
+<ol>
+  <li><p>Melyik feladattípus? (a) Egy webáruház a jövő heti eladott darabszámot becsli. (b) Egy gyár eldönti, hogy egy gép 7 napon belül meghibásodik-e. (c) Egy bank címke nélkül csoportosítja az ügyfeleit.</p>
+    <details class="solution"><summary>Megoldás</summary><p>(a) Regresszió (idősor). (b) Bináris osztályozás. (c) Nem felügyelt tanulás, klaszterezés.</p></details></li>
+  <li><p>Csalásfelderítés: a tranzakciók 0,5%-a csalás. Miért nem jó mérőszám az accuracy, és mit néznél helyette?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A „soha nem csalás” modell 99,5%-os accuracy-t ér el, miközben egyetlen csalást sem talál. A csalás osztály recallja (mennyit fogunk meg), precisionja (a riasztások mekkora része valódi), illetve az AUC.</p></details></li>
+  <li><p>Röviden: miért nevezzük a neurális hálót gépi tanulási módszernek?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Mert a viselkedését meghatározó súlyokat nem kézzel adjuk meg, hanem egy algoritmus (hibavisszaterjesztés + optimalizáló) a tanítóadatból határozza meg úgy, hogy a hiba minimális legyen, és a modell új esetekre is általánosítson.</p></details></li>
+  <li><p>Egy hallgató azt mondja: „A neurális háló mindig jobb a döntési fánál, mert univerzális függvényközelítő.” Mit válaszolsz a gyakorlat adatai alapján?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Az univerzális közelítés azt jelenti, hogy <em>képes</em> bonyolult kapcsolatot leírni – nem azt, hogy kevés adatból meg is tanulja. 85 soron a háló 105–273 paraméterrel túltanul, a véletlen kezdősúlyoktól függően 0,724 és 0,828 között szór, keresztvalidálva pedig nem jobb az alapmodellnél. Kis táblázatos adaton a fa (vagy erdő) versenyképes, és értelmezhető.</p></details></li>
+  <li><p>Párosítsd a nehézséget az ellenszerével: túltanulás · véletlen kezdősúlyok miatti szórás · fekete doboz · sok hiperparaméter.</p>
+    <details class="solution"><summary>Megoldás</summary><p>Túltanulás → regularizáció, korai leállítás, kisebb háló, több adat. Szórás → több futás átlaga / keresztvalidáció, rögzített <code>random_state</code> a reprodukálhatósághoz. Fekete doboz → értelmezhető modell választása, ha indokolni kell. Sok hiperparaméter → rendszerezett hangolás (<code>GridSearchCV</code>) a tanítóhalmazon.</p></details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l06-lepes11"></div>
+</section>
+
+<!-- ============================================================ -->
 <section id="alkalmazas">
 <h2>Alkalmazás – a 6. gyakorlat: két háló és a döntési fa</h2>
 
@@ -846,6 +1120,9 @@ print(classification_report(y_test, y_pred, labels=model.classes_, zero_division
 <li><strong>Tanítás:</strong> előreterjesztés → veszteség (log-loss + L2) → hibavisszaterjesztés (gradiens) → optimalizáló lépés ($\eta$). Epoch = a teljes tanítóhalmaz egyszer; batch = egy frissítés példái.</li>
 <li><strong>Előkészítés:</strong> standardizálás a tanítóhalmaz $\mu$-jével és $\sigma$-jával (<code>fit_transform</code> a tanítón, <code>transform</code> a többin).</li>
 <li><strong>Minőség:</strong> a kis tanítási veszteség kevés; az új adaton mért teljesítmény számít. Túltanulás: tanító javul, validáció romlik. Ellenszer: regularizáció, validáció, korai leállítás, kisebb háló.</li>
+<li><strong>Leírás:</strong> kvalitatív (szerkezet, aktiváció, hibafüggvény) és kvantitatív (súlyok) rész; hiperparaméter = a rejtett rétegek és neuronok száma (tágabban: minden tanítás előtt rögzített beállítás). Az eltolás az előadásban: elfogultság (bias). Optimalizáló: SGD (közös ráta) vagy Adam (súlyonként adaptív lépés).</li>
+<li><strong>Tanítási elvek:</strong> tanító (súlyok) / validációs (hiperparaméterek, korai leállítás) / teszt (egyszer, a végén). Kevés adatnál rétegzett $k$-szoros keresztvalidáció; hangolás <code>GridSearchCV</code>-vel, a scalerrel együtt <code>Pipeline</code>-ban.</li>
+<li><strong>BI:</strong> csalásfelderítés, kockázatértékelés, kereslet-előrejelzés, ajánlórendszer, minőségellenőrzés, prediktív karbantartás… Előny: univerzális, maga alakítja ki a jellemzőket, skálázódik. Nehézség: adatigény, túltanulás, sok hiperparaméter, véletlen kezdősúlyok, fekete doboz.</li>
 <li><strong>A gyakorlat eredménye:</strong> MLP 79,3% vs. döntési fa 72,4% a teszten (azonos recall, jobb precision); a nagyobb háló nem lett jobb, csak jobban túltanult. Értelmezhetőségben a fa nyer.</li>
 </ul>
 
@@ -864,6 +1141,12 @@ print(classification_report(y_test, y_pred, labels=model.classes_, zero_division
 <tr><td>Tanító ≫ teszt teljesítmény</td><td>Túltanulás → <code>alpha</code>↑, kisebb háló, <code>early_stopping=True</code>, validáció</td></tr>
 <tr><td>Tanító és teszt is gyenge</td><td>Alultanulás → több epoch, nagyobb háló, kisebb <code>alpha</code></td></tr>
 <tr><td>„Melyik az értelmezhetőbb?”</td><td>Döntési fa (szabályok, ábra); MLP: „fekete doboz”</td></tr>
+<tr><td>„Paraméter vagy hiperparaméter?”</td><td>A tanítás állítja be (súly, eltolás) → paraméter; előre rögzítjük (rétegek, neuronok, <code>alpha</code>, ráta) → hiperparaméter</td></tr>
+<tr><td>SGD vagy Adam?</td><td>Adam: súlyonként adaptív lépés, kevésbé érzékeny a rátára (alapértelmezés); SGD: minden súlyra ugyanaz a $\eta$, hangolni kell</td></tr>
+<tr><td>Hiperparaméter kiválasztása, kevés adat</td><td>Rétegzett $k$-szoros keresztvalidáció a tanítóhalmazon (<code>GridSearchCV</code> + <code>Pipeline</code>); a teszt egyszer, a végén</td></tr>
+<tr><td>Elég adat, külön ellenőrzés a tanítás alatt</td><td>Tanító / validációs / teszt felosztás (pl. 70 / 15 / 15), korai leállítás a validáción</td></tr>
+<tr><td>„Hány tanítás a rácskeresés?”</td><td>kombinációk × $k$ + 1 (újratanítás)</td></tr>
+<tr><td>„Mire jó a neurális háló a BI-ban?” / „Mik a nehézségei?”</td><td>Alkalmazási táblázat (11. lépés); Q11: adatigény, túltanulás, hiperparaméterek, számításigény, véletlen kezdősúlyok, fekete doboz</td></tr>
 </table></div>
 </section>
 
@@ -874,7 +1157,7 @@ print(classification_report(y_test, y_pred, labels=model.classes_, zero_division
 
 <nav class="pager">
   <a href="05-dontesi-fa.html">← 5. Döntési fa</a>
-  <a href="07-sql-ablakfuggvenyek.html">7. SQL ablakfüggvények →</a>
+  <a href="08-osszefoglalas.html">8. Összefoglalás →</a>
 </nav>
 </main>
 </body>

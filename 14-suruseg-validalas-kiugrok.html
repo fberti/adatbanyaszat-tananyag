@@ -1,0 +1,920 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sűrűség, validálás, kiugrók</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script defer src="assets/quiz.js"></script>
+<script defer src="quiz/14.js"></script>          <!-- a lecke kvízei -->
+<script defer src="assets/common.js"></script>    <!-- MINDIG az utolsó -->
+</head>
+<body>
+<nav class="topnav"><div class="inner">
+  <a href="index.html">← Tartalom</a>
+  <span>14. lecke · Sűrűség, validálás, kiugrók</span>
+  <span class="spacer"></span>
+  <button id="theme-toggle" type="button" title="Világos/sötét téma">◐</button>
+</div></nav>
+<main>
+<p class="kicker">14. lecke · 3. témakör · kiegészítő előadásanyag</p>
+<h1>Távolságok és hasonlóságok, sűrűség alapú klaszterezés, validálás és kiugró rekordok</h1>
+<p class="lead">A 3–4. leckében az euklideszi távolsággal, K-means-szel és hierarchikus módszerrel csoportosítottunk. Most kibővítjük az eszköztárat: másféle távolság- és hasonlósági mértékek, a sűrűség alapú DBSCAN, a klaszterezés jóságának mérése, és végül a „kilógó” rekordok keresése.</p>
+
+<section id="motivacio">
+<h2>Motiváció</h2>
+<p>A bolt 120 törzsvásárlója mellé (3. gyakorlat) jelentkezik egy új vásárló, <strong>U</strong>: egy hónap alatt mindössze <strong>3-szor</strong> vásárolt, de összesen <strong>200 000 Ft</strong>-ot költött. Ránézésre egyik szám sem rendkívüli: van, aki ennél ritkábban jár, és van, aki többet költ.</p>
+<div class="box tip"><span class="box-title">🎯 A lecke kérdése</span>
+<p>Gyanús-e U? Hogyan lehetne <strong>automatikusan</strong> észrevenni az ilyen vásárlót – egy csalásfelderítő rendszer pont ezt csinálja? És hogyan kaphatunk klasztereket úgy, hogy közben a „sehová sem illő” pontokat is megjelöljük, ahelyett, hogy (mint a K-means) mindenkit erőszakkal besorolnánk?</p>
+</div>
+<p>A lecke végén megmutatjuk (a gyakorlat valódi adatán, ténylegesen futtatott kóddal), hogy U-t a z-pontszám és az IQR-szabály <em>nem</em> veszi észre, a sűrűség és távolság alapú módszerek viszont egyértelműen kiszúrják.</p>
+</section>
+
+<section id="utiterv">
+<h2>Útiterv</h2>
+<ol class="roadmap">
+  <li><a href="#lepes1">1. lépés – A távolság fogalma és a Minkowski-család</a></li>
+  <li><a href="#lepes2">2. lépés – Mahalanobis-távolság: amikor a változók együtt mozognak</a></li>
+  <li><a href="#lepes3">3. lépés – Hasonlóság bináris adaton: egyszerű egyezés és Jaccard</a></li>
+  <li><a href="#lepes4">4. lépés – Koszinusz-hasonlóság és korreláció</a></li>
+  <li><a href="#lepes5">5. lépés – Sűrűség, szegmentációfajták, klasztertípusok</a></li>
+  <li><a href="#lepes6">6. lépés – A DBSCAN algoritmus</a></li>
+  <li><a href="#lepes7">7. lépés – Klaszter-validálás: kohézió, szeparáció, Davies–Bouldin</a></li>
+  <li><a href="#lepes8">8. lépés – Kiugró rekordok: fogalom, grafikus és statisztikai módszerek</a></li>
+  <li><a href="#lepes9">9. lépés – Távolság és sűrűség alapú kiugró-keresés</a></li>
+  <li><a href="#alkalmazas">Alkalmazás – DBSCAN és kiugró-keresés a gyakorlat adatán</a></li>
+  <li><a href="#osszefoglalas">Összefoglalás és döntési táblázat</a></li>
+  <li><a href="#kviz">Ellenőrző kvíz</a></li>
+</ol>
+<p>Előismeret: euklideszi távolság és standardizálás (<a href="03-kmeans.html#lepes3">3. lecke, 3–4. lépés</a>), inertia és sziluett (<a href="03-kmeans.html#lepes6">3. lecke, 6.</a> és <a href="03-kmeans.html#lepes9">9. lépés</a>), kapcsolási módok (<a href="04-hierarchikus-klaszterezes.html#lepes2">4. lecke</a>), IQR és dobozábra (<a href="01-adattisztitas.html#lepes7">1. lecke, 7. lépés</a>).</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes1">
+<h2>1. lépés – A távolság fogalma és a Minkowski-család</h2>
+<p>A 3. leckében a „hasonló” egyet jelentett az euklideszi távolsággal. De ugyanazt a két pontot többféleképpen is lehet „messzinek” mérni.</p>
+
+<h4>Kis eset</h4>
+<p>Egy város utcái derékszögű rácsot alkotnak. Az $A=(1;2)$ sarokról a $B=(4;6)$ sarokra mennél: 3 háztömb keletre, 4 északra.</p>
+<ul>
+<li><strong>Gyalog, az utcákon</strong>: $3+4=7$ háztömb.</li>
+<li><strong>Légvonalban</strong> (Pitagorasz): $\sqrt{3^2+4^2}=5$.</li>
+<li><strong>Ha a hosszabbik irány számít</strong> (pl. egy daru, amely egyszerre mozog mindkét irányban): $\max(3;4)=4$.</li>
+</ul>
+<p>Mindhárom a koordináták különbségeiből (3 és 4) készül, csak másképp „összegezzük” őket.</p>
+
+<div class="box def"><span class="box-title">Definíció – Távolság (metrika)</span>
+<p>Távolságnak egy olyan $d(p,q)$ függvényt nevezünk az $n$ dimenziós rekordok (pontok) halmazán, amelyre minden $p,q,r$ esetén:</p>
+<ol>
+<li>$d(p,q)\ge 0$, és $d(p,q)=0$ pontosan akkor, ha $p=q$ (nemnegativitás);</li>
+<li>$d(p,q)=d(q,p)$ (szimmetria);</li>
+<li>$d(p,r)\le d(p,q)+d(q,r)$ (háromszög-egyenlőtlenség: kerülővel nem lehet rövidebb).</li>
+</ol>
+<p>A <strong>hasonlóság</strong> ennek a „fordítottja”: minél nagyobb, annál hasonlóbb a két rekord (3. lépés). A kettőt együtt <strong>szomszédságnak</strong> (<em>proximity</em>) is nevezik.</p>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Minkowski-távolság</span>
+<p>$$d_r(p,q)=\Big(\sum_{k=1}^{n}|p_k-q_k|^{\,r}\Big)^{1/r},\qquad r\ge 1$$</p>
+<div class="table-wrap"><table>
+<tr><th>$r$</th><th>név</th><th>képlet</th><th>jelentés</th></tr>
+<tr><td>1</td><td>Manhattan- (taxi-, háztömb-, $L^1$-) távolság</td><td>$\sum_k|p_k-q_k|$</td><td>út a rácsos úthálózaton; bináris adaton = <strong>Hamming-távolság</strong> (eltérő pozíciók száma)</td></tr>
+<tr><td>2</td><td>euklideszi ($L^2$) távolság</td><td>$\sqrt{\sum_k(p_k-q_k)^2}$</td><td>légvonal</td></tr>
+<tr><td>$\infty$</td><td>Csebisev- (maximum-, $L^\infty$-) távolság</td><td>$\max_k|p_k-q_k|$</td><td>a legnagyobb jellemzőnkénti eltérés</td></tr>
+</table></div>
+<p><strong>Miért egy család?</strong> Ahogy $r$ nő, a nagy különbségek egyre jobban dominálnak az összegben; $r\to\infty$ határesetben már csak a legnagyobb számít. A páronkénti távolságokat négyzetes, szimmetrikus <strong>távolságmátrixba</strong> rendezzük (mint a <a href="04-hierarchikus-klaszterezes.html#lepes1">4. leckében</a>).</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Négy pont, három távolságmátrix</span>
+<p>Pontok: $p_1=(0;2)$, $p_2=(2;0)$, $p_3=(3;1)$, $p_4=(5;1)$. Számold ki a három távolságmátrixot!</p>
+<details class="solution"><summary>Megoldás</summary>
+<div class="table-wrap"><table>
+<tr><th>pár</th><th class="num">különbségek</th><th class="num">$L^1$</th><th class="num">$L^2$</th><th class="num">$L^\infty$</th></tr>
+<tr><td>$p_1,p_2$</td><td class="num">2; 2</td><td class="num">4</td><td class="num">2,828</td><td class="num">2</td></tr>
+<tr><td>$p_1,p_3$</td><td class="num">3; 1</td><td class="num">4</td><td class="num">3,162</td><td class="num">3</td></tr>
+<tr><td>$p_1,p_4$</td><td class="num">5; 1</td><td class="num">6</td><td class="num">5,099</td><td class="num">5</td></tr>
+<tr><td>$p_2,p_3$</td><td class="num">1; 1</td><td class="num">2</td><td class="num">1,414</td><td class="num">1</td></tr>
+<tr><td>$p_2,p_4$</td><td class="num">3; 1</td><td class="num">4</td><td class="num">3,162</td><td class="num">3</td></tr>
+<tr><td>$p_3,p_4$</td><td class="num">2; 0</td><td class="num">2</td><td class="num">2</td><td class="num">2</td></tr>
+</table></div>
+<p>Figyeld meg: $L^1$ szerint $p_1$-hez $p_2$ és $p_3$ <em>egyformán</em> közel van (4 és 4), $L^2$ és $L^\infty$ szerint $p_2$ a közelebbi. A mértékválasztás tehát a szomszédsági sorrendet, és így a klaszterezést is megváltoztathatja.</p></details>
+</div>
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Bináris rekordok: Hamming</span>
+<p>$p=(1,0,1,1,0)$, $q=(0,0,1,0,1)$. Mennyi a Manhattan-távolság?</p>
+<details class="solution"><summary>Megoldás</summary><p>$|1-0|+|0-0|+|1-1|+|1-0|+|0-1|=3$: pontosan annyi, ahány pozícióban eltérnek (Hamming-távolság).</p></details>
+</div>
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – Mi történik, ha $r$ nő?</span>
+<p>$P=(0;0)$, $Q=(3;4)$. Számold ki $d_r$-t $r=1,2,3,\infty$ esetén!</p>
+<details class="solution"><summary>Megoldás</summary><p>$d_1=7$, $d_2=5$, $d_3=\sqrt[3]{27+64}=\sqrt[3]{91}\approx 4{,}498$, $d_\infty=4$. A távolság $r$-rel csökken, és a legnagyobb eltéréshez (4) tart.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+<li><strong>Skála.</strong> Mindegyik Minkowski-távolság a nyers különbségeket adja össze, ezért eltérő mértékegységű változóknál előbb <a href="03-kmeans.html#lepes4">standardizálni</a> kell – a Manhattan sem „véd” a forint dominanciája ellen.</li>
+<li><strong>$r&lt;1$ nem távolság.</strong> $r=0{,}5$-nél $d\big((0;0),(1;1)\big)=(1+1)^2=4$, a $(1;0)$ ponton át viszont $1+1=2$: sérül a háromszög-egyenlőtlenség. Ezért a definícióban $r\ge 1$.</li>
+<li>A <strong>négyzetes</strong> euklideszi távolság (amit a K-means használ) sem metrika: $0,1,2$ pontokra $d^2(0,2)=4&gt;1+1$. Arra jó, hogy eldöntsük, melyik pont a közelebbi, de „távolságként” ne kezeld.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Minkowski-távolságok (5 feladat)</summary>
+<ol>
+  <li><p>Számold ki $d_1$-et, $d_2$-t és $d_\infty$-t a $(2;-1)$ és $(-1;3)$ pontok között!</p>
+    <details class="solution"><summary>Megoldás</summary><p>Különbségek: 3 és 4. $d_1=7$, $d_2=5$, $d_\infty=4$.</p></details></li>
+  <li><p>Ugyanezt három dimenzióban: $(1;0;2)$ és $(3;4;0)$.</p>
+    <details class="solution"><summary>Megoldás</summary><p>Különbségek: 2, 4, 2. $d_1=8$, $d_2=\sqrt{24}\approx 4{,}899$, $d_\infty=4$.</p></details></li>
+  <li><p>$A=(0;0)$, $B=(3;3)$, $C=(0;5)$. Melyik van $A$-hoz közelebb az egyes mértékek szerint?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$B$: $d_1=6$, $d_2\approx 4{,}243$, $d_\infty=3$. $C$: mindhárom 5. Manhattan szerint <strong>C</strong> a közelebbi, euklideszi és Csebisev szerint <strong>B</strong>. A mérték megválasztása megfordíthatja a sorrendet.</p></details></li>
+  <li><p>Távolság-e egy dimenzióban a $d(x,y)=(x-y)^2$ függvény?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Nem. Az első két tulajdonság teljesül, a háromszög-egyenlőtlenség nem: $d(0,2)=4$, de $d(0,1)+d(1,2)=1+1=2$.</p></details></li>
+  <li><p>A gyakorlat standardizált adatán C001 = $(-1{,}429;\,-1{,}010)$, C081 = $(1{,}771;\,2{,}079)$. Számold ki a három távolságot!</p>
+    <details class="solution"><summary>Megoldás</summary><p>Különbségek: 3,200 és 3,089. $d_1\approx 6{,}288$, $d_2=\sqrt{10{,}24+9{,}54}\approx 4{,}447$, $d_\infty\approx 3{,}200$. (Ez a két legtávolabbi vásárló: a legalkalmibb és a legnagyobb költő.)</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes2">
+<h2>2. lépés – Mahalanobis-távolság: amikor a változók együtt mozognak</h2>
+<p>Az eddigi távolságok csak a két vizsgált ponttól függnek, a többi adattól nem. Pedig az adat „alakja” is számít.</p>
+
+<h4>Kis eset</h4>
+<p>A gyakorlaton a vásárlásszám és az összköltés korrelációja 0,95: aki többször jön, az többet is költ, a pontok egy ferde sáv mentén helyezkednek el. A standardizált térben U = $(-1{,}24;\,1{,}55)$. Az origótól (az átlagos vásárlótól) vett euklideszi távolsága $\approx 1{,}98$ – <em>kisebb</em>, mint a legnagyobb költőé (2,73). Euklideszi szemmel U „belül van”. Csakhogy U a sávra <em>merőlegesen</em> lóg ki: kevés vásárlás mellett nagy költés – ilyen vásárló egy sincs.</p>
+
+<div class="box def"><span class="box-title">Definíció – Mahalanobis-távolság</span>
+<p>$$d_M(p,q)=\sqrt{(p-q)^{\mathsf T}\,\Sigma^{-1}\,(p-q)}$$</p>
+<p>ahol $\Sigma$ az adatok <strong>kovarianciamátrixa</strong> (az adatból becsüljük), $\Sigma^{-1}$ az inverze. Egyes tankönyvek (így a forrásként használt Tan–Steinbach–Kumar) a gyök nélküli alakot nevezik Mahalanobis-távolságnak; a pontok sorrendje mindkét alakkal ugyanaz.</p>
+<p><strong>Miért?</strong> A $\Sigma^{-1}$ „kiveszi” a változók szórását és együttmozgását: abban az irányban, amerre az adat amúgy is nagyon szóródik, egy egységnyi eltérés olcsó; amerre alig, ott drága. Ha a változók korrelálatlanok ($\Sigma$ diagonális), a Mahalanobis-távolság a <strong>standardizált</strong> adatok euklideszi távolsága.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Az euklideszi és a Mahalanobis-sorrend megfordul</span>
+<p>$A=(0{,}5;0{,}5)$, $B=(0;1)$, $C=(1{,}5;1{,}5)$, $\Sigma=\begin{pmatrix}0{,}3&amp;0{,}2\\0{,}2&amp;0{,}3\end{pmatrix}$, ebből $\Sigma^{-1}=\begin{pmatrix}6&amp;-4\\-4&amp;6\end{pmatrix}$. Melyik pont van $A$-hoz közelebb?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p><strong>Euklideszi:</strong> $d(A,B)=\sqrt{0{,}25+0{,}25}\approx 0{,}707$, $d(A,C)=\sqrt{1+1}\approx 1{,}414$ → $B$ a közelebbi.</p>
+<p><strong>Mahalanobis</strong> (gyök nélkül): $A-B=(0{,}5;-0{,}5)$: $6\cdot0{,}25+6\cdot0{,}25-2\cdot4\cdot(0{,}5\cdot(-0{,}5))=1{,}5+1{,}5+2=5$. $A-C=(-1;-1)$: $6+6-8=4$. → $C$ a közelebbi (gyökkel: 2,236 és 2).</p>
+<p>A $C$ a korreláció irányában van (mindkét koordináta együtt nő), a $B$ ellene – a Mahalanobis ezt „bünteti”. (A forrásban az első sorban elírás van: ott is $A$ és $C$ szerepel, de a $(-0{,}5;0{,}5)$ eltérés az $A$–$B$ párhoz tartozik.)</p></details>
+</div>
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Korrelálatlan változók</span>
+<p>$\Sigma=\begin{pmatrix}4&amp;0\\0&amp;1\end{pmatrix}$ (szórások 2 és 1), $p-q=(2;1)$. Mennyi $d_M$?</p>
+<details class="solution"><summary>Megoldás</summary><p>$\Sigma^{-1}=\mathrm{diag}(1/4;\,1)$, $d_M=\sqrt{2^2/4+1^2}=\sqrt2\approx 1{,}414$. Ugyanez jön ki, ha előbb mindkét koordinátát elosztod a szórásával ($1$ és $1$), és utána euklideszi távolságot számolsz.</p></details>
+</div>
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – U a gyakorlat adatán</span>
+<p>A 120 vásárló standardizált adatából becsült kovarianciamátrixszal U Mahalanobis-távolsága az átlagtól 8,45. A 120 vásárló közül a legnagyobb érték 2,45. Mit jelent ez?</p>
+<details class="solution"><summary>Megoldás</summary><p>U több mint háromszor messzebb van a „tipikus” vásárlótól, mint bármelyik létező vásárló, amikor a két változó együttmozgását is figyelembe vesszük. Az euklideszi távolság (1,98) ezt elrejtette. A számítás kódja az <a href="#alkalmazas">Alkalmazás</a> részben van.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+<li>A <strong>kovarianciamátrix inverzével</strong> szorzunk, nem magával a mátrixszal. Ha $\Sigma$-val szoroznál, épp a fordítottját kapnád: a sok szóródású irány lenne drága.</li>
+<li>$\Sigma$-t az adatokból becsüljük; ha az adatban sok a kiugró, azok maguk is torzítják $\Sigma$-t (és így elrejthetik magukat).</li>
+<li>Gyök vagy nem gyök: ellenőrizd, melyik alakot kéri a feladat. A forrás példájában a 5 és a 4 a gyök nélküli érték.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Mahalanobis-távolság (5 feladat)</summary>
+<ol>
+  <li><p>$\Sigma=I$ (egységmátrix), $p-q=(3;4)$. Mennyi $d_M$?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\Sigma^{-1}=I$, így $d_M=\sqrt{9+16}=5$ – az euklideszi távolság.</p></details></li>
+  <li><p>$\Sigma=\mathrm{diag}(9;\,4)$, $p-q=(3;4)$. Mennyi $d_M$?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\sqrt{9/9+16/4}=\sqrt{5}\approx 2{,}236$.</p></details></li>
+  <li><p>A kidolgozott példa $\Sigma^{-1}$-ével mennyi a gyök nélküli Mahalanobis-érték, ha $p-q=(1;-1)$, illetve $(1;1)$? Melyik irány „olcsóbb”?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$(1;-1)$: $6+6+8=20$ (gyökkel 4,472). $(1;1)$: $6+6-8=4$ (gyökkel 2). Az euklideszi hossz mindkettőnél $\sqrt2$, de a korreláció irányában, $(1;1)$, ötödannyi a „költség”.</p></details></li>
+  <li><p>Ellenőrizd, hogy $\begin{pmatrix}0{,}3&amp;0{,}2\\0{,}2&amp;0{,}3\end{pmatrix}^{-1}=\begin{pmatrix}6&amp;-4\\-4&amp;6\end{pmatrix}$!</p>
+    <details class="solution"><summary>Megoldás</summary><p>$2\times2$-es inverz: $\frac{1}{ad-bc}\begin{pmatrix}d&amp;-b\\-c&amp;a\end{pmatrix}$. $ad-bc=0{,}09-0{,}04=0{,}05$, így $\frac{1}{0{,}05}\begin{pmatrix}0{,}3&amp;-0{,}2\\-0{,}2&amp;0{,}3\end{pmatrix}=\begin{pmatrix}6&amp;-4\\-4&amp;6\end{pmatrix}$. ✓</p></details></li>
+  <li><p>U mindkét z-értéke 2 alatt van ($-1{,}24$ és $1{,}55$), Mahalanobis-távolsága mégis 8,45. Hogyan lehetséges?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A z-értékek változónként, külön-külön mérnek. U egyik változóban sem szélsőséges, de a <em>kombinációja</em> (kevés vásárlás, sok költés) ellentmond a 0,95-ös korrelációnak. Ezt csak a változók együttmozgását figyelembe vevő mérték látja.</p></details></li>
+</ol>
+</details>
+
+<h4>Mini-kvíz</h4>
+<div class="quiz" data-quiz="l14-lepes2"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes3">
+<h2>3. lépés – Hasonlóság bináris adaton: egyszerű egyezés és Jaccard</h2>
+<p>A kosárelemzésnél (<a href="02-kosarelemzes.html">2. lecke</a>) minden vásárlást egy 0/1 vektor ír le: megvette-e az adott terméket. Itt nem távolságot, hanem <strong>hasonlóságot</strong> szokás számolni.</p>
+
+<h4>Kis eset</h4>
+<p>Tíz termék, két kosár: $p=(1,0,0,0,0,0,0,0,0,0)$, $q=(0,0,0,0,0,0,1,0,0,1)$. A két vásárló egyetlen közös terméket sem vett. Mégis: 7 terméket <em>egyikük sem</em> vett meg – ebben „egyeznek”. Hasonló a két kosár, vagy sem?</p>
+
+<div class="box def"><span class="box-title">Definíció – Hasonlóság, a bináris kereszttábla</span>
+<p>Hasonlóság egy $s(p,q)$ függvény, amelyre $s(p,q)\in[0;1]$, $s(p,q)=1$ pontosan akkor, ha $p=q$, és $s(p,q)=s(q,p)$. Belőle távolság is képezhető: $d=1-s$.</p>
+<p>Két bináris vektor összevetése négy számot ad:</p>
+<div class="table-wrap"><table>
+<tr><th></th><th>$q=1$</th><th>$q=0$</th></tr>
+<tr><th>$p=1$</th><td>$M_{11}$ (mindkettőben megvan)</td><td>$M_{10}$</td></tr>
+<tr><th>$p=0$</th><td>$M_{01}$</td><td>$M_{00}$ (egyikben sincs)</td></tr>
+</table></div>
+<p><strong>Egyszerű egyezés</strong> (<em>simple matching</em>, a forrásban „pontosság”): $$SMC=\frac{M_{11}+M_{00}}{M_{11}+M_{10}+M_{01}+M_{00}}$$</p>
+<p><strong>Jaccard-együttható:</strong> $$J=\frac{M_{11}}{M_{11}+M_{10}+M_{01}}$$</p>
+<p><strong>Miért kettő?</strong> Az SMC minden egyezést számol, a Jaccard a „mindkettőben 0” eseteket kihagyja. Kosárnál a közös hiány nem információ (a boltban ezer termék van, amit egyikük sem vett), ezért ott a Jaccard a helyes. Ha a 0 és az 1 egyformán fontos (pl. „van-e hitelkártyája: igen/nem”), az SMC.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – A kis eset</span>
+<p>Számold ki $p$ és $q$ SMC- és Jaccard-értékét!</p>
+<details class="solution"><summary>Megoldás</summary><p>$M_{01}=2$, $M_{10}=1$, $M_{00}=7$, $M_{11}=0$. $SMC=\frac{0+7}{10}=0{,}7$; $J=\frac{0}{0+1+2}=0$. Az SMC szerint „elég hasonlók”, a Jaccard szerint semmi közük egymáshoz – kosárnál az utóbbi az igaz.</p></details>
+</div>
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Két kosár, két boltméret</span>
+<p>A = {kenyér, tej, vaj}, B = {kenyér, tej, sajt}. (a) A bolt 8 terméket árul. (b) A bolt 98 terméket árul. Számold ki mindkét esetben az SMC-t és a Jaccardot!</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>$M_{11}=2$ (kenyér, tej), $M_{10}=1$ (vaj), $M_{01}=1$ (sajt).</p>
+<p>(a) $M_{00}=4$: $SMC=6/8=0{,}75$, $J=2/4=0{,}5$.</p>
+<p>(b) $M_{00}=94$: $SMC=96/98\approx 0{,}980$, $J=2/4=0{,}5$.</p>
+<p>A Jaccard nem függ attól, hány terméket nem vett senki; az SMC a bolt kínálatának bővülésével „magától” 1 felé kúszik.</p></details>
+</div>
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – Szimmetrikus igen/nem jellemzők</span>
+<p>Két ügyfél négy igen/nem kérdésre adott válasza (van-e hitelkártyája, van-e lakáshitele, nő-e, nyugdíjas-e): $p=(1,0,0,1)$, $q=(1,0,1,1)$. Melyik mértéket használnád, és mennyi?</p>
+<details class="solution"><summary>Megoldás</summary><p>Itt a 0 („nincs lakáshitele”) ugyanolyan érdemi információ, mint az 1, ezért az <strong>SMC</strong>: 3 egyezés a 4-ből, $SMC=0{,}75$. (A Jaccard $2/3\approx 0{,}667$ lenne, mert kihagyja a közös 0-t.)</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+<li>Ritka (sok nullás) adaton az SMC félrevezető: szinte minden pár „nagyon hasonló” lesz.</li>
+<li>Ha mindkét vektor csupa 0, a Jaccard $0/0$ – nem értelmezett. Kódban ezt külön kell kezelni.</li>
+<li>Ne keverd a forrás „pontosság” szavát az osztályozás pontosságával (<a href="05-dontesi-fa.html">5. lecke</a>): a képlet szerkezete hasonló (a „találatok” aránya), de itt két rekordot hasonlítunk össze, nem előrejelzést a valósággal.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – SMC és Jaccard (5 feladat)</summary>
+<ol>
+  <li><p>$p=(1,1,0,0,1)$, $q=(1,0,0,1,1)$. Számold ki az SMC-t és a Jaccardot!</p>
+    <details class="solution"><summary>Megoldás</summary><p>$M_{11}=2$, $M_{10}=1$, $M_{01}=1$, $M_{00}=1$. $SMC=3/5=0{,}6$, $J=2/4=0{,}5$.</p></details></li>
+  <li><p>Mennyi az előző pár Jaccard-távolsága és SMC-távolsága ($d=1-s$)?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Jaccard-távolság $1-0{,}5=0{,}5$; SMC-távolság $1-0{,}6=0{,}4$ – ez a Hamming-távolság (2 eltérés) osztva a hosszal (5).</p></details></li>
+  <li><p>Melyik mérték illik? (a) Webshop-kosarak 5000 termék fölött. (b) Kérdőív 10 igen/nem kérdéssel, ahol a „nem” is fontos.</p>
+    <details class="solution"><summary>Megoldás</summary><p>(a) Jaccard – a közös hiány nem információ. (b) SMC – mindkét válasz érdemi.</p></details></li>
+  <li><p>$p=q=(0,0,0,0)$. Mennyi az SMC és a Jaccard?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$SMC=4/4=1$. A Jaccard $0/0$, nem értelmezett (sok program ilyenkor 0-t vagy 1-et ad konvencióból – nézd meg, melyiket).</p></details></li>
+  <li><p>Halmazokkal: A = {a, b, c, d}, B = {c, d, e}. Mennyi a Jaccard-együttható?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$J=\dfrac{|A\cap B|}{|A\cup B|}=\dfrac{2}{5}=0{,}4$. (Ez ugyanaz, mint $M_{11}/(M_{11}+M_{10}+M_{01})$: $2/(2+2+1)$.)</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes4">
+<h2>4. lépés – Koszinusz-hasonlóság és korreláció</h2>
+<p>A Jaccard 0/1 adatra jó. Mi van, ha gyakoriságok vannak a vektorban – például hányszor szerepel egy szó egy dokumentumban (szövegbányászat)?</p>
+
+<h4>Kis eset</h4>
+<p>Két dokumentum szógyakoriságai három kulcsszóra: $d_1=(2;0;1)$, $d_2=(4;0;2)$. A második ugyanaz a szöveg, csak kétszer olyan hosszú. Az euklideszi távolságuk $\sqrt{4+0+1}\approx 2{,}24$ – pedig tartalmilag azonosak. Ami azonos, az a két vektor <strong>iránya</strong>.</p>
+
+<div class="box def"><span class="box-title">Definíció – Koszinusz-hasonlóság</span>
+<p>$$\cos(d_1,d_2)=\frac{d_1\cdot d_2}{\lVert d_1\rVert\,\lVert d_2\rVert}=\frac{\sum_k d_{1k}d_{2k}}{\sqrt{\sum_k d_{1k}^2}\,\sqrt{\sum_k d_{2k}^2}}$$</p>
+<p>A két vektor által bezárt szög koszinusza. Nemnegatív adaton $0$ (nincs közös kulcsszó) és $1$ (azonos irány) között van. <strong>Miért jó szövegre?</strong> Nem érzékeny a hosszra (a vektor nyújtására), és – mint a Jaccard – a közös nullák nem növelik.</p>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Korreláció mint hasonlóság</span>
+<p>Standardizáld mindkét vektort: $p'_k=(p_k-\bar p)/s_p$, $q'_k=(q_k-\bar q)/s_q$ (populációs szórással). Ekkor
+$$\mathrm{corr}(p,q)=\frac{1}{n}\,p'\cdot q' .$$</p>
+<p>Értéke $[-1;1]$-ben van: $+1$ tökéletes pozitív, $-1$ tökéletes negatív lineáris kapcsolat, 0 korrelálatlan. A koszinusszal szemben a korreláció az <strong>eltolásra</strong> sem érzékeny (az átlagot levonja).</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Két dokumentum</span>
+<p>$d_1=(3,2,0,5,0,0,0,2,0,0)$, $d_2=(1,0,0,0,0,0,0,1,0,2)$. Mennyi a koszinusz-hasonlóság?</p>
+<details class="solution"><summary>Megoldás</summary><p>$d_1\cdot d_2=3+2=5$. $\lVert d_1\rVert=\sqrt{9+4+25+4}=\sqrt{42}\approx 6{,}481$, $\lVert d_2\rVert=\sqrt{1+1+4}=\sqrt6\approx 2{,}449$. $\cos=5/(6{,}481\cdot 2{,}449)\approx 0{,}315$. (A forrásban $\lVert d_2\rVert$ elírással 2,249, a végeredmény helyes.)</p></details>
+</div>
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Korreláció kézzel</span>
+<p>$p=(4,6,4,6)$, $q=(10,30,30,10)$. Mennyi a korreláció?</p>
+<details class="solution"><summary>Megoldás</summary><p>$\bar p=5$, $s_p=1$ → $p'=(-1,1,-1,1)$. $\bar q=20$, $s_q=10$ → $q'=(-1,1,1,-1)$. $p'\cdot q'=1+1-1-1=0$, $\mathrm{corr}=0/4=0$: korrelálatlanok.</p></details>
+</div>
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – Eltolás: koszinusz vs. korreláció</span>
+<p>$p=(1,2,3)$, $q=(11,12,13)$ – $q$ minden eleme 10-zel nagyobb. Mennyi a korreláció és a koszinusz?</p>
+<details class="solution"><summary>Megoldás</summary><p>A korreláció 1 (a standardizálás az eltolást eltünteti). A koszinusz $\frac{11+24+39}{\sqrt{14}\sqrt{434}}=\frac{74}{77{,}95}\approx 0{,}949$ – a koszinusz a nyújtásra nem, de az eltolásra érzékeny.</p></details>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés – vegyes és kategorikus jellemzők</span>
+<p>A forrás szerint a hasonlóságok <strong>súlyokkal összekapcsolhatók</strong>, ha a jellemzők nagyon eltérők (pl. egyik bináris, másik folytonos): jellemzőnként kiszámolod a hasonlóságot ($s_k\in[0;1]$), és súlyozott átlagot veszel: $s=\sum_k w_k s_k/\sum_k w_k$. Kategorikus jellemzőnél (pl. régió) a legegyszerűbb $s_k=1$, ha egyezik, különben 0. Példa: régió egyezik ($s_1=1$, súly 1), a költésből számolt hasonlóság $s_2=0{,}6$ (súly 3): $s=(1+1{,}8)/4=0{,}7$.</p>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+<li>A koszinusz a <strong>hosszt</strong> nem látja: $(1;1)$ és $(100;100)$ hasonlósága 1. Vásárlóknál ez baj lehet (az alkalmi és a nagy költő „azonos irányú”), szövegnél előny.</li>
+<li>A forrás képlete ($p'\cdot q'$) az $1/n$-es osztást elhagyja; anélkül az érték $n$-szeres lenne, és kilógna a $[-1;1]$-ből.</li>
+<li>A korreláció $-1$ is lehet: ez <em>erős</em> (ellentétes) kapcsolat, nem „nulla hasonlóság”. Ha $[0;1]$-es hasonlóság kell, pl. $(\mathrm{corr}+1)/2$ vagy $|\mathrm{corr}|$ – a feladat dönti el, melyik értelmes.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Koszinusz és korreláció (5 feladat)</summary>
+<ol>
+  <li><p>$\cos\big((1;1),(1;0)\big)=?$</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\frac{1}{\sqrt2\cdot1}\approx 0{,}707$ (45°-os szög).</p></details></li>
+  <li><p>$\cos\big((3;4),(4;3)\big)=?$</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\frac{12+12}{5\cdot5}=0{,}96$.</p></details></li>
+  <li><p>$\cos\big((1;0),(0;1)\big)$ és $\cos\big((2;0),(5;0)\big)$?</p>
+    <details class="solution"><summary>Megoldás</summary><p>0 (merőlegesek, nincs közös kulcsszó) és 1 (azonos irány, csak más hossz).</p></details></li>
+  <li><p>$p=(4,6,4,6)$. Mennyi a korreláció $q_1=(1,5,1,5)$-tel és $q_2=(30,10,30,10)$-zel?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$q_1'=(-1,1,-1,1)=p'$ → $\mathrm{corr}=4/4=1$. $q_2'=(1,-1,1,-1)=-p'$ → $\mathrm{corr}=-1$.</p></details></li>
+  <li><p>$p=(4,6,4,6)$, $q=(10,30,20,20)$. Mennyi a korreláció?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\bar q=20$, eltérések $(-10,10,0,0)$, $s_q=\sqrt{200/4}\approx 7{,}071$, $q'\approx(-1{,}414;\,1{,}414;\,0;\,0)$. $p'\cdot q'=1{,}414+1{,}414=2{,}828$, $\mathrm{corr}=2{,}828/4\approx 0{,}707$.</p></details></li>
+</ol>
+</details>
+
+<h4>Mini-kvíz</h4>
+<div class="quiz" data-quiz="l14-lepes4"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes5">
+<h2>5. lépés – Sűrűség, szegmentációfajták, klasztertípusok</h2>
+<p>A távolság és a hasonlóság <em>két</em> pont viszonyát írja le. A sűrűség egy pont tágabb környezetét nézi: hány másik pont van a közelében?</p>
+
+<h4>Kis eset</h4>
+<p>Pontok egy egyenesen: 1; 1,5; 2; 2,2; 2,5; 6; 9. Számoljuk meg, hány <em>másik</em> pont esik egy pont köré húzott 1 sugarú környezetbe:</p>
+<ul>
+<li>a 2 körül: 1; 1,5; 2,2; 2,5 → <strong>4</strong> pont;</li>
+<li>a 6 körül: <strong>0</strong> pont; a 9 körül szintén 0.</li>
+</ul>
+<p>A 2 egy sűrű csoport közepén van, a 6 és a 9 magányos. A távolságmátrix ezt csak közvetve mutatja; a sűrűség egyetlen számban.</p>
+
+<div class="box def"><span class="box-title">Definíció – Sűrűség</span>
+<p>A <strong>sűrűség</strong> egy arányszám, amely megmutatja, hány más adatpont esik egy adatpont környezetébe. Változatai:</p>
+<ul>
+<li><strong>Euklideszi (cella alapú) sűrűség:</strong> a teret egyenlő cellákra osztjuk, és megszámoljuk a cellánkénti pontokat.</li>
+<li><strong>Középpont alapú sűrűség:</strong> a pont köré rajzolt adott sugarú gömbbe eső pontok száma (a kis esetben ezt számoltuk; a DBSCAN is ezt használja).</li>
+<li><strong>Valószínűségi sűrűség:</strong> egy becsült valószínűségi eloszlás sűrűségfüggvénye.</li>
+<li><strong>Gráf alapú sűrűség:</strong> az adatpontokból épített gráf szomszédsági viszonyai alapján.</li>
+</ul>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – A szegmentáció fajtái és a klasztertípusok</span>
+<p><strong>Szegmentáció (klaszterezés):</strong> olyan csoportok keresése, amelyekben az egy csoportba tartozó objektumok egymáshoz közel (hasonlók), a különböző csoportokba tartozók távol vannak. Nem felügyelt feladat (<a href="03-kmeans.html#lepes1">3. lecke</a>).</p>
+<div class="table-wrap"><table>
+<tr><th>szempont</th><th>fajták</th></tr>
+<tr><td>szerkezet</td><td><strong>felosztó</strong> (minden objektum pontosan egy, nem átfedő klaszterbe, pl. K-means) – <strong>hierarchikus</strong> (egymásba ágyazott klaszterek fája, <a href="04-hierarchikus-klaszterezes.html">4. lecke</a>)</td></tr>
+<tr><td>tagság</td><td><strong>kizáró</strong> – <strong>nem kizáró</strong> (egy határon lévő objektum több klaszterbe is tartozhat)</td></tr>
+<tr><td>tagság mértéke</td><td><strong>éles</strong> – <strong>fuzzy</strong> (minden objektum minden klaszterhez tartozik egy 0 és 1 közötti súllyal, a súlyok összege 1)</td></tr>
+<tr><td>lefedettség</td><td><strong>teljes</strong> – <strong>részleges</strong> (csak az objektumok egy részét klaszterezzük; a DBSCAN a zajt kihagyja)</td></tr>
+<tr><td>klaszterek</td><td><strong>homogén</strong> – <strong>heterogén</strong> (hasonló vagy nagyon eltérő méretű, alakú, sűrűségű klaszterek)</td></tr>
+</table></div>
+<p><strong>Klasztertípusok</strong> (milyen „alakú” csoportot keres a módszer):</p>
+<ol>
+<li><strong>jól elválasztott:</strong> minden pont közelebb van a saját klasztere minden pontjához, mint bármely más klaszterbelihez;</li>
+<li><strong>középpont alapú:</strong> minden pont a saját középpontjához van a legközelebb (K-means);</li>
+<li><strong>összefüggő (gráf alapú):</strong> minden pontnak van a klaszterben olyan társa, amelyhez közelebb van, mint bármely más ponthoz (single kapcsolás);</li>
+<li><strong>sűrűség alapú:</strong> sűrű tartományok, amelyeket ritka tartományok választanak el (DBSCAN, 6. lépés);</li>
+<li><strong>tulajdonság vagy fogalom alapú:</strong> a klaszter pontjainak közös tulajdonsága van;</li>
+<li><strong>célfüggvény által definiált:</strong> egy célfüggvény optimuma (pl. az SSE minimuma).</li>
+</ol>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Középpont alapú sűrűség</span>
+<p>A kis eset pontjain mennyi a 1,5 sűrűsége 1-es sugárral?</p>
+<details class="solution"><summary>Megoldás</summary><p>$|1{,}5-1|=0{,}5$, $|1{,}5-2|=0{,}5$, $|1{,}5-2{,}2|=0{,}7$, $|1{,}5-2{,}5|=1$ (a határon, beleszámít) → <strong>4</strong>. A 6 és a 9 messze van.</p></details>
+</div>
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Cella alapú sűrűség</span>
+<p>Oszd fel a $[0;10)$ szakaszt 2 hosszú cellákra! Hány pont esik az egyes cellákba?</p>
+<details class="solution"><summary>Megoldás</summary><p>$[0;2)$: 1; 1,5 → 2. $[2;4)$: 2; 2,2; 2,5 → 3. $[4;6)$: 0. $[6;8)$: 6 → 1. $[8;10)$: 9 → 1. Figyeld meg: a 2-es pont a cellahatár miatt már nem a 1,5-del egy cellában van – a cella alapú sűrűség érzékeny a rács elhelyezésére.</p></details>
+</div>
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – Melyik szegmentációfajta?</span>
+<p>(a) Minden objektum pontosan egy klaszterbe kerül. (b) Egy objektum több klaszterhez is tartozhat. (c) Minden objektum minden klaszterhez tartozik 0 és 1 közötti súllyal. (d) A klaszterek egymásba ágyazott szerkezetet alkotnak.</p>
+<details class="solution"><summary>Megoldás</summary><p>(a) felosztó (és kizáró); (b) nem kizáró; (c) fuzzy; (d) hierarchikus.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – nem minden csoportra bontás szegmentáció</span>
+<p>Nem szegmentáció: a <strong>felügyelt osztályozás</strong> (a csoportok előre ismertek); az <strong>egyszerű csoportosítás</strong> egy szabály szerint (pl. szavak kezdőbetű szerint); egy lekérdezés hosszú eredményének <strong>oldalakra bontása</strong>; egy gráf <strong>partícionálása</strong> élek eltávolításával. A szegmentációban a csoportokat az adatok hasonlósága jelöli ki, nem egy előre adott szabály.</p>
+<p>A klaszter fogalma ráadásul <strong>szubjektív</strong>: ugyanabban a ponthalmazban két szakember más-más számú csoportot láthat, a céltól függően.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Sűrűség és fajták (5 feladat)</summary>
+<ol>
+  <li><p>A kis eset pontjain (1; 1,5; 2; 2,2; 2,5; 6; 9) mennyi a 2,5 sűrűsége 1-es sugárral?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$|2{,}5-1{,}5|=1$, $|2{,}5-2|=0{,}5$, $|2{,}5-2{,}2|=0{,}3$ → 3 (az 1-es 1,5-re van, kívül esik; a 6 3,5-re).</p></details></li>
+  <li><p>Ugyanezen pontok cella alapú sűrűsége 3 hosszú cellákkal ($[0;3)$, $[3;6)$, …)?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$[0;3)$: 5 pont, $[3;6)$: 0, $[6;9)$: 1 (a 6), $[9;12)$: 1 (a 9).</p></details></li>
+  <li><p>Fuzzy klaszterezés: egy vásárló tagsági súlyai 0,5 és 0,3 az első két klaszterben. Mennyi a harmadikban, ha 3 klaszter van?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A súlyok összege 1, így $1-0{,}5-0{,}3=0{,}2$.</p></details></li>
+  <li><p>Melyik klasztertípust keresi (a) a K-means, (b) a single kapcsolás, (c) a DBSCAN?</p>
+    <details class="solution"><summary>Megoldás</summary><p>(a) középpont alapú (célfüggvénye az SSE, így célfüggvény által definiált is); (b) összefüggő (gráf alapú); (c) sűrűség alapú.</p></details></li>
+  <li><p>Szegmentáció-e: (a) ügyfelek csoportosítása vásárlási szokásaik szerint, előre adott csoportok nélkül; (b) ügyfelek sorolása a „lemorzsolódott / maradt” címke szerint tanított modellel; (c) a terméklista 20-asával oldalakra bontása?</p>
+    <details class="solution"><summary>Megoldás</summary><p>(a) igen; (b) nem – ez felügyelt osztályozás; (c) nem – szabály szerinti felosztás, nincs benne hasonlóság.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes6">
+<h2>6. lépés – A DBSCAN algoritmus</h2>
+<p>A K-means mindenkit besorol, és gömbszerű csoportokat keres. Ha a klaszter „sűrű tartomány”, akkor a ritka helyen álló pontokat nem kell sehová besorolni: ők a <strong>zaj</strong>.</p>
+
+<h4>Kis eset</h4>
+<p>Tíz pont a síkon; minden pont köré $\varepsilon=1{,}5$ sugarú kört rajzolunk, és megszámoljuk, hány pont van benne (<strong>a pontot magát is beleszámolva</strong>). Akinek legalább 3 pont jut, az „sűrű helyen áll”.</p>
+<figure><svg viewBox="0 0 430 300" width="430" role="img" aria-label="DBSCAN kézi példa: magpontok, határpont és zajpontok" font-family="Inter, sans-serif" font-size="12">
+<rect x="1" y="1" width="428" height="298" rx="8" fill="none" stroke="currentColor" stroke-opacity=".3"/>
+<g stroke="currentColor" stroke-opacity=".08">
+<line x1="70" y1="20" x2="70" y2="280"/><line x1="110" y1="20" x2="110" y2="280"/><line x1="150" y1="20" x2="150" y2="280"/><line x1="190" y1="20" x2="190" y2="280"/><line x1="230" y1="20" x2="230" y2="280"/><line x1="270" y1="20" x2="270" y2="280"/><line x1="310" y1="20" x2="310" y2="280"/><line x1="350" y1="20" x2="350" y2="280"/><line x1="390" y1="20" x2="390" y2="280"/>
+<line x1="20" y1="250" x2="410" y2="250"/><line x1="20" y1="210" x2="410" y2="210"/><line x1="20" y1="170" x2="410" y2="170"/><line x1="20" y1="130" x2="410" y2="130"/><line x1="20" y1="90" x2="410" y2="90"/><line x1="20" y1="50" x2="410" y2="50"/>
+</g>
+<circle cx="110" cy="210" r="60" fill="none" stroke="var(--ex)" stroke-dasharray="4 3"/>
+<circle cx="150" cy="170" r="60" fill="none" stroke="var(--accent)" stroke-dasharray="4 3"/>
+<circle cx="210" cy="130" r="60" fill="none" stroke="var(--bad)" stroke-dasharray="4 3"/>
+<circle cx="70" cy="250" r="7" fill="var(--ex)"/><text x="58" y="272" fill="currentColor">A</text>
+<circle cx="110" cy="250" r="7" fill="var(--ex)"/><text x="116" y="272" fill="currentColor">B</text>
+<circle cx="70" cy="210" r="7" fill="var(--ex)"/><text x="52" y="206" fill="currentColor">C</text>
+<circle cx="110" cy="210" r="7" fill="var(--ex)"/><text x="118" y="224" fill="currentColor">D</text>
+<circle cx="150" cy="170" r="7" fill="var(--accent)"/><text x="158" y="166" fill="currentColor">E</text>
+<circle cx="270" cy="90" r="7" fill="var(--ex)"/><text x="252" y="108" fill="currentColor">F</text>
+<circle cx="310" cy="90" r="7" fill="var(--ex)"/><text x="318" y="108" fill="currentColor">G</text>
+<circle cx="270" cy="50" r="7" fill="var(--ex)"/><text x="280" y="46" fill="currentColor">H</text>
+<circle cx="390" cy="250" r="7" fill="var(--bad)"/><text x="372" y="272" fill="currentColor">I</text>
+<circle cx="210" cy="130" r="7" fill="var(--bad)"/><text x="218" y="126" fill="currentColor">K</text>
+<g font-size="11"><circle cx="300" cy="190" r="6" fill="var(--ex)"/><text x="312" y="194" fill="currentColor">magpont</text>
+<circle cx="300" cy="212" r="6" fill="var(--accent)"/><text x="312" y="216" fill="currentColor">határpont</text>
+<circle cx="300" cy="234" r="6" fill="var(--bad)"/><text x="312" y="238" fill="currentColor">zajpont</text></g>
+</svg><figcaption>A = (1;1), B = (2;1), C = (1;2), D = (2;2), E = (3;3), F = (6;5), G = (7;5), H = (6;6), I = (9;1), K = (4,5;4). A szaggatott körök a D, az E és a K pont $\varepsilon=1{,}5$ sugarú környezete (1 rácsegység = 1).</figcaption></figure>
+
+<div class="box def"><span class="box-title">Definíció – DBSCAN (Density-Based Spatial Clustering of Applications with Noise)</span>
+<p><strong>Paraméterek:</strong> $\varepsilon$ (Eps) – a környezet sugara; MinPts – a „sűrű” környezethez szükséges pontok minimális száma (a pontot magát is beleszámolva, ahogy a scikit-learn <code>min_samples</code>).</p>
+<ul>
+<li><strong>Magpont</strong> (belső pont, <em>core point</em>): $\varepsilon$-környezetében legalább MinPts pont van.</li>
+<li><strong>Határpont</strong> (<em>border point</em>): nem magpont, de $\varepsilon$-környezetében van magpont.</li>
+<li><strong>Zajpont</strong> (<em>noise</em>): se nem mag-, se nem határpont.</li>
+</ul>
+<p><strong>Algoritmus:</strong></p>
+<ol>
+<li>Címkézz meg minden pontot mag-, határ- vagy zajpontként.</li>
+<li>Hagyd el a zajpontokat.</li>
+<li>Köss össze éllel minden olyan magpont-párt, amelyek egymás $\varepsilon$-környezetében vannak.</li>
+<li>A magpontok gráfjának minden összefüggő része egy klaszter.</li>
+<li>Minden határpontot rendelj egy olyan klaszterhez, amelynek valamelyik magpontja $\varepsilon$-közelben van.</li>
+</ol>
+<p><strong>Miért működik?</strong> A klaszter belsejében a pontok sűrűn állnak, ezért magpontok, és egymáshoz láncolódnak; két klaszter között ritka sáv van, ahol nincs magpont, így a lánc megszakad. A $k$-t nem kell megadni: annyi klaszter lesz, ahány összefüggő sűrű tartomány van.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – A pontok címkézése ($\varepsilon=1{,}5$, MinPts = 3)</span>
+<details class="solution"><summary>Megoldás</summary>
+<div class="table-wrap"><table>
+<tr><th>pont</th><th>szomszédok 1,5-en belül</th><th class="num">pontszám (önmagával)</th><th>címke</th></tr>
+<tr><td>A</td><td>B (1), C (1), D (1,414)</td><td class="num">4</td><td>mag</td></tr>
+<tr><td>B</td><td>A, C (1,414), D</td><td class="num">4</td><td>mag</td></tr>
+<tr><td>C</td><td>A, B, D</td><td class="num">4</td><td>mag</td></tr>
+<tr><td>D</td><td>A, B, C, E (1,414)</td><td class="num">5</td><td>mag</td></tr>
+<tr><td>E</td><td>D</td><td class="num">2</td><td><strong>határ</strong> (D magpont)</td></tr>
+<tr><td>F</td><td>G (1), H (1)</td><td class="num">3</td><td>mag</td></tr>
+<tr><td>G</td><td>F, H (1,414)</td><td class="num">3</td><td>mag</td></tr>
+<tr><td>H</td><td>F, G</td><td class="num">3</td><td>mag</td></tr>
+<tr><td>I</td><td>–</td><td class="num">1</td><td><strong>zaj</strong></td></tr>
+<tr><td>K</td><td>– (E és F is 1,803-ra)</td><td class="num">1</td><td><strong>zaj</strong></td></tr>
+</table></div></details>
+</div>
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – A klaszterek felépítése</span>
+<details class="solution"><summary>Megoldás</summary><p>Magpontok gráfja: A, B, C, D páronként 1,5-en belül vannak → egy összefüggő rész. F, G, H egymás közt összekötve → második rész. A két rész között nincs él (a legközelebbi magpontpár D–F, 5 egység). Határpont: E → D klaszteréhez. Eredmény: <strong>{A, B, C, D, E}</strong>, <strong>{F, G, H}</strong>, zaj: <strong>I, K</strong>. (A scikit-learn <code>DBSCAN(eps=1.5, min_samples=3)</code> ugyanezt adja: címkék 0, 1 és −1.)</p></details>
+</div>
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – Az $\varepsilon$ hatása</span>
+<div class="two-col">
+  <div class="box example"><span class="box-title">$\varepsilon=1$ (túl kicsi)</span>
+  <p>D–E már 1,414, ezért E zaj lesz. G és H csak F-et látja (2 pont) → határpontok. Klaszterek: {A, B, C, D}, {F, G, H}; zaj: E, I, K.</p></div>
+  <div class="box example"><span class="box-title">$\varepsilon=2$ (túl nagy)</span>
+  <p>K-nak E és F is szomszédja (1,803) → K magpont, és „hidat” ver: E is magpont lesz. Minden egyetlen klaszterbe olvad, csak I marad zaj.</p></div>
+</div>
+<p>A középső érték (1,5) adja a szemmel is látható két csoportot. Ugyanez a „hídpont” jelenség a single kapcsolás láncolódása (<a href="04-hierarchikus-klaszterezes.html#lepes2">4. lecke</a>) – a DBSCAN-nál a MinPts fékezi: egy magányos pont csak akkor híd, ha elég sűrű a környezete.</p>
+</div>
+
+<h4>Hogyan válasszunk $\varepsilon$-t? A $k$-távolság görbe</h4>
+<p>Rögzítsd MinPts-et (ökölszabály: legalább a dimenziószám + 1; két változónál 4–5). Minden pontra számold ki a távolságát a MinPts-edik legközelebbi ponttól (önmagát is beleszámolva, ahogy a <code>min_samples</code>), és ábrázold csökkenő sorrendben. Ahol a görbe hirtelen leesik, ott ér véget a „zaj”: oda tedd $\varepsilon$-t.</p>
+<figure><svg viewBox="0 0 400 230" width="400" role="img" aria-label="k-távolság görbe a 120 vásárlóra, MinPts = 5" font-family="Inter, sans-serif" font-size="11">
+<line x1="50" y1="190" x2="385" y2="190" stroke="currentColor" stroke-opacity=".5"/><line x1="50" y1="15" x2="50" y2="190" stroke="currentColor" stroke-opacity=".5"/>
+<line x1="50" y1="141.4" x2="385" y2="141.4" stroke="currentColor" stroke-opacity=".1"/><line x1="50" y1="92.9" x2="385" y2="92.9" stroke="var(--warn)" stroke-dasharray="4 3"/><line x1="50" y1="44.3" x2="385" y2="44.3" stroke="var(--ex)" stroke-dasharray="4 3"/>
+<text x="44" y="194" text-anchor="end" fill="currentColor">0</text><text x="44" y="145" text-anchor="end" fill="currentColor">0,1</text><text x="44" y="97" text-anchor="end" fill="currentColor">0,2</text><text x="44" y="48" text-anchor="end" fill="currentColor">0,3</text>
+<text x="383" y="88" text-anchor="end" fill="var(--warn)">ε = 0,2: 14 pont fölötte</text><text x="383" y="39" text-anchor="end" fill="var(--ex)">ε = 0,3: minden pont alatta</text>
+<polyline fill="none" stroke="var(--accent)" stroke-width="2" points="50.0,50.2 52.8,50.8 55.5,67.9 58.3,73.8 61.1,75.5 63.9,85.1 66.6,86.3 69.4,86.7 72.2,88.9 75.0,91.1 77.7,91.4 80.5,92.0 83.3,92.0 86.1,92.4 88.8,93.1 91.6,93.1 94.4,93.8 97.1,94.1 99.9,94.1 102.7,94.1 105.5,94.3 108.2,94.5 111.0,94.6 113.8,95.0 116.6,95.3 119.3,96.6 122.1,96.7 124.9,97.0 127.6,97.3 130.4,97.3 133.2,97.4 136.0,97.4 138.7,97.6 141.5,98.0 144.3,98.1 147.1,98.1 149.8,98.4 152.6,98.6 155.4,100.7 158.2,107.5 160.9,108.4 163.7,114.1 166.5,116.7 169.2,121.3 172.0,125.8 174.8,126.7 177.6,133.9 180.3,134.7 183.1,136.2 185.9,136.9 188.7,138.7 191.4,144.2 194.2,145.2 197.0,149.1 199.7,149.1 202.5,149.4 205.3,151.9 208.1,155.6 210.8,155.8 213.6,157.4 216.4,157.4 219.2,157.4 221.9,159.2 224.7,159.6 227.5,160.0 230.3,160.0 233.0,160.2 235.8,161.1 238.6,161.2 241.3,161.2 244.1,161.3 246.9,161.5 249.7,162.6 252.4,163.3 255.2,163.3 258.0,163.6 260.8,165.3 263.5,166.1 266.3,166.1 269.1,166.3 271.8,167.3 274.6,167.3 277.4,167.4 280.2,167.4 282.9,167.7 285.7,167.7 288.5,168.1 291.3,169.3 294.0,169.7 296.8,169.7 299.6,170.2 302.4,170.3 305.1,170.7 307.9,171.4 310.7,171.8 313.4,172.0 316.2,172.2 319.0,172.7 321.8,173.0 324.5,173.1 327.3,173.5 330.1,175.0 332.9,175.3 335.6,175.3 338.4,175.9 341.2,175.9 343.9,176.2 346.7,176.4 349.5,178.2 352.3,178.2 355.0,178.8 357.8,179.1 360.6,180.1 363.4,180.3 366.1,180.3 368.9,181.2 371.7,181.2 374.5,181.4 377.2,181.7 380.0,182.3"/>
+<text x="215" y="215" text-anchor="middle" fill="currentColor">vásárlók, csökkenő 5-távolság szerint (120 db)</text>
+</svg><figcaption>A gyakorlat 120 vásárlója (standardizált tér), MinPts = 5. A legnagyobb 5-távolság 0,288: $\varepsilon\ge 0{,}288$ esetén minden vásárló magpont, nincs zaj.</figcaption></figure>
+
+<div class="box example"><span class="box-title">A gyakorlat adatán (ténylegesen futtatva, scikit-learn 1.9)</span>
+<div class="table-wrap"><table>
+<tr><th>$\varepsilon$ (MinPts = 5)</th><th>klaszterek mérete</th><th class="num">zaj</th><th>értelmezés</th></tr>
+<tr><td>0,2</td><td>40 + 40 + 33 + 5</td><td class="num">2</td><td>a nagy költők szétesnek egy 33-as és egy 5-ös csoportra, 2 vásárló (C106, C115) zaj</td></tr>
+<tr><td><strong>0,3</strong></td><td><strong>40 + 40 + 40</strong></td><td class="num">0</td><td>alkalmi (3,5 vásárlás, 13 178 Ft), átlagos (9,4; 49 626 Ft), törzs (15,9; 184 480 Ft) – pontosan a K-means $k=3$ felosztása</td></tr>
+<tr><td>0,4</td><td>80 + 40</td><td class="num">0</td><td>az alkalmi és az átlagos csoport összeolvad – a K-means $k=2$ felosztása</td></tr>
+</table></div>
+<p>Ezen a mesterséges, jól elkülönülő adaton a DBSCAN ugyanazt találja, mint a K-means és a HAC – de $k$ megadása nélkül, és ha zaj lenne, azt meg is jelölné.</p>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+<li><strong>Önmagát beleszámolja-e?</strong> A scikit-learn <code>min_samples</code> a pontot is számolja; egyes tankönyvek csak a <em>többi</em> pontot. Kézi feladatnál nézd meg, melyik a konvenció – egy határesetben ettől függ, hogy mag- vagy határpont.</li>
+<li><strong>A határpont besorolása nem egyértelmű</strong>, ha két klaszter magpontja is $\varepsilon$-közelben van: a „valamelyik” klaszterhez kerül (a scikit-learn a feldolgozási sorrend szerint).</li>
+<li><strong>Eltérő sűrűségű klaszterek</strong>: egyetlen $\varepsilon$ nem jó mindenhová – ami a ritka klaszterhez kell, az a sűrűket összeolvasztja, és fordítva. Sok dimenzióban a „sűrűség” is elmosódik.</li>
+<li><strong>Skála</strong>: $\varepsilon$ távolságban értendő, ezért standardizált adaton dolgozz.</li>
+<li><strong>Nincs <code>predict</code></strong>: új pontra kézzel adható szabály (ha egy magpont $\varepsilon$-közelében van, annak klasztere, különben zaj), de a scikit-learn <code>DBSCAN</code> nem kínál ilyet.</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Hüvelykujjszabály – DBSCAN vagy K-means?</span>
+<p><strong>DBSCAN</strong>, ha nem tudod $k$-t, a csoportok tetszőleges (nem gömb) alakúak, és zaj / kiugró is van az adatban. <strong>K-means</strong>, ha nagyjából gömbszerű, hasonló méretű csoportokat vársz, minden pontot be kell sorolni, és új pontokra is alkalmazni kell (<code>predict</code>).</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – DBSCAN (5 feladat)</summary>
+<ol>
+  <li><p>A kidolgozott példa pontjain $\varepsilon=1{,}5$, de MinPts = 4. Mi az eredmény?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A, B, C, D (4–5 pont) magpont marad, E határpont. F, G, H csak 3 pontot lát → egyik sem magpont, és magpont szomszédjuk sincs → mind zaj. Egy klaszter: {A, B, C, D, E}; zaj: F, G, H, I, K. A túl nagy MinPts a kis klasztert zajnak nézi.</p></details></li>
+  <li><p>Egydimenziós pontok: 1, 2, 3, 4, 8, 9, 10, 20; $\varepsilon=1{,}5$, MinPts = 3. Címkézd a pontokat, és add meg a klasztereket!</p>
+    <details class="solution"><summary>Megoldás</summary><p>Pontszámok (önmagával): 1 → 2, 2 → 3, 3 → 3, 4 → 2, 8 → 2, 9 → 3, 10 → 2, 20 → 1. Magpont: 2, 3, 9. Határpont: 1, 4 (a 2, ill. a 3 magpont szomszédja), 8, 10 (a 9-é). Zaj: 20. Klaszterek: {1, 2, 3, 4} és {8, 9, 10}.</p></details></li>
+  <li><p>Ugyanezen pontokon MinPts = 4. Mi történik?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Egységnyi közű pontoknál 1,5-en belül legfeljebb 3 pont lehet (önmaga és két szomszéd), így nincs magpont – <strong>minden pont zaj</strong>. A paramétereket az adat sűrűségéhez kell igazítani.</p></details></li>
+  <li><p>A gyakorlat adatán (MinPts = 5) a legnagyobb 5-távolság 0,288. Mit jelent ez $\varepsilon=0{,}3$-ra?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Minden vásárlónak legalább 5 pont (önmagával) van 0,288-on belül, tehát 0,3-nál mindenki magpont: zaj és határpont nincs (a futás: 120 magpont, 0 zaj).</p></details></li>
+  <li><p>Miért mondhatjuk, hogy a DBSCAN „részleges” klaszterezés, a K-means pedig „teljes”?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A DBSCAN a zajpontokat egyik klaszterbe sem sorolja (címke −1), tehát az objektumok csak egy részét klaszterezi. A K-means minden pontot a legközelebbi középponthoz rendel, a legmagányosabbat is.</p></details></li>
+</ol>
+</details>
+
+<h4>Mini-kvíz</h4>
+<div class="quiz" data-quiz="l14-lepes6"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes7">
+<h2>7. lépés – Klaszter-validálás: kohézió, szeparáció, Davies–Bouldin</h2>
+<p>Most már három módszerrel (K-means, HAC, DBSCAN) és sok paraméterrel kaphatunk klasztereket. Melyik a jó? Felügyelt tanulásnál a tesztadaton megnéznénk a találati arányt – itt nincs „helyes” klasztertagság.</p>
+
+<h4>Kis eset</h4>
+<p>Az 1, 2, 3, 8, 10 pontok két felosztása:</p>
+<div class="two-col">
+  <div class="box example"><span class="box-title">{1, 2, 3} | {8, 10}</span>
+  <p>Középpontok 2 és 9. SSE $=2+2=4$.</p>
+  <p>Sziluett 0,767.</p></div>
+  <div class="box example"><span class="box-title">{1, 2, 3, 8} | {10}</span>
+  <p>Középpontok 3,5 és 10. SSE $=29$.</p>
+  <p>Sziluett 0,250.</p></div>
+</div>
+<p>Az első egyértelműen jobb. Ezt a „jobbat” mérőszámokkal fogjuk meg.</p>
+
+<div class="box def"><span class="box-title">Definíció – Klaszter-validálás</span>
+<p>A szegmentáció eredményének jóságát vizsgáljuk. <strong>Alapprobléma:</strong> nincs tesztállomány ismert klasztertagsággal, és a klaszter fogalma szubjektív. <strong>Miért mégis?</strong> Hogy (1) ne lássunk mintázatot a tiszta zajban – a K-means egyenletesen szórt pontokat is szétoszt $k$ csoportra –, és (2) össze tudjuk hasonlítani a módszereket, paramétereket és klaszterszámokat.</p>
+<p><strong>Belső mutatók</strong> (csak az adatból és a felosztásból):</p>
+<ul>
+<li><strong>Kohézió</strong> (összetartás) = klaszteren belüli négyzetösszeg, $\mathrm{SSE}=\sum_j\sum_{x\in C_j}\lVert x-\mu_j\rVert^2$ – ez az <a href="03-kmeans.html#lepes6">inertia</a>. Minél kisebb, annál jobb.</li>
+<li><strong>Szeparáció</strong> (elválasztás) = klaszterek közötti négyzetösszeg, $\mathrm{SSB}=\sum_j |C_j|\,\lVert \mu_j-\mu\rVert^2$, ahol $\mu$ az összes pont átlaga. Minél nagyobb, annál jobb.</li>
+<li>A kettő összege állandó: $\mathrm{SSE}+\mathrm{SSB}=\mathrm{SST}$ (az összes pont átlagtól vett négyzetösszege). Ami az egyikből elvész, a másikhoz kerül.</li>
+<li><strong>Sziluett</strong>: lásd <a href="03-kmeans.html#lepes9">3. lecke, 9. lépés</a> – minél nagyobb, annál jobb.</li>
+<li><strong>Davies–Bouldin-index:</strong> $$DB=\frac1k\sum_{i=1}^{k}\max_{j\ne i}\frac{s_i+s_j}{d(\mu_i,\mu_j)},$$ ahol $s_i$ a klaszter pontjainak átlagos távolsága a saját középponttól. Minden klaszterhez a „leginkább összetéveszthető” párját keresi (nagy szórás, közeli középpontok). <strong>Minél kisebb, annál jobb.</strong></li>
+<li><strong>Korreláció a szomszédsági és az incidenciamátrix között:</strong> az incidenciamátrixban 1 áll, ha két pont egy klaszterben van, különben 0. Jó klaszterezésnél az egy klaszterbe tartozó párok közel vannak: a <em>hasonlósági</em> mátrixszal erős pozitív, a <em>távolság</em>mátrixszal erős negatív a korreláció. Az abszolút érték minél nagyobb, annál jobb.</li>
+</ul>
+<p>A mutatókat a klaszterszám függvényében ábrázolva a <strong>töréspontok</strong> jelölik a jó $k$-jelölteket (a könyökmódszer általánosítása).</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – SSE, SSB, SST</span>
+<p>Számold ki az {1, 2, 3} | {8, 10} felosztás SSB-jét, és ellenőrizd az $\mathrm{SSE}+\mathrm{SSB}=\mathrm{SST}$ összefüggést!</p>
+<details class="solution"><summary>Megoldás</summary><p>Összátlag $24/5=4{,}8$. $\mathrm{SSB}=3\cdot(2-4{,}8)^2+2\cdot(9-4{,}8)^2=23{,}52+35{,}28=58{,}8$. $\mathrm{SST}=14{,}44+7{,}84+3{,}24+10{,}24+27{,}04=62{,}8$. $4+58{,}8=62{,}8$ ✓. A rossz felosztásnál $\mathrm{SSE}=29$, így $\mathrm{SSB}=33{,}8$.</p></details>
+</div>
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Davies–Bouldin két klaszterre</span>
+<p>Ugyanerre a felosztásra mennyi a DB-index?</p>
+<details class="solution"><summary>Megoldás</summary><p>$s_1=(1+0+1)/3\approx 0{,}667$, $s_2=(1+1)/2=1$, $d(\mu_1,\mu_2)=|2-9|=7$. Két klaszternél mindkettőnek a másik a párja: $DB=\frac{0{,}667+1}{7}\approx 0{,}238$. A rossz felosztásnál ($s_1=2{,}25$, $s_2=0$, $d=6{,}5$) $DB\approx 0{,}346$ – nagyobb, tehát rosszabb.</p></details>
+</div>
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – Incidencia-korreláció</span>
+<p>Pontok 0, 1, 5, 6; klaszterek {0, 1} és {5, 6}. Mennyi a korreláció a páronkénti távolságok és az incidencia (1 = egy klaszterben) között?</p>
+<details class="solution"><summary>Megoldás</summary><p>Hat pár: (0,1): $d=1$, inc 1; (0,5): 5, 0; (0,6): 6, 0; (1,5): 4, 0; (1,6): 5, 0; (5,6): 1, 1. A két számsor korrelációja $\approx -0{,}956$: az egy klaszterbe tartozó párok rendre közel vannak. Rossz címkézéssel ({0, 5} és {1, 6}) a korreláció $+0{,}478$ lenne.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">A gyakorlat adatán (K-means, standardizált tér, $\mathrm{SST}=240$)</span>
+<div class="table-wrap"><table>
+<tr><th>$k$</th><th class="num">SSE (kohézió)</th><th class="num">SSB (szeparáció)</th><th class="num">sziluett ↑</th><th class="num">Davies–Bouldin ↓</th><th class="num">korr. (távolság, incidencia)</th></tr>
+<tr><td>2</td><td class="num">46,30</td><td class="num">193,70</td><td class="num"><strong>0,7155</strong></td><td class="num">0,4083</td><td class="num"><strong>−0,834</strong></td></tr>
+<tr><td>3</td><td class="num">17,02</td><td class="num">222,98</td><td class="num">0,7144</td><td class="num"><strong>0,3559</strong></td><td class="num">−0,716</td></tr>
+<tr><td>4</td><td class="num">8,31</td><td class="num">231,69</td><td class="num">0,6834</td><td class="num">0,4647</td><td class="num">−0,683</td></tr>
+<tr><td>5</td><td class="num">6,14</td><td class="num">233,86</td><td class="num">0,6190</td><td class="num">0,5630</td><td class="num">−0,607</td></tr>
+</table></div>
+<p>A sziluett és az incidencia-korreláció a $k=2$-t, a Davies–Bouldin-index a $k=3$-at részesíti előnyben (a DBSCAN $\varepsilon=0{,}3$ felosztása ugyanaz, mint a $k=3$: sziluett 0,7144, DB 0,3559). Ugyanaz a kép, mint a <a href="03-kmeans.html#lepes9">3.</a> és <a href="04-hierarchikus-klaszterezes.html#lepes4">4. leckében</a>: a 2 és a 3 is védhető, az értelmezhetőség dönt.</p>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+<li><strong>Irányok:</strong> SSE és DB – kisebb a jobb; SSB, sziluett és |korreláció| – nagyobb a jobb. A DB-t gyakran fordítva olvassák.</li>
+<li>Az SSE $k$-val mindig csökken (az SSB nő), ezért önmagában nem választ $k$-t – töréspontot kell keresni.</li>
+<li>Az SSE, a DB és (kisebb mértékben) a sziluett is középpont alapú, <strong>gömbszerű</strong> klasztereket „szeret”. Egy jó, de elnyújtott DBSCAN-klaszterezés ezekkel rosszabbnak látszhat, mint amilyen.</li>
+<li><strong>A DBSCAN zaja:</strong> a <code>silhouette_score</code> a −1 címkét is egy klaszternek veszi. A kézi DBSCAN-példán a zajjal együtt 0,494, a zajpontok nélkül 0,748. Validálás előtt döntsd el (és írd le), hogy a zajt kihagyod-e.</li>
+</ul>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés (nem szerepel a forrásban) – külső mutatók</span>
+<p>Ha mégis van ismert csoportosítás (pl. egy szakértő által címkézett minta), a klaszterezés ehhez is mérhető: <strong>tisztaság</strong> (<em>purity</em> – a klaszterek legnagyobb „osztályának” aránya), illetve (korrigált) <strong>Rand-index</strong> (<code>adjusted_rand_score</code> – mennyi pontpárról dönt ugyanúgy a két csoportosítás). Ezek a <em>külső</em> mutatók; a fenti belsőkkel szemben nem kell hozzájuk az adat geometriája.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Validálás (5 feladat)</summary>
+<ol>
+  <li><p>Klaszterek: {0, 2} és {6, 8}. Mennyi az SSE, az SSB és az SST?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Középpontok 1 és 7, összátlag 4. SSE $=(1+1)+(1+1)=4$. SSB $=2\cdot 9+2\cdot 9=36$. SST $=16+4+4+16=40=4+36$ ✓.</p></details></li>
+  <li><p>Ugyanerre mennyi a Davies–Bouldin-index?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$s_1=s_2=1$, $d=6$: $DB=2/6\approx 0{,}333$.</p></details></li>
+  <li><p>Két felosztás: (a) sziluett 0,71, DB 0,41; (b) sziluett 0,62, DB 0,56. Melyik a jobb, és egybehangzik-e a két mutató?</p>
+    <details class="solution"><summary>Megoldás</summary><p>(a): nagyobb sziluett és kisebb DB – mindkét mutató szerint jobb, egybehangzanak.</p></details></li>
+  <li><p>A gyakorlat táblázata szerint melyik $k$-t javasolja a Davies–Bouldin-index, és melyiket a sziluett?</p>
+    <details class="solution"><summary>Megoldás</summary><p>DB: $k=3$ (0,3559, a legkisebb). Sziluett: $k=2$ (0,7155, a legnagyobb, de a $k=3$ csak 0,0011-gyel marad el).</p></details></li>
+  <li><p>Egy hallgató egyenletesen szórt véletlen pontokon K-means-t futtat $k=4$-gyel, és büszkén mutatja a négy szép, színes csoportot. Mit kérdezel tőle?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Hogy validálta-e: a K-means bármilyen adatot $k$ részre oszt, struktúra nélkül is. A mutatók (sziluett, DB, SSE-görbe töréspontja) ilyenkor nem mutatnak kiugró értéket, a $k$ függvényében „laposak” – ez jelzi, hogy tiszta zajban keresett mintázatot.</p></details></li>
+</ol>
+</details>
+
+<h4>Mini-kvíz</h4>
+<div class="quiz" data-quiz="l14-lepes7"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes8">
+<h2>8. lépés – Kiugró rekordok: fogalom, grafikus és statisztikai módszerek</h2>
+<p>A DBSCAN zajpontjai átvezetnek a lecke második feléhez: mi van, ha épp a „sehová sem illő” rekordok érdekelnek?</p>
+
+<h4>Kis eset</h4>
+<p>Hat ügyfél életkora: 23, 25, 31, 27, 29, <strong>333</strong>. A 333 nyilván elírás. Próbáljuk ki az ismert szabályt: „kiugró, ha $|z|&gt;3$”. Átlag 78, (populációs) szórás 114,07, így $z(333)=(333-78)/114{,}07\approx 2{,}24$. <strong>A szabály nem jelez!</strong> Maga a kiugró érték annyira felfújta az átlagot és a szórást, hogy elrejtette magát.</p>
+
+<div class="box def"><span class="box-title">Definíció – Rendellenes (kiugró) rekord</span>
+<p>Olyan rekord, amely <strong>számottevően eltér a többitől</strong>; ritka abban az értelemben, hogy az őt tartalmazó térrészben kevés rekord van.</p>
+<ul>
+<li>A rendellenesség <strong>nem minősít</strong>: lehet <strong>hibás</strong> (a 333 éves életkor) vagy <strong>helyes</strong> (egy valódi, kiemelkedő összegű utalás – ami lehet legális lakásvásárlás, vagy csalás egy feltört számláról).</li>
+<li><strong>Munkahipotézis:</strong> jóval több a normális, mint a rendellenes megfigyelés.</li>
+<li><strong>Feladattípusok:</strong> (1) egy rekordhoz <strong>rendellenességi pontszámot</strong> számolni; (2) megtalálni az összes rekordot, amelynek pontszáma egy <strong>küszöb</strong> fölött van; (3) megtalálni az <strong>$n$ legnagyobb</strong> pontszámú rekordot.</li>
+<li><strong>Kihívások:</strong> mit tekintünk kiugrónak és mennyi van belőle; alapvetően nem felügyelt feladat (nincs validációs tesztállomány); gyakran „tűt keresünk a szénakazalban”.</li>
+</ul>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Grafikus és statisztikai módszerek</span>
+<p><strong>Grafikus:</strong> egy jellemzőre <strong>dobozábra</strong> (Tukey-kerítés, $Q_1-1{,}5\,IQR$ és $Q_3+1{,}5\,IQR$ – <a href="01-adattisztitas.html#lepes7">1. lecke, 7. lépés</a>), két jellemzőre <strong>pontdiagram</strong>. Sok dimenzióban nem használható.</p>
+<p><strong>Statisztikai:</strong></p>
+<ul>
+<li><strong>z-pontszám</strong> (Z-próba): $z=(x-\bar x)/s$; hüvelykujjszabály: $|z|&gt;3$ gyanús.</li>
+<li><strong>Grubbs-próba:</strong> $G=\dfrac{\max_i|x_i-\bar x|}{s}$ ($s$: mintaszórás), és a legszélső értéket kiugrónak nyilvánítjuk, ha $G$ nagyobb a mintamérettől és a szignifikanciaszinttől függő kritikus értéknél (táblázatból vagy a $t$-eloszlásból). Feltételezi, hogy a többi adat közel normális.</li>
+<li><strong>Likelihood-módszer keverékeloszlásra:</strong> feltesszük, hogy az adat két eloszlás keveréke: a nagy súlyú „normális” $M$ és a kis súlyú „rendellenes” $A$. Kezdetben minden pont $M$-ben van; egy pontot átteszünk $A$-ba, ha ettől az adatok együttes valószínűsége (likelihoodja) számottevően nő.</li>
+</ul>
+<p><strong>Korlátok:</strong> a legtöbb próba csak <strong>egy jellemzőre</strong> működik; az adatok eloszlása többnyire nem ismert; sok dimenzióban nehéz megbecsülni.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Miért nem jelez a $|z|&gt;3$?</span>
+<p>Mekkora lehet egyáltalán a legnagyobb $|z|$ 6 adat esetén?</p>
+<details class="solution"><summary>Megoldás</summary><p>Populációs szórással $n$ adatnál $|z|\le\sqrt{n-1}$; $n=6$-ra $\sqrt5\approx 2{,}236$. A 333 ezt majdnem eléri (2,235), de 3-at <em>soha</em> nem érhet el. 10 adatig ($\sqrt9=3$) a $|z|&gt;3$ szabály matematikailag nem jelezhet. Ha a 333 nélküli öt adatból számolnánk (átlag 27, szórás 2,83), $z(333)\approx 108$ lenne.</p></details>
+</div>
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Grubbs-próba</span>
+<p>Az életkorokra a mintaszórás $s=124{,}96$. A kritikus érték $n=6$, 5%-os szinten $G_{\text{krit}}\approx 1{,}887$. Kiugró-e a 333?</p>
+<details class="solution"><summary>Megoldás</summary><p>$G=(333-78)/124{,}96\approx 2{,}041&gt;1{,}887$ → igen, kiugró. A Grubbs-próba kritikus értéke a mintamérethez igazodik (n = 10-re 2,29, n = 30-ra 2,91), ezért kis mintán is működik.</p></details>
+</div>
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – U a gyakorlat adatán, jellemzőnként</span>
+<p>U = (3 vásárlás; 200 000 Ft). A 120 vásárló vásárlásszámára $Q_1=4$, $Q_3=14$; költésére $Q_1=17\,100$, $Q_3=159\,577{,}5$ Ft. Kiugró-e U z-pontszám vagy IQR szerint?</p>
+<details class="solution"><summary>Megoldás</summary><p>z-értékek: $(3-9{,}59)/5{,}31\approx -1{,}24$ és $(200\,000-82\,428)/75\,913\approx 1{,}55$ – egyik sem éri el a 3-at. IQR-kerítések: vásárlásszám $[-11;\,29]$, költés $[-196\,616;\,373\,294]$ Ft – U mindkettőn belül van. <strong>Jellemzőnként U teljesen hétköznapi.</strong> A gyanús a <em>kombináció</em>, ezt a 2. lépés Mahalanobis-távolsága és a 9. lépés módszerei látják.</p></details>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Alkalmazások</span>
+<ul>
+<li><strong>Pénzügy, bank:</strong> csalárd tranzakciók, szokatlan nagy összegű pénzfelvételek (kártyalopás, pénzmosás).</li>
+<li><strong>Kiberbiztonság:</strong> szokatlan hálózati forgalom, jogosulatlan hozzáférés, adatvédelmi incidens.</li>
+<li><strong>Egészségügy:</strong> rendellenes tünetek, pl. szabálytalan szívverés észlelése.</li>
+<li><strong>Gyártás:</strong> érzékelőadatokból a meghibásodás előrejelzése, karbantartás ütemezése; minőségellenőrzés.</li>
+<li><strong>Környezetvédelem:</strong> természeti katasztrófák (földrengés) előjelei.</li>
+</ul>
+<p>A cél nem csak a „furcsa” adat kiszűrése, hanem a <strong>kontextusba helyezése</strong>: új trend, kritikus hiba vagy ártalmatlan egyszeri kilengés?</p>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+<li><strong>Maszkolás:</strong> a kiugró érték az átlagot és a szórást is eltolja, így a z-pontszáma kisebb lesz – különösen kis mintán, vagy ha több kiugró van. Az IQR (kvartilisek) és a Grubbs-próba ezt kevésbé szenvedi meg.</li>
+<li><strong>Kiugró ≠ hibás.</strong> Törlés előtt mindig nézd meg (<a href="01-adattisztitas.html#lepes7">1. lecke</a>): a kávé 2200 Ft-os ára „kiugró”, mégis valódi. Csalásfelderítésnél pedig épp a helyes, de rendellenes rekord az érték.</li>
+<li><strong>Egy jellemző ≠ több jellemző.</strong> Változónként minden rendben lehet, a rekord mégis rendellenes (U).</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Kiugró rekordok, statisztikai módszerek (5 feladat)</summary>
+<ol>
+  <li><p>20 mérés átlaga 12,85, (populációs) szórása 6,30; a legnagyobb érték 40. Jelez-e a $|z|&gt;3$ szabály?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$z=(40-12{,}85)/6{,}30\approx 4{,}31&gt;3$ → igen. 20 adatnál a $|z|$ elméleti maximuma $\sqrt{19}\approx 4{,}36$, így itt van „hely” a jelzésre.</p></details></li>
+  <li><p>Legfeljebb mekkora lehet a $|z|$ (populációs szórással) 10 adatnál? Mit jelent ez a $|z|&gt;3$ szabályra?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\sqrt{10-1}=3$. Tehát 10 vagy kevesebb adatnál a $|z|&gt;3$ szabály sosem jelez – kis mintán Grubbs-próbát vagy IQR-t használj.</p></details></li>
+  <li><p>Hibás vagy helyes rendellenes adat? (a) Egy 12 000 000 Ft-os, a tulajdonos által jóváhagyott utalás lakásvásárlásra. (b) Egy −5 db-os eladási tétel. (c) Egy 2,4 m magasnak rögzített felnőtt.</p>
+    <details class="solution"><summary>Megoldás</summary><p>(a) helyes rendellenes (valódi, csak ritka); (b) hibás (eladott mennyiség nem lehet negatív – hacsak nem visszáru, ezt tisztázni kell); (c) szinte biztosan hibás (elírás, pl. 1,4 vagy 2,04 helyett) – de ellenőrizni kell.</p></details></li>
+  <li><p>Melyik feladattípus? (a) „Jelöld meg a 10 leggyanúsabb tranzakciót.” (b) „Adj minden új tranzakcióhoz egy gyanússági értéket.” (c) „Riassz minden tranzakcióra, amelynek gyanússági értéke 0,9 fölött van.”</p>
+    <details class="solution"><summary>Megoldás</summary><p>(a) az $n$ legnagyobb pontszámú rekord; (b) rendellenességi pontszám egy rekordra; (c) küszöb fölötti rekordok.</p></details></li>
+  <li><p>Az életkorok (23, 25, 27, 29, 31, 333) IQR-kerítései pandas-szal $Q_1=25{,}5$, $Q_3=30{,}5$. Kiugró-e a 333?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$IQR=5$, felső határ $30{,}5+7{,}5=38$. A 333 messze fölötte van → kiugró. Az IQR-t nem rontja el a 333, mert a kvartilisek nem függnek a szélső értéktől – ezért jelez, amikor a z-pontszám nem.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes9">
+<h2>9. lépés – Távolság és sűrűség alapú kiugró-keresés</h2>
+<p>A statisztikai módszerek változónként mérnek és eloszlást feltételeznek. A távolság alapú módszerek ehelyett a rekordokat pontként kezelik a térben (vektortér-modell), és a szomszédaikhoz mérik őket – bármennyi dimenzióban.</p>
+
+<h4>Kis eset</h4>
+<p>Pontok: 1, 2, 3, 4, 5, 12. Minden pontra nézzük a távolságot a <strong>2. legközelebbi</strong> másik ponttól:</p>
+<div class="table-wrap"><table>
+<tr><th>pont</th><td class="num">1</td><td class="num">2</td><td class="num">3</td><td class="num">4</td><td class="num">5</td><td class="num">12</td></tr>
+<tr><th>két legközelebbi távolsága</th><td class="num">1; 2</td><td class="num">1; 1</td><td class="num">1; 1</td><td class="num">1; 1</td><td class="num">1; 2</td><td class="num">7; 8</td></tr>
+<tr><th>pontszám (2. szomszéd)</th><td class="num">2</td><td class="num">1</td><td class="num">1</td><td class="num">1</td><td class="num">2</td><td class="num"><strong>8</strong></td></tr>
+</table></div>
+<p>A 12 pontszáma négyszerese a többi maximumának – ő a kiugró.</p>
+
+<div class="box def"><span class="box-title">Definíció – Távolság alapú kiugró-keresés</span>
+<ul>
+<li><strong>Legközelebbi társ módszer ($k$-NN):</strong> a rendellenességi pontszám a pont távolsága a $k$-adik legközelebbi szomszédjától (vagy a $k$ legközelebbi átlagos távolsága). Kiugró, akinek ez a legnagyobb.</li>
+<li><strong>Sűrűség alapú módszer:</strong> kiugró az a pont, amelynek adott $r$ sugarú környezetében egy küszöbszámnál kevesebb pont van. (A DBSCAN zajpontja pontosan ilyen: $r=\varepsilon$, küszöb = MinPts, és nincs magpont a közelében.)</li>
+<li><strong>Klaszter alapú módszer:</strong> szegmentáció után azoknak a klasztereknek az elemei kiugrók, amelyek <strong>kevés pontot</strong> tartalmaznak és <strong>jelentősen elkülönülnek</strong> a nagy klaszterektől.</li>
+</ul>
+<p><strong>Miért jobb?</strong> Nem kell eloszlást feltételezni, és a teljes rekordot (minden jellemzőt együtt) nézi, így az olyan kombinációkat is észreveszi, mint U.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Sűrűség alapú</span>
+<p>Ugyanezen pontokon ($1,\dots,5$ és 12): kiugró, akinek 1,5 sugarú környezetében egynél kevesebb másik pont van. Kik azok?</p>
+<details class="solution"><summary>Megoldás</summary><p>Másik pontok 1,5-en belül: 1 → 1, 2 → 2, 3 → 2, 4 → 2, 5 → 1, 12 → 0. Csak a 12 kiugró.</p></details>
+</div>
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Klaszter alapú</span>
+<p>Pontok: 1, 2, 3, 4, 5, 12, 13. A K-means $k=2$-vel {1, …, 5} (középpont 3) és {12, 13} (középpont 12,5) felosztást ad. Mit mond a klaszter alapú módszer?</p>
+<details class="solution"><summary>Megoldás</summary><p>A {12, 13} klaszter kicsi (2 pont a 7-ből) és messze van a nagytól (középpontjaik 9,5 egységre) → elemei kiugró-jelöltek. Hogy valóban kiugrók-e, vagy egy kicsi, de valódi szegmens (pl. VIP-ügyfelek), azt az értelmezés dönti el.</p></details>
+</div>
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – U és a 120 vásárló</span>
+<p>A standardizált térben minden vásárlóra kiszámoljuk a távolságot az 5. legközelebbi másik ponttól. Mit kapunk?</p>
+<details class="solution"><summary>Megoldás</summary><p>U pontszáma <strong>2,045</strong>; a 120 vásárló közül a legnagyobb 0,365. U legközelebbi szomszédja (C106: 13 vásárlás, 177 860 Ft) is 1,90-re van tőle, miközben a vásárlók egymástól jellemzően néhány tizedre. A DBSCAN ($\varepsilon=0{,}3$, MinPts = 5) U-t zajnak (−1) címkézi, a többi 120 vásárló besorolása nem változik.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+<li><strong>A $k$ megválasztása.</strong> Ha két kiugró egymás mellett van (12 és 13), $k=1$-nél mindkettő pontszáma 1 – ugyanannyi, mint a normál pontoké. Ez a maszkolás távolság alapú változata. $k=2$-nél már 7 és 8.</li>
+<li><strong>Eltérő sűrűségű régiók:</strong> egy ritka (de normális) klaszter pontjainak is nagy lehet a $k$-NN-távolsága, egy sűrű klaszter mellett álló kiugróé viszont kicsi. Ezt a relatív sűrűséget mérő módszerek kezelik (lásd a kiegészítést).</li>
+<li><strong>Skála és költség:</strong> standardizálás nélkül a távolság értelmetlen; és minden pontra minden más ponttól kell távolságot számolni ($\sim n^2$), ami nagy adaton drága.</li>
+</ul>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés (nem szerepel a forrásban) – LOF</span>
+<p>A <strong>Local Outlier Factor</strong> (helyi kiugrósági tényező) egy pont sűrűségét a szomszédai sűrűségéhez viszonyítja: kb. 1, ha olyan sűrű helyen van, mint a szomszédai, és jóval 1 fölötti, ha nála jóval sűrűbb pontok veszik körül. Így az eltérő sűrűségű klaszterek mellett is működik. scikit-learn: <code>LocalOutlierFactor</code>.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Távolság alapú kiugró-keresés (5 feladat)</summary>
+<ol>
+  <li><p>Pontok: 1, 2, 3, 4, 5, 12, 13. Számold ki a $k=1$ és $k=2$ szerinti pontszámot a 12-re és a 3-ra!</p>
+    <details class="solution"><summary>Megoldás</summary><p>12: $k=1$ → 1 (a 13), $k=2$ → 7 (az 5). 3: $k=1$ → 1, $k=2$ → 1. $k=1$-nél a 12 nem tűnik ki, $k=2$-nél igen.</p></details></li>
+  <li><p>Pontok: 1, 2, 3, 4, 5, 12; $r=2$. Hány másik pont van az egyes pontok környezetében?</p>
+    <details class="solution"><summary>Megoldás</summary><p>1 → 2, 2 → 3, 3 → 4, 4 → 3, 5 → 2, 12 → 0.</p></details></li>
+  <li><p>Pontok a síkon: (0;0), (1;0), (0;1), (1;1), (5;5). Mennyi az (5;5) pont $k=1$ szerinti pontszáma (euklideszi)?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A legközelebbi az (1;1): $\sqrt{16+16}=\sqrt{32}\approx 5{,}657$. A négyzet pontjaié 1.</p></details></li>
+  <li><p>Klaszterezés után van egy 15 fős, a többitől távoli klaszter (a 120-ból). Mikor <em>ne</em> nyilvánítsd a tagjait kiugrónak?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Ha a csoport értelmezhető, valódi szegmens (pl. nagykereskedő vevők, VIP-ügyfelek). A klaszter alapú módszer csak jelöltet ad; a „kevés pont” és „jelentős elkülönülés” küszöbét és az értelmezést neked kell meghatároznod.</p></details></li>
+  <li><p>Miért találja meg a $k$-NN-pontszám U-t, ha a z-pontszám nem?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A z-pontszám változónként, a teljes minta átlagához mér; U mindkét változóban az átlagos tartományban van. A $k$-NN a pont <em>helyi</em> környezetét nézi a két változó együttes terében: U körül nincs egyetlen vásárló sem, mert a vásárlók a korrelált sáv mentén helyezkednek el.</p></details></li>
+</ol>
+</details>
+
+<h4>Mini-kvíz</h4>
+<div class="quiz" data-quiz="l14-lepes9"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="alkalmazas">
+<h2>Alkalmazás – DBSCAN és kiugró-keresés a gyakorlat adatán</h2>
+<p>Adat: a 3. gyakorlat két CSV-je (<code>retail_customers_aggregated.csv</code> és <code>retail_customers_standardized.csv</code>), 120 vásárló, két jellemző. A kód a gyakorlat szkriptjeinek stílusát követi; a kimenetet scikit-learn 1.9-cel ténylegesen futtattuk.</p>
+<pre><code class="language-python">import numpy as np, pandas as pd
+from sklearn.cluster import DBSCAN, KMeans
+from sklearn.neighbors import NearestNeighbors
+from sklearn.metrics import silhouette_score, davies_bouldin_score
+
+FEATURES = ["purchase_count", "total_spent"]
+customers = pd.read_csv("retail_customers_aggregated.csv", sep=";", encoding="utf-8-sig")
+scaled = pd.read_csv("retail_customers_standardized.csv", sep=";", encoding="utf-8-sig")
+X = scaled[FEATURES].to_numpy()
+
+# 1) eps választása: k-távolság (min_samples = 5, a pont önmagát is számolja)
+nn = NearestNeighbors(n_neighbors=5).fit(X)
+dist, _ = nn.kneighbors(X)
+k_dist = np.sort(dist[:, -1])[::-1]
+print("legnagyobb 5-távolságok:", np.round(k_dist[:6], 3))
+
+# 2) DBSCAN több eps-szel
+for eps in [0.2, 0.3, 0.4]:
+    labels = DBSCAN(eps=eps, min_samples=5).fit_predict(X)
+    sizes = pd.Series(labels).value_counts().sort_index().to_dict()
+    print(f"eps={eps}: {sizes}")
+
+db = DBSCAN(eps=0.3, min_samples=5).fit(X)
+customers["db_cluster"] = db.labels_
+print("magpontok:", len(db.core_sample_indices_), "zaj:", (db.labels_ == -1).sum())
+print(customers.groupby("db_cluster")[FEATURES].mean().round(1))
+
+# 3) belső validálás: K-means k = 2..5 és a DBSCAN
+for k in range(2, 6):
+    km = KMeans(n_clusters=k, n_init=10, random_state=42).fit(X)
+    print(k, round(km.inertia_, 2), round(silhouette_score(X, km.labels_), 4),
+          round(davies_bouldin_score(X, km.labels_), 4))
+print("DBSCAN", round(silhouette_score(X, db.labels_), 4), round(davies_bouldin_score(X, db.labels_), 4))
+
+# 4) egy új, szokatlan vásárló: 3 vásárlás, 200 000 Ft
+mean = customers[FEATURES].mean().to_numpy()
+std = customers[FEATURES].std(ddof=0).to_numpy()      # mint a StandardScaler
+u = (np.array([3, 200_000]) - mean) / std
+print("U z-értékei:", np.round(u, 3))
+
+X_all = np.vstack([X, u])
+print("U DBSCAN-címkéje:", DBSCAN(eps=0.3, min_samples=5).fit_predict(X_all)[-1])
+nn = NearestNeighbors(n_neighbors=6).fit(X_all)        # 0. szomszéd = önmaga
+d, _ = nn.kneighbors(X_all)
+score = d[:, 5]                                         # 5. legközelebbi másik pont
+top = np.argsort(-score)[:3]
+print("legnagyobb kNN-pontszámok:", [(int(i), round(score[i], 3)) for i in top])
+
+S_inv = np.linalg.inv(np.cov(X.T))
+def mahalanobis(v):
+    c = v - X.mean(axis=0)
+    return float(np.sqrt(c @ S_inv @ c))
+print("Mahalanobis U:", round(mahalanobis(u), 2),
+      "| legnagyobb a 120 vásárló közt:", round(max(mahalanobis(x) for x in X), 2))
+print("Euklideszi U az origótól:", round(float(np.linalg.norm(u)), 2),
+      "| legnagyobb a 120 közt:", round(float(np.linalg.norm(X, axis=1).max()), 2))</code></pre>
+<p>Kimenet:</p>
+<pre><code class="language-plaintext">legnagyobb 5-távolságok: [0.288 0.287 0.251 0.239 0.236 0.216]
+eps=0.2: {-1: 2, 0: 40, 1: 40, 2: 33, 3: 5}
+eps=0.3: {0: 40, 1: 40, 2: 40}
+eps=0.4: {0: 80, 1: 40}
+magpontok: 120 zaj: 0
+            purchase_count  total_spent
+db_cluster
+0                      3.5      13177.8
+1                      9.4      49626.2
+2                     15.9     184479.5
+2 46.3 0.7155 0.4083
+3 17.02 0.7144 0.3559
+4 8.31 0.6834 0.4647
+5 6.14 0.619 0.563
+DBSCAN 0.7144 0.3559
+U z-értékei: [-1.241  1.549]
+U DBSCAN-címkéje: -1
+legnagyobb kNN-pontszámok: [(120, 2.045), (105, 0.365), (80, 0.347)]
+Mahalanobis U: 8.45 | legnagyobb a 120 vásárló közt: 2.45
+Euklideszi U az origótól: 1.98 | legnagyobb a 120 közt: 2.73</code></pre>
+
+<h3>Válasz a motiváció kérdésére</h3>
+<div class="table-wrap"><table>
+<tr><th>módszer</th><th>U értéke</th><th>a 120 vásárló legnagyobb értéke</th><th>jelez?</th></tr>
+<tr><td>z-pontszám (változónként)</td><td class="num">−1,24 és 1,55</td><td class="num">2,08 (költés)</td><td>nem</td></tr>
+<tr><td>IQR-kerítés (változónként)</td><td>belül</td><td>–</td><td>nem</td></tr>
+<tr><td>euklideszi távolság az átlagtól</td><td class="num">1,98</td><td class="num">2,73</td><td>nem</td></tr>
+<tr><td>Mahalanobis-távolság</td><td class="num">8,45</td><td class="num">2,45</td><td><strong>igen</strong></td></tr>
+<tr><td>5-NN pontszám</td><td class="num">2,045</td><td class="num">0,365</td><td><strong>igen</strong></td></tr>
+<tr><td>DBSCAN ($\varepsilon=0{,}3$, MinPts = 5)</td><td>zaj (−1)</td><td>senki sem zaj</td><td><strong>igen</strong></td></tr>
+</table></div>
+<p>U tehát gyanús: nem a vásárlásszáma vagy a költése, hanem a kettő <strong>kombinációja</strong> szokatlan. Egy csalásfelderítő rendszer ugyanígy dolgozik: a tranzakciót a „szokásos” tranzakciók terében helyezi el, és a ritka környezetű pontokat jelzi. Hogy U csaló-e vagy csak egy nagy bevásárlást intézett, azt már nem az algoritmus, hanem a kontextus (ellenőrzés, szakértő) dönti el. A klaszterezésre a 120 vásárlón a DBSCAN ugyanazt a három szegmenst adja, mint a K-means és a HAC – $k$ megadása nélkül.</p>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia (angol – magyar)</span>
+<ul>
+<li><em>proximity, similarity, dissimilarity / distance</em> – szomszédság, hasonlóság, különbözőség / távolság</li>
+<li><em>Manhattan (city block, taxicab, $L_1$), Euclidean ($L_2$), Chebyshev (supremum, $L_\infty$), Minkowski distance</em> – Manhattan-, euklideszi, Csebisev-, Minkowski-távolság; <em>Hamming distance</em> – Hamming-távolság</li>
+<li><em>Mahalanobis distance, covariance matrix</em> – Mahalanobis-távolság, kovarianciamátrix</li>
+<li><em>simple matching coefficient (SMC)</em> – egyszerű egyezés; <em>Jaccard coefficient</em> – Jaccard-együttható; <em>cosine similarity</em> – koszinusz-hasonlóság</li>
+<li><em>density, core / border / noise point</em> – sűrűség, mag- / határ- / zajpont; <em>eps, min_samples (MinPts)</em> – környezetsugár, minimális pontszám</li>
+<li><em>partitional / hierarchical, exclusive / overlapping, fuzzy, partial / complete clustering</em> – felosztó / hierarchikus, kizáró / nem kizáró, fuzzy, részleges / teljes klaszterezés</li>
+<li><em>cluster validation, cohesion (SSE), separation (SSB), Davies–Bouldin index, incidence matrix</em> – klaszter-validálás, kohézió, szeparáció, Davies–Bouldin-index, incidenciamátrix</li>
+<li><em>anomaly / outlier detection, outlier score</em> – rendellenesség-keresés, kiugró rekordok detektálása, rendellenességi pontszám; <em>Grubbs' test</em> – Grubbs-próba; <em>k-nearest neighbour (k-NN)</em> – $k$ legközelebbi szomszéd</li>
+</ul>
+</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="osszefoglalas">
+<h2>Összefoglalás</h2>
+<ul>
+<li>A <strong>távolság</strong> nemnegatív, szimmetrikus és teljesíti a háromszög-egyenlőtlenséget. A <strong>Minkowski-család</strong>: $r=1$ Manhattan (bináris adaton Hamming), $r=2$ euklideszi, $r=\infty$ Csebisev. A mérték megfordíthatja, ki kinek a legközelebbi szomszédja.</li>
+<li>A <strong>Mahalanobis-távolság</strong> a kovarianciamátrix inverzével figyelembe veszi a változók szórását és együttmozgását; korrelálatlan esetben a standardizált euklideszi távolság.</li>
+<li>Bináris adaton: <strong>SMC</strong> (minden egyezés számít) vagy <strong>Jaccard</strong> (a közös 0 nem számít – kosárnál ez kell). Gyakoriságvektoron <strong>koszinusz</strong> (hosszra érzéketlen), lineáris kapcsolatra <strong>korreláció</strong>.</li>
+<li>A <strong>sűrűség</strong> egy pont környezetében lévő pontok száma. A szegmentáció lehet felosztó / hierarchikus, kizáró / nem kizáró, éles / fuzzy, teljes / részleges.</li>
+<li>A <strong>DBSCAN</strong> két paraméterrel ($\varepsilon$, MinPts) mag-, határ- és zajpontokat különít el; a magpontok összefüggő részei a klaszterek. Nem kell $k$, tetszőleges alakú klasztert talál, és jelöli a zajt; eltérő sűrűségnél nehezen hangolható. $\varepsilon$: a $k$-távolság görbe töréspontja.</li>
+<li><strong>Validálás</strong> belső mutatókkal: SSE (kohézió) ↓, SSB (szeparáció) ↑, $\mathrm{SSE}+\mathrm{SSB}=\mathrm{SST}$; sziluett ↑; Davies–Bouldin ↓; távolság–incidencia korreláció (erősen negatív) jó.</li>
+<li><strong>Kiugró rekord</strong>: számottevően eltér a többitől; lehet hibás vagy helyes. Statisztikai módszerek (z, Grubbs, IQR) változónként mérnek, és a z-pontszámot maga a kiugró elrejtheti. Távolság alapú módszerek ($k$-NN, sűrűség, klaszter alapú) a teljes rekordot nézik.</li>
+</ul>
+
+<h3>Döntési táblázat</h3>
+<div class="table-wrap"><table>
+<tr><th>Ha a feladatban ez áll…</th><th>…ezt használd</th></tr>
+<tr><td>„rácsos úthálózat”, „abszolút eltérések összege”, bináris eltérések száma</td><td>Manhattan- ($L^1$) / Hamming-távolság</td></tr>
+<tr><td>„légvonalban”</td><td>euklideszi távolság ($L^2$)</td></tr>
+<tr><td>„a legnagyobb jellemzőnkénti eltérés”</td><td>Csebisev-távolság ($L^\infty$)</td></tr>
+<tr><td>a változók erősen korreláltak, kovarianciamátrix adott</td><td>Mahalanobis-távolság, $\Sigma^{-1}$-gyel</td></tr>
+<tr><td>vásárlói kosarak 0/1 vektorként, sok közös 0</td><td>Jaccard-együttható</td></tr>
+<tr><td>szimmetrikus igen/nem jellemzők</td><td>egyszerű egyezés (SMC)</td></tr>
+<tr><td>dokumentumok szógyakorisággal, eltérő hosszal</td><td>koszinusz-hasonlóság</td></tr>
+<tr><td>„lineáris kapcsolat erőssége”, eltolásra érzéketlen hasonlóság</td><td>korreláció ($\frac1n p'\cdot q'$)</td></tr>
+<tr><td>nem ismert $k$, tetszőleges alakú csoportok, zaj is van</td><td>DBSCAN; $\varepsilon$ a $k$-távolság görbéből, MinPts ≥ dimenzió + 1</td></tr>
+<tr><td>„mag-, határ- vagy zajpont?”</td><td>pontszám $\varepsilon$-on belül (önmagával) ≥ MinPts → mag; különben magpont a közelben → határ; különben zaj</td></tr>
+<tr><td>„melyik klaszterezés jobb?”</td><td>SSE ↓, SSB ↑, sziluett ↑, Davies–Bouldin ↓ – több mutató együtt, és az értelmezhetőség</td></tr>
+<tr><td>egy jellemző, közel normális, nagy minta</td><td>z-pontszám ($|z|&gt;3$)</td></tr>
+<tr><td>egy jellemző, kis minta, egy gyanús érték</td><td>Grubbs-próba vagy IQR-kerítés</td></tr>
+<tr><td>több jellemző, a kombináció szokatlan</td><td>Mahalanobis, $k$-NN pontszám, DBSCAN-zaj</td></tr>
+<tr><td>„jelöld meg a 10 leggyanúsabbat”</td><td>rendellenességi pontszám szerinti top-$n$</td></tr>
+<tr><td>kicsi, a többitől távoli klaszter</td><td>klaszter alapú kiugró-jelölt – értelmezéssel ellenőrizd</td></tr>
+</table></div>
+</section>
+
+<section id="kviz">
+<h2>Ellenőrző kvíz</h2>
+<p>Vegyes kérdések a teljes leckéből. Ha elakadsz, használd a tippet.</p>
+<div class="quiz" data-quiz="l14-vegso"></div>
+</section>
+
+<nav class="pager">
+  <a href="04-hierarchikus-klaszterezes.html">← 4. Hierarchikus klaszterezés</a>
+  <a href="05-dontesi-fa.html">5. Döntési fa →</a>
+</nav>
+</main>
+</body>
+</html>

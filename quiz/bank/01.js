@@ -395,5 +395,134 @@ consistent = price_counts[price_counts == 1].index</code></pre>Mit tartalmaz a <
     answer: 3,
     hint: "Melyik hiányra volt üzleti szabály (termékenként állandó ár, vásárlónként állandó régió), és melyikre nem?",
     explain: R`$6957 - 6 = 6951$ a duplikátumtörlés után. A 6 egységárat termék szerint, a 4 régiót vásárló szerint pótoltuk, a 6 ismeretlen mennyiségre viszont nem volt szabály, ezért a <code>dropna()</code> ezeket törölte: 6945 sor, összesen 12 törölt sor. A kiugróvizsgálat (határok $-0{,}5$ és $3{,}5$) nem talált semmit. A többi opció vagy a pótolható hiányokat is törli, vagy elfelejti a mennyiség miatti törlést.`
+  },
+  {
+    id: "b01-027",
+    topic: "01",
+    level: 1,
+    ref: "01-adattisztitas.html#lepes3",
+    type: "match",
+    q: "Párosítsd a gyakorlat hibáját az adatminőség megsértett dimenziójával!",
+    pairs: [
+      ["6 hiányzó egységár", "teljesség"],
+      ["„unknown” a mennyiség oszlopban", "érvényesség"],
+      ["„ coffee ” és „Coffee” ugyanarra a termékre", "konzisztencia"],
+      ["három hónapos adat egy tavalyi akció értékeléséhez", "aktualitás"]
+    ],
+    hint: "Megvan-e az érték? Megengedett-e a típusa? Mindenhol ugyanúgy jelöljük-e? Elég friss-e?",
+    explain: R`A hiány a teljességet sérti, a nem szám szöveg egy egész típusú oszlopban az érvényességet (típus, tartomány), az eltérő írásmód a konzisztenciát, a célhoz képest régi vagy rossz időszakra vonatkozó adat az aktualitást. Az ötödik dimenzió a pontosság: egyezik-e az adat a valósággal (pl. egy tétel ne szerepeljen kétszer).`
+  },
+  {
+    id: "b01-028",
+    topic: "01",
+    level: 2,
+    ref: "01-adattisztitas.html#lepes4",
+    type: "single",
+    q: "Egy ügyféltáblában ugyanaz a személyi szám két sorban szerepel: az egyikben „Házas”, a másikban „Nőtlen” a családi állapot, minden más mező egyezik. Mit ad erre a <code>df.duplicated().sum()</code>, és mi a teendő?",
+    options: [
+      "0-t, mert nem minden mező egyezik; a kulcs szerinti keresés (<code>duplicated(subset=[\"azonosito\"], keep=False)</code>) találja meg, és egyenként kell dönteni.",
+      "1-et; a <code>drop_duplicates()</code> automatikusan megtartja a helyes sort.",
+      "2-t, mert mindkét sor duplikátum.",
+      "0-t, tehát nincs vele teendő."
+    ],
+    answer: 0,
+    hint: "A teljes duplikátumhoz minden oszlopnak egyeznie kell. Mi a neve annak, ha csak a kulcs ismétlődik?",
+    explain: R`Ez inkonzisztens duplikátum: a valóság egy objektumához két, egymásnak ellentmondó rekord tartozik. A teljes duplikátumszűrés nem látja, ezért kulcs szerint kell keresni. Hogy melyik sor a helyes, azt a gép nem tudja: forrásellenőrzés vagy dokumentált szabály kell (pl. a frissebb rekord nyer). A „nincs teendő” a tipikus hiba: a 0 csak azt jelenti, hogy nincs <em>teljes</em> másolat.`
+  },
+  {
+    id: "b01-029",
+    topic: "01",
+    level: 2,
+    ref: "01-adattisztitas.html#lepes10",
+    type: "single",
+    q: R`Adat: $1, 1, 1, 1, 6$. Mennyi a ferdeség a $g_1 = m_3 / m_2^{3/2}$ képlettel?`,
+    options: ["1,5", "3", "−1,5", "0,75"],
+    answer: 0,
+    hint: R`Az átlag 2. Számold ki az eltérések négyzetének, majd köbének átlagát.`,
+    explain: R`Eltérések: $-1,-1,-1,-1,4$. $m_2 = (4 + 16)/5 = 4$, $m_3 = (-4 + 64)/5 = 12$, $g_1 = 12/4^{3/2} = 12/8 = 1{,}5$. A 3 akkor jön ki, ha $m_2^{3/2}$ helyett $m_2$-vel osztasz; a 0,75 akkor, ha $m_2^2 = 16$-tal. Az előjel pozitív, mert a hosszú farok (a 6) jobbra van.`
+  },
+  {
+    id: "b01-030",
+    topic: "01",
+    level: 3,
+    ref: "01-adattisztitas.html#lepes10",
+    type: "multi",
+    q: "Melyik állítás igaz a gyakorlat tisztított adatára? (Több helyes válasz is lehet.)",
+    options: [
+      "A <code>line_total</code> erősen jobbra ferde (2,25), a módusza (2200) mégis nagyobb az átlagánál (1424).",
+      "A kosárértékek (kosaranként összegezve) eloszlása jóval szimmetrikusabb (0,44), mint a tételértékeké.",
+      "A kosárméret csúcsossága negatív (−1,05): az eloszlás lapult, a 2–9 termékes kosarak viszonylag egyenletesen oszlanak el.",
+      "A standardizálás a <code>line_total</code> ferdeségét 0-ra csökkentené."
+    ],
+    answer: [0, 1, 2],
+    hint: "A „módusz < medián < átlag” csak hüvelykujjszabály. Melyik transzformáció változtat az eloszlás alakján: a lineáris vagy a nemlineáris?",
+    explain: R`A módusz diszkrét adaton a leggyakoribb egyetlen érték (410 tétel ér 2200 Ft-ot), ezért kilóghat a szabályból. Kosaranként összegezve a sok kis tétel kiegyenlíti egymást, így a ferdeség 0,44-re csökken. A negatív csúcsosság lapult eloszlást jelent. A standardizálás lineáris (eltolás + nyújtás), az alakot nem változtatja – a ferdeség 2,25 marad; a logaritmus viszont 0,17-re csökkenti.`
+  },
+  {
+    id: "b01-031",
+    topic: "01",
+    level: 2,
+    ref: "01-adattisztitas.html#lepes10",
+    type: "single",
+    q: "Az <code>unit_price</code> tételszintű mutatói: átlag 936,74; medián 750; szórás 561,91; MAD 200. Valaki a 2200 Ft-os kávé árát 22 000-re írja el egyetlen sorban. Melyik mutató változik meg a legkevésbé?",
+    options: [
+      "A MAD – mediánokra épül, egyetlen kiugró nem mozdítja el.",
+      "A szórás – nagy mintán egy érték nem számít.",
+      "Az átlag – 6945 tétel mellett elhanyagolható a hatása.",
+      "Mindhárom ugyanannyit változik."
+    ],
+    answer: 0,
+    hint: "Melyik mutató emel négyzetre, melyik átlagol, és melyik a sorrend közepét nézi?",
+    explain: R`A medián és a MAD csak a rendezett adatok közepétől függ, egyetlen szélső érték ezen nem változtat. Az átlag kb. $19\,800/6945 \approx 2{,}9$ Ft-tal nő (936,74 → 939,60). A szórás jóval többet változik (561,91 → 615,96), mert a négyzetes eltérés ($\approx 21\,000^2$) egymaga felfelé húzza. Nagy minta sem védi meg teljesen a nem robusztus mutatókat.`
+  },
+  {
+    id: "b01-032",
+    topic: "01",
+    level: 1,
+    ref: "01-adattisztitas.html#lepes11",
+    type: "match",
+    q: "Párosítsd a helyzetet a megfelelő előfeldolgozási eszközzel!",
+    pairs: [
+      ["képpontokból fényesség és szögletesség leírók", "jellemzőkinyerés"],
+      ["tőzsdei idősorból a napi változás", "jellemzőszerkesztés"],
+      ["sok változóból a felesleges, lényegtelen oszlopok elhagyása", "jellemzőszelekció"],
+      ["tételekből vásárlónkénti összköltés", "aggregálás"]
+    ],
+    hint: "Új leíró a nyers adatból, számolt új változó meglévőkből, változók elhagyása, vagy sorok összevonása?",
+    explain: "A jellemzőkinyerés nyers adatból (pixelek) állít elő magasabb szintű leírót; a jellemzőszerkesztés meglévő változókból számol (differencia, tételérték); a jellemzőszelekció a dimenziócsökkentés egyik módja; az aggregálás a sorokat vonja össze, és közben a megfigyelési egység is megváltozik."
+  },
+  {
+    id: "b01-033",
+    topic: "01",
+    level: 2,
+    ref: "01-adattisztitas.html#lepes11",
+    type: "single",
+    q: "A 1151 kosár értéke jobbra ferde, 800 és 22 800 Ft között. Mi lesz a <code>pd.cut(s, 3)</code> és a <code>pd.qcut(s, 3)</code> eredménye közti fő különbség?",
+    options: [
+      "A <code>cut</code> egyenlő szélességű sávokat ad, eltérő létszámmal (584 / 485 / 82); a <code>qcut</code> egyenlő létszámúakat (386 / 382 / 383), nem kerek határokkal.",
+      "Semmi: mindkettő tercilisekre bont.",
+      "A <code>cut</code> egyenlő létszámú, a <code>qcut</code> egyenlő szélességű sávokat ad.",
+      "A <code>qcut</code> csak normális eloszlású adatra használható."
+    ],
+    answer: 0,
+    hint: "A q a kvantilist jelöli. Ferde eloszlásnál mi lesz a felső, széles sáv létszámával?",
+    explain: R`A <code>cut</code> a terjedelmet osztja egyenlő részekre (határok kb. 8133 és 15 467), ezért ferde eloszlásnál a felső sávba kevés kosár jut. A <code>qcut</code> a kvantiliseknél vág (5900 és 10 550), így a sávok létszáma egyforma. Egyiknek sincs eloszlási feltétele. A kettő felcserélése a tipikus hiba.`
+  },
+  {
+    id: "b01-034",
+    topic: "01",
+    level: 3,
+    ref: "01-adattisztitas.html#lepes11",
+    type: "single",
+    q: "A K-means bemenetébe a termékárat min–max normalizálva teszed. Egy elírás miatt egy sorban 24 000 Ft áll (a valódi maximum 2400). Mi történik a kenyér (550 Ft) normalizált árával, és mi a helyes sorrend?",
+    options: [
+      "0,140 helyett kb. 0,013 lesz, minden érték a 0 közelébe zsúfolódik; a kiugrót a normalizálás előtt kell kezelni.",
+      "Nem változik, mert a min–max robusztus a kiugróra.",
+      "1 lesz, mert a kiugró miatt minden érték a maximumhoz kerül.",
+      "Negatív lesz, mert a kiugró eltolja a minimumot."
+    ],
+    answer: 0,
+    hint: R`$x' = (x - \min)/(\max - \min)$. Mi lesz a nevező, ha a maximum tízszeres?`,
+    explain: R`$(550-250)/(24\,000-250) = 300/23\,750 \approx 0{,}013$ (eredetileg $300/2150 \approx 0{,}140$). A min–max a két szélső értékre épül, ezért egyetlen kiugró az egész skálát összenyomja. A minimum nem változik, tehát negatív érték nem lesz. Ezért a tisztítás sorrendje: kiugrók vizsgálata (IQR) → utána skálázás.`
   }
 );

@@ -1,0 +1,1270 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MD modell és MDX</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script defer src="assets/quiz.js"></script>
+<script defer src="quiz/13.js"></script>          <!-- a lecke kvízei -->
+<script defer src="assets/common.js"></script>    <!-- MINDIG az utolsó -->
+</head>
+<body>
+<nav class="topnav"><div class="inner">
+  <a href="index.html">← Tartalom</a>
+  <span>13. lecke · MD modell és MDX</span>
+  <span class="spacer"></span>
+  <button id="theme-toggle" type="button" title="Világos/sötét téma">◐</button>
+</div></nav>
+<main>
+<p class="kicker">13. lecke · 2. témakör · előadás</p>
+<h1>Többdimenziós adatmodell és az MDX nyelv</h1>
+<p class="lead">Adatkocka, dimenzió, szint, hópehelyséma; szeletelés, kockázás, felgöngyölítés, lefúrás, hajtogatás; MDX-lekérdezések és kockafejlesztés MS Analysis Serverben.</p>
+
+<section id="motivacio">
+<h2>Motiváció</h2>
+<p>Egy kis élelmiszerlánc három boltjának eladásait elemzed. A regionális vezető ezt kérdezi:</p>
+<blockquote><p>„Városonként és havonta mennyi pékárut adtunk el? És melyik boltjaink adtak el januárban 72 darabnál többet?”</p></blockquote>
+<p>A relációs adatbázisban ehhez az eladások tábláját össze kell kapcsolni a termékek, a boltok és a dátumok táblájával, csoportosítani, szűrni.
+Minden új nézőpont („most kategóriánként kérem”, „most negyedévenként”) új <code>JOIN</code>-okat és új <code>GROUP BY</code>-t jelent.
+Az adatkockában a nézőpontok előre adottak: csak ki kell választani őket. A lecke végén két rövid MDX-lekérdezéssel válaszolsz (<a href="#alkalmazas">Alkalmazás</a>).</p>
+
+<div class="box tip"><span class="box-title">💡 Honnan van az anyag?</span>
+<p>Az előadás diáira („Adattárház, MD modell. MDX”, Kovács László, 2025) épül, kiegészítve a rokon Moodle-kurzus két fejezetével (az MD hópehelymodell és az MDX;
+MDX-elemzés MS Analysis Serverben). Az adattárház felépítését, az OLTP–OLAP különbséget és az ETL-t a
+<a href="12-adattarolas-adattarhaz.html">12. lecke</a> tárgyalja, itt csak hivatkozunk rá. A mini kocka minden számát Pythonnal (pandas <code>pivot_table</code>) ellenőriztük.</p>
+</div>
+</section>
+
+<section id="utiterv">
+<h2>Útiterv</h2>
+<ol class="roadmap">
+  <li><a href="#adatok">A mini kocka: Értékesítés (Termék × Bolt × Idő)</a></li>
+  <li><a href="#lepes1">1. lépés – Miért nem elég a relációs modell? MOLAP, ROLAP, HOLAP</a></li>
+  <li><a href="#lepes2">2. lépés – A kocka elemei és a csillagséma</a></li>
+  <li><a href="#lepes3">3. lépés – Szintek, hierarchiák, hópehelyséma</a></li>
+  <li><a href="#lepes4">4. lépés – Relációs sémából hópehelymodell</a></li>
+  <li><a href="#lepes5">5. lépés – MD algebra I: szeletelés és kockázás</a></li>
+  <li><a href="#lepes6">6. lépés – MD algebra II: felgöngyölítés, lefúrás, hajtogatás</a></li>
+  <li><a href="#lepes7">7. lépés – Az MDX adatmodellje: tag, tuple, set, MEASURES</a></li>
+  <li><a href="#lepes8">8. lépés – Az MDX <code>SELECT</code>: tengelyek, <code>FROM</code>, <code>WHERE</code>, <code>.Members</code>, <code>.Children</code></a></li>
+  <li><a href="#lepes9">9. lépés – MDX-függvények: <code>CROSSJOIN</code>, <code>FILTER</code>, <code>ORDER</code>, <code>NON EMPTY</code>, <code>WITH MEMBER</code></a></li>
+  <li><a href="#lepes10">10. lépés – Kockafejlesztés MS Analysis Serverben</a></li>
+  <li><a href="#alkalmazas">Alkalmazás – a motivációs kérdés és az előadás Sales-példái</a></li>
+  <li><a href="#osszefoglalas">Összefoglalás és döntési táblázat</a></li>
+  <li><a href="#kviz">Ellenőrző kvíz</a></li>
+</ol>
+</section>
+
+<!-- ============================================================ -->
+<section id="adatok">
+<h2>A mini kocka: Értékesítés</h2>
+<p>Végig egyetlen apró kockával dolgozunk. Érdemes egyszer alaposan megnézni, mert minden eredményt ebből számolunk kézzel.</p>
+<ul>
+  <li><strong>Termék</strong>: Kenyér, Kifli (kategória: <em>Pékáru</em>); Tej, Sajt (kategória: <em>Tejtermék</em>).</li>
+  <li><strong>Bolt</strong>: Dobó (város: <em>Eger</em>); Avas, Belváros (város: <em>Miskolc</em>).</li>
+  <li><strong>Idő</strong>: Január, Február (mindkettő 2025 1. negyedéve).</li>
+  <li><strong>Mértékek</strong>: <em>Darab</em> (eladott mennyiség) és <em>Bevétel</em> (Ft). Egységárak: Kenyér 600, Kifli 80, Tej 400, Sajt 2000 Ft, így Bevétel = Darab × ár.</li>
+</ul>
+
+<h4>Darab – a kocka két „lapja” hónaponként</h4>
+<div class="two-col">
+<div>
+<p class="kicker">Idő = Január</p>
+<div class="table-wrap"><table>
+<tr><th></th><th class="num">Dobó</th><th class="num">Avas</th><th class="num">Belváros</th><th class="num">Σ</th></tr>
+<tr><td>Kenyér</td><td class="num">20</td><td class="num">30</td><td class="num">10</td><td class="num">60</td></tr>
+<tr><td>Kifli</td><td class="num">40</td><td class="num">50</td><td class="num">30</td><td class="num">120</td></tr>
+<tr><td>Tej</td><td class="num">15</td><td class="num">25</td><td class="num">20</td><td class="num">60</td></tr>
+<tr><td>Sajt</td><td class="num">–</td><td class="num">5</td><td class="num">10</td><td class="num">15</td></tr>
+<tr><th>Σ</th><th class="num">75</th><th class="num">110</th><th class="num">70</th><th class="num">255</th></tr>
+</table></div>
+</div>
+<div>
+<p class="kicker">Idő = Február</p>
+<div class="table-wrap"><table>
+<tr><th></th><th class="num">Dobó</th><th class="num">Avas</th><th class="num">Belváros</th><th class="num">Σ</th></tr>
+<tr><td>Kenyér</td><td class="num">25</td><td class="num">20</td><td class="num">15</td><td class="num">60</td></tr>
+<tr><td>Kifli</td><td class="num">30</td><td class="num">60</td><td class="num">20</td><td class="num">110</td></tr>
+<tr><td>Tej</td><td class="num">10</td><td class="num">35</td><td class="num">25</td><td class="num">70</td></tr>
+<tr><td>Sajt</td><td class="num">–</td><td class="num">15</td><td class="num">5</td><td class="num">20</td></tr>
+<tr><th>Σ</th><th class="num">65</th><th class="num">130</th><th class="num">65</th><th class="num">260</th></tr>
+</table></div>
+</div>
+</div>
+<p>A „–” <strong>üres cella</strong>: Egerben a Dobó boltban nem árulnak sajtot. A teljes eladott mennyiség $255 + 260 = 515$ darab, a teljes bevétel $212\,400$ Ft.</p>
+
+<h4>Gyakran használt összesítések (Darab, ha nincs más jelölve)</h4>
+<div class="table-wrap"><table>
+<tr><th>Bontás</th><th>Értékek</th></tr>
+<tr><td>termékenként (két hónap együtt)</td><td>Kenyér 120 · Kifli 230 · Tej 130 · Sajt 35</td></tr>
+<tr><td>kategóriánként</td><td>Pékáru 350 · Tejtermék 165</td></tr>
+<tr><td>boltonként</td><td>Dobó 140 · Avas 240 · Belváros 135</td></tr>
+<tr><td>városonként</td><td>Eger 140 · Miskolc 375</td></tr>
+<tr><td>hónaponként</td><td>Január 255 · Február 260</td></tr>
+<tr><td>Bevétel termékenként (Ft)</td><td>Kenyér 72&nbsp;000 · Kifli 18&nbsp;400 · Tej 52&nbsp;000 · Sajt 70&nbsp;000</td></tr>
+<tr><td>Bevétel városonként (Ft)</td><td>Eger 42&nbsp;600 · Miskolc 169&nbsp;800</td></tr>
+</table></div>
+
+<details class="solution"><summary>Ugyanez Pythonban (ha ki akarod próbálni)</summary>
+<pre><code class="language-python">import pandas as pd
+ar  = {"Kenyér": 600, "Kifli": 80, "Tej": 400, "Sajt": 2000}
+kat = {"Kenyér": "Pékáru", "Kifli": "Pékáru", "Tej": "Tejtermék", "Sajt": "Tejtermék"}
+varos = {"Dobó": "Eger", "Avas": "Miskolc", "Belváros": "Miskolc"}
+adat = {"Január":  {"Kenyér": [20, 30, 10], "Kifli": [40, 50, 30], "Tej": [15, 25, 20], "Sajt": [None, 5, 10]},
+        "Február": {"Kenyér": [25, 20, 15], "Kifli": [30, 60, 20], "Tej": [10, 35, 25], "Sajt": [None, 15, 5]}}
+sorok = [dict(Honap=h, Termek=t, Kategoria=kat[t], Bolt=b, Varos=varos[b], Darab=x, Bevetel=x * ar[t])
+         for h, tt in adat.items() for t, v in tt.items()
+         for b, x in zip(["Dobó", "Avas", "Belváros"], v) if x is not None]
+df = pd.DataFrame(sorok)          # ez a ténytábla: 22 sor
+print(df.pivot_table(index="Kategoria", columns="Varos", values="Darab", aggfunc="sum"))</code></pre>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes1">
+<h2>1. lépés – Miért nem elég a relációs modell? MOLAP, ROLAP, HOLAP</h2>
+
+<h4>Kis eset</h4>
+<p>A mini kocka adatai egy relációs adatbázisban négy táblában vannak:</p>
+<pre><code class="language-sql">TERMEK (tkod PK, nev, kategoria, ar)
+BOLT   (bkod PK, nev, varos)
+IDO    (datum PK, honap, negyedev, ev)
+ELADAS (datum FK, tkod FK, bkod FK, darab, bevetel)</code></pre>
+<p>A motivációs kérdés első fele SQL-ben:</p>
+<pre><code class="language-sql">SELECT b.varos, i.honap, SUM(e.darab) AS darab
+FROM ELADAS e
+JOIN TERMEK t ON e.tkod  = t.tkod
+JOIN BOLT   b ON e.bkod  = b.bkod
+JOIN IDO    i ON e.datum = i.datum
+WHERE t.kategoria = 'Pékáru'
+GROUP BY b.varos, i.honap;</code></pre>
+<p>Három <code>JOIN</code> egy egyszerű kérdéshez. Ha a vezető holnap boltonként és negyedévenként kéri, újra kell írni a <code>GROUP BY</code>-t,
+ha a gyártó szerint, egy újabb táblát kell bekapcsolni. Ha az előző hónaphoz képesti változás is kell, jön a CTE és a <code>LAG</code>
+(lásd <a href="07-sql-ablakfuggvenyek.html">7. lecke</a>).</p>
+<p>Az előadás szerint az SQL összetettségének fő oka <strong>a táblák nagy száma és a köztük lévő kapcsolatok</strong>. Egy relációs táblának egy kulcsa van,
+ezért „egydimenziós”: egy kulcsérték jelöl ki egy rekordot. A többdimenziós modell ehelyett <strong>egyetlen objektumba, a kockába</strong> integrálja az adatokat:
+nincs szükség összekapcsolásra, könnyű az aggregáció, és rugalmasan átrendezhető a nézőpont.</p>
+
+<div class="box def"><span class="box-title">Definíció – Az OLAP-tárolás három fajtája</span>
+<ul>
+  <li><strong>MOLAP</strong> (multidimenzionális OLAP): az adatokat saját, többdimenziós kockaszerkezetben tárolja (a forrás szerint fizikailag pointerláncokkal), az összesítéseket előre kiszámolja. Gyors lekérdezés, de a kockát a forrásból újra kell tölteni.</li>
+  <li><strong>ROLAP</strong> (relációs OLAP): az adattárház relációs táblákra épül: külön ténytábla és dimenziótáblák. A kockaműveleteket a motor SQL-re fordítja.</li>
+  <li><strong>HOLAP</strong> (hibrid OLAP): a részletes adatok relációs táblákban maradnak, az összesítések kockában tárolódnak.</li>
+</ul>
+<p><strong>Miért?</strong> A logikai modell (a kocka) ugyanaz, csak a fizikai tárolás más. A választás a sebesség, a tárhely és a frissítési igény közötti kompromisszum.</p>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés</span>
+<p>A HOLAP az előadásban és a Moodle-anyagban nem szerepel, de az MS Analysis Services kockapartícióinál választható tárolási mód (MOLAP / ROLAP / HOLAP), ezért érdemes ismerni.</p>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Ahol az MD modell elhelyezkedik</span>
+<p>Az adatok a működő (OLTP) rendszerekből <strong>ETL-lel</strong> kerülnek az adattárházba. Az adattárház logikai modellje (az adathozzáférési réteg) általában az MD modell,
+ennek parancsnyelve az MDX, és erre épülnek a megjelenítő és elemző eszközök. Az adattárolási szinteket, az OLTP–OLAP különbséget és a DWH-architektúrát a
+<a href="12-adattarolas-adattarhaz.html">12. lecke</a> fejti ki.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – hány JOIN kell?</span>
+<p>A Moodle-anyag sémája: <code>TERMEK (tkod PK, nev, kategoria, egysegar, gyarto FK)</code>, <code>GYARTO (gykod PK, cegnev, …)</code>,
+<code>BOLT (bkod PK, …, tulajdonos FK)</code>, <code>FORGALOM (bolt FK, termek FK, datum)</code>. Kérdés: <em>gyártónként a havi forgalom</em>.</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>A gyártó a <code>FORGALOM</code>-ból csak a <code>TERMEK</code>-en keresztül érhető el: <code>FORGALOM → TERMEK → GYARTO</code>, ez <strong>2 JOIN</strong>.
+A hónapot a dátumból kell képezni (<code>DATE_FORMAT(datum, '%Y-%m')</code>), és ha az előző havi forgalom is kell, még egy CTE és egy <code>LAG</code>.
+A kockában a Termék dimenzió egyik szintje a Gyártó, az Idő dimenzióé a Hónap: a lekérdezés csak kiválasztja őket.</p>
+</details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – melyik tárolás illik?</span>
+<p>(a) A vezetői riport naponta egyszer frissül, de másodpercek alatt kell válaszolnia. (b) A részletes adat óriási, nem fér el kétszer, de a havi összesítéseket gyakran kérik.</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>(a) <strong>MOLAP</strong>: a napi újratöltés belefér, cserébe az előre számolt összesítések miatt gyors. (b) <strong>HOLAP</strong>: a részletek a relációs táblákban maradnak (nincs dupla tárolás), az összesítések a kockában vannak.</p>
+</details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – a kocka nem helyettesíti a működő adatbázist</span>
+<p>Az adattárház az OLTP-rendszerek <strong>mellett</strong> él, nem helyettük: a rendelést továbbra is a relációs adatbázis rögzíti. A kockába az adat ETL-lel kerül.
+Az MDX elsősorban <strong>lekérdező</strong> nyelv: adat beszúrására, törlésére a gyakorlatban nem ezt használjuk, a kocka feltöltése az ETL dolga.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – relációs modell kontra kocka (5 feladat)</summary>
+<ol>
+  <li><p>A kis eset négy táblájával hány <code>JOIN</code> kell ahhoz, hogy a Tejtermék kategória boltonkénti bevételét megkapd? És ha a hónapra nincs szükség?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>A kategória a <code>TERMEK</code>-ben, a bolt neve a <code>BOLT</code>-ban van: <code>ELADAS ⋈ TERMEK ⋈ BOLT</code>, <strong>2 JOIN</strong>. Az <code>IDO</code> táblát csak akkor kell bekapcsolni, ha hónap szerint is bontunk vagy szűrünk.</p>
+    </details></li>
+  <li><p>Miért nevezi az előadás a relációs táblát „egydimenziósnak”?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>Mert egy rekordot egyetlen kulcs (az elsődleges kulcs) azonosít. A kockában egy cellát több dimenzió értékeinek együttese azonosít (pl. termék, bolt, hónap).</p>
+    </details></li>
+  <li><p>Párosítsd: (a) MOLAP, (b) ROLAP, (c) HOLAP – (1) ténytábla és dimenziótáblák relációs adatbázisban; (2) részletek relációsan, összesítések kockában; (3) saját többdimenziós tároló, előre számolt összesítések.</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>(a)–(3), (b)–(1), (c)–(2).</p>
+    </details></li>
+  <li><p>Melyik OLTP-, melyik OLAP-feladat? (a) egy pénztári eladás rögzítése; (b) a tavalyi és az idei negyedéves forgalom összevetése régiónként; (c) egy vevő címének módosítása.</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>(a) és (c) OLTP: sok, rövid, módosító tranzakció. (b) OLAP: hosszú, összesítő, csak olvasó lekérdezés történeti adatokon. (Részletesen: <a href="12-adattarolas-adattarhaz.html">12. lecke</a>.)</p>
+    </details></li>
+  <li><p>Egy kolléga szerint „ha kész a kocka, a webshop rendeléseit is közvetlenül oda írhatjuk MDX-szel”. Mi a gond ezzel?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>A kocka elemzésre optimalizált, a rendelést a működő (OLTP) adatbázis rögzíti. A kocka tartalma ETL-lel, időszakos betöltéssel frissül. Az MDX elsősorban lekérdező nyelv, a tananyag szerint az adatok beszúrására, módosítására nem ad támogatást.</p>
+    </details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes2">
+<h2>2. lépés – A kocka elemei és a csillagséma</h2>
+
+<h4>Kis eset</h4>
+<p>Nézd meg a mini kocka egyetlen számát: <strong>februárban az Avas boltban 60 kiflit adtak el, 4&nbsp;800 Ft értékben</strong>. Mi kell ahhoz, hogy ezt a számot megtaláld?</p>
+<ul>
+  <li>három „koordináta”: <em>melyik termék</em> (Kifli), <em>melyik bolt</em> (Avas), <em>melyik hónap</em> (Február);</li>
+  <li>és hogy <em>melyik mennyiségre</em> vagyunk kíváncsiak: a darabszámra (60) vagy a bevételre (4&nbsp;800).</li>
+</ul>
+<p>A három koordináta egy pontot jelöl ki egy $4 \times 3 \times 2$-es „téglatestben”: ez a kocka egy cellája. A cellában tárolt számok a tények.</p>
+
+<div class="box def"><span class="box-title">Definíció – Az MD kocka elemei</span>
+<ul>
+  <li><strong>kocka</strong> (cube): a teljes tárolóegység, az adatbázis összes adata egyetlen kockában;</li>
+  <li><strong>cella</strong> (cell): a kocka egy kis egysége, amely értékeket tárol; helyét a dimenziók egy-egy értéke jelöli ki;</li>
+  <li><strong>tény</strong> (fact): a cella értéke (pl. 60 darab);</li>
+  <li><strong>mérték</strong> (measure, a Moodle-anyagban <em>adatkocka-változó</em>): a változó, amelynek értékei a cellákban vannak (Darab, Bevétel);</li>
+  <li><strong>dimenzió</strong> (dimension): a cellaazonosítás kulcsa, az elemzés egy független szempontja (Termék, Bolt, Idő);</li>
+  <li><strong>tag, elem</strong> (member): egy dimenzió egy értéke (Kifli, Avas, Február);</li>
+  <li><strong>attribútum</strong> (attribute): egy tag tulajdonsága (a Kifli egységára 80 Ft, a Dobó bolt címe).</li>
+</ul>
+<p><strong>Miért?</strong> A dimenziók adják a „hol?” kérdésre a választ, a mértékek a „mennyi?”-re. A tény mindig egy mérték értéke egy cellában.</p>
+</div>
+
+<h4>A csillagséma</h4>
+<p>Relációs táblákban (ROLAP) a kocka <strong>csillagsémaként</strong> tárolható: középen a <strong>ténytábla</strong>, körülötte a <strong>dimenziótáblák</strong>.
+A ténytábla minden sora egy kitöltött cella: a dimenziók kulcsai (idegen kulcsok) és a mértékek értékei. A mini kockánál ez az <code>ELADAS</code> tábla 22 sora.</p>
+<div class="table-wrap"><table>
+<tr><th>Relációs modell</th><th>Kockamodell</th></tr>
+<tr><td>tábla</td><td>kocka</td></tr>
+<tr><td>kulcsmező, meghatározó mezők</td><td>dimenzió</td></tr>
+<tr><td>meghatározott, nem kulcs mezők</td><td>mérték (változó)</td></tr>
+<tr><td>egy rekord a meghatározó mezők nélkül</td><td>ténycella</td></tr>
+</table></div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – hány cella van?</span>
+<p>Hány cellapozíció van a mini kockában, és ebből hány kitöltött?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>$4$ termék $\times$ $3$ bolt $\times$ $2$ hónap $= 24$ pozíció. A Sajt–Dobó cella mindkét hónapban üres, így $24 - 2 = 22$ kitöltött cella van; ennyi sor van a ténytáblában is.
+Egy valódi kockában az üres cellák aránya óriási lehet (nem minden bolt árul minden terméket minden nap): ezt nevezik <em>ritka</em> (sparse) kockának.</p>
+</details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – telefonhívások kockája (Moodle-anyag)</span>
+<p>Elemek: a hívások darabszáma, a hívások időtartama, a hívás dátuma, az eszköz típusa, a szolgáltató. Melyik mérték, melyik dimenzió?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p><strong>Mértékek</strong>: darabszám, időtartam (ezeket összesítjük). <strong>Dimenziók</strong>: dátum, eszköztípus, szolgáltató (ezek szerint bontunk).
+Egy cella pl. „2025-03-02, okostelefon, Szolgáltató A” – benne két tény: hány hívás és összesen hány perc.</p>
+</details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – attribútum, dimenzió vagy mérték?</span>
+<p>Az <strong>egységár</strong> a termék <strong>attribútuma</strong>, nem mérték: nem cellánként változik, hanem a termékhez tartozik, és összeadni sincs értelme
+(a Kifli és a Kenyér árának összege, 680 Ft, semmit sem jelent). A <strong>bevétel</strong> viszont mérték. És a „Kifli” nem dimenzió, hanem a Termék dimenzió egy <strong>tagja</strong>.</p>
+</div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia</span>
+<p><em>cube</em> = (adat)kocka · <em>cell</em> = cella, ténycella · <em>fact</em> = tény · <em>measure</em> = mérték, mérőszám, adatkocka-változó ·
+<em>dimension</em> = dimenzió · <em>member</em> = tag, elem · <em>attribute / property</em> = attribútum, tulajdonság · <em>fact table</em> = ténytábla · <em>star schema</em> = csillagséma.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – a kocka elemei (5 feladat)</summary>
+<ol>
+  <li><p>Nevezd meg a mini kockában: a kockát, két dimenziót, két tagot, egy mértéket, egy tényt és egy attribútumot!</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>Kocka: Értékesítés. Dimenziók: Termék, Bolt, Idő. Tagok: pl. Tej, Belváros. Mérték: Darab vagy Bevétel. Tény: pl. a Tej–Belváros–Február cella darabszáma, 25. Attribútum: pl. a Tej egységára (400 Ft) vagy a bolt városa.</p>
+    </details></li>
+  <li><p>Egy kockában 5 termék, 4 bolt és 12 hónap van. Hány cellapozíció van? Ha 2 mérték van, hány tényérték fér el összesen?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>$5 \cdot 4 \cdot 12 = 240$ cella, mérték nélkül számolva. Két mértékkel $2 \cdot 240 = 480$ tényérték (az MDX ezt majd úgy kezeli, hogy a mértékek egy külön dimenzió tagjai, lásd <a href="#lepes7">7. lépés</a>).</p>
+    </details></li>
+  <li><p>A mini kocka 24 cellapozíciójából hány százalék üres?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>2 üres cella (Sajt–Dobó, két hónap): $2/24 \approx 8{,}3\%$.</p>
+    </details></li>
+  <li><p>Mérték, dimenzió, tag vagy attribútum? (a) a bolt alapterülete; (b) Miskolc; (c) eladott darabszám; (d) Idő; (e) a termék színe.</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>(a) attribútum (a bolt tulajdonsága); (b) tag (a Bolt dimenzió Város szintjén); (c) mérték; (d) dimenzió; (e) attribútum. (Az attribútumból később szint is lehet, ha szerinte összesíteni akarunk, lásd <a href="#lepes3">3. lépés</a>.)</p>
+    </details></li>
+  <li><p>Írd fel a mini kocka csillagsémáját: melyik a ténytábla, mik a kulcsai és a mértékei, mik a dimenziótáblák?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>Ténytábla: <code>ELADAS(datum FK, tkod FK, bkod FK, darab, bevetel)</code> – idegen kulcsok + mértékek. Dimenziótáblák: <code>TERMEK</code>, <code>BOLT</code>, <code>IDO</code>; mindegyiket a ténytábla egy idegen kulcsa köti a középhez.</p>
+    </details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l13-lepes2"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes3">
+<h2>3. lépés – Szintek, hierarchiák, hópehelyséma</h2>
+
+<h4>Kis eset</h4>
+<p>A vezető kategóriánként kéri a forgalmat. Vegyünk fel egy új „Kategória” dimenziót? Akkor a kockában lenne „Kenyér, Tejtermék” cella is – ennek nincs értelme,
+mert a kenyér mindig Pékáru. A dimenzióknak <strong>függetleneknek</strong> kellene lenniük, a termék és a kategóriája viszont szorosan összefügg.</p>
+<p>A megoldás: a Kategória ne új dimenzió legyen, hanem a Termék dimenzió egy <strong>durvább felbontású szintje</strong>. Ugyanígy a Város a Bolt dimenzió szintje,
+a Negyedév és az Év az Idő dimenzióé.</p>
+<div class="table-wrap"><table>
+<tr><th>Dimenzió</th><th>Alapszint (legrészletesebb)</th><th>→ aggregáltabb szintek</th></tr>
+<tr><td>Termék</td><td>Termék (4 tag)</td><td>Kategória (2 tag) → Összes (1 tag)</td></tr>
+<tr><td>Bolt</td><td>Bolt (3 tag)</td><td>Város (2 tag) → Összes (1 tag)</td></tr>
+<tr><td>Idő</td><td>Hónap (2 tag)</td><td>Negyedév (1 tag) → Év (1 tag)</td></tr>
+</table></div>
+
+<div class="box def"><span class="box-title">Definíció – Szint, hierarchia, hópehelymodell</span>
+<ul>
+  <li><strong>szint</strong> (level): egy granularitási (felbontási) fokozat a dimenzión belül (nap, hét, hónap, év);</li>
+  <li><strong>dimenzióhierarchia</strong>: a szintek közötti <strong>1:N</strong> (szülő–gyerek) kapcsolat: minden alsóbb szintű tag pontosan egy felsőbb szintű taghoz tartozik, a felsőbb tag az alsók aggregátuma;</li>
+  <li><strong>alapszint</strong> (bázisszint): a legrészletesebb szint, ez kapcsolódik közvetlenül a ténycellához;</li>
+  <li><strong>hópehelymodell</strong>: a csillagmodell kiterjesztése, amely megengedi a dimenzió különböző granularitásainak használatát. Ábráján középen a ténycella (dupla keretes téglalap, benne a mértékek), körülötte a dimenziók szintjei, irányított élekkel összekötve.</li>
+</ul>
+<p><strong>Miért?</strong> Mert ugyanazt az adatot más-más részletességgel akarjuk nézni, és a szintek közti 1:N kapcsolat garantálja, hogy a durvább szint értéke a finomabbak összegeként előáll.</p>
+</div>
+
+<figure>
+<svg viewBox="0 0 760 270" role="img" aria-label="A mini kocka hópehelysémája: középen az ELADÁS ténycella a Darab és Bevétel mértékekkel; balra Termék, Kategória szintek; jobbra Bolt, Város; lent Hónap, Negyedév, Év" font-family="Inter, system-ui, sans-serif" font-size="13">
+  <defs><marker id="arr13" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+  <g fill="none" stroke="var(--accent)" stroke-width="1.5">
+    <rect x="300" y="40" width="160" height="80" rx="4"/><rect x="305" y="45" width="150" height="70" rx="3"/>
+    <rect x="160" y="60" width="100" height="40" rx="8"/><rect x="20" y="60" width="100" height="40" rx="8"/>
+    <rect x="500" y="60" width="100" height="40" rx="8"/><rect x="640" y="60" width="100" height="40" rx="8"/>
+    <rect x="200" y="200" width="100" height="40" rx="8"/><rect x="330" y="200" width="100" height="40" rx="8"/><rect x="460" y="200" width="100" height="40" rx="8"/>
+  </g>
+  <g fill="currentColor" text-anchor="middle">
+    <text x="380" y="72" font-weight="700">ELADÁS (tény)</text><text x="380" y="92">Darab, Bevétel</text>
+    <text x="210" y="85" font-weight="700">Termék</text><text x="70" y="85">Kategória</text>
+    <text x="550" y="85" font-weight="700">Bolt</text><text x="690" y="85">Város</text>
+    <text x="250" y="225" font-weight="700">Hónap</text><text x="380" y="225">Negyedév</text><text x="510" y="225">Év</text>
+  </g>
+  <g stroke="currentColor" stroke-width="1.3">
+    <line x1="300" y1="80" x2="260" y2="80"/><line x1="460" y1="80" x2="500" y2="80"/>
+    <path d="M340,120 L340,160 L250,160 L250,200" fill="none"/>
+  </g>
+  <g stroke="currentColor" stroke-width="1.3" marker-end="url(#arr13)">
+    <line x1="160" y1="80" x2="122" y2="80"/><line x1="600" y1="80" x2="638" y2="80"/>
+    <line x1="300" y1="220" x2="328" y2="220"/><line x1="430" y1="220" x2="458" y2="220"/>
+  </g>
+  <text x="380" y="262" text-anchor="middle" fill="var(--muted)" font-size="12">félkövér: alapszint · nyíl: a részletesebb szinttől az aggregáltabb felé (1:N)</text>
+</svg>
+<figcaption>A mini kocka hópehelysémája. A ténycellához mindig az alapszint kapcsolódik.</figcaption>
+</figure>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – egy szint tagjainak összesítése</span>
+<p>Mennyi a Kategória szint két tagjának darabszáma?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Pékáru = Kenyér + Kifli $= 120 + 230 = 350$; Tejtermék = Tej + Sajt $= 130 + 35 = 165$. Az Összes szint egyetlen tagja: $350 + 165 = 515$ – ugyanaz, mint a négy termék összege. Ezt garantálja az 1:N kapcsolat.</p>
+</details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – egy dimenzió, két hierarchia</span>
+<p>A Moodle-anyag Bolt dimenziójában a boltnak települése és kereskedője (tulajdonosa) is van. Hogyan néz ki a dimenzió?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Az alapszint a BOLT, és <strong>két hierarchia</strong> indul belőle: földrajzi (BOLT → TELEPÜLÉS → RÉGIÓ → ORSZÁG) és tulajdonosi (BOLT → KERESKEDŐ).
+Mindkettő 1:N: egy bolt egy településen van és egy kereskedőé. A két hierarchia egymástól független, ezért nem kell egy láncba fűzni őket.</p>
+</details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – „gyökér” és „levél” az előadásban</span>
+<p>Az előadás dián: „alapszint: a hierarchia <strong>gyökere</strong>, a legrészletesebb szint; a <strong>levelek</strong> rendelkeznek a legmagasabb aggregációval”.
+Ez a hópehelyábra rajzolására utal (a ténycellától kifelé haladva). Az MDX-ben és az Analysis Services-ben <strong>fordítva</strong> szokás: a fa gyökere az <em>All</em> (Összes) tag,
+a <strong>levelek a legrészletesebb</strong> tagok (<em>leaf level</em>). A lényeg egyértelmű: <strong>az alapszint a legrészletesebb</strong>; a „gyökér/levél” szót mindig az ábrához igazítva értsd.</p>
+</div>
+
+<div class="box tip"><span class="box-title">🔤 Csillag és hópehely – kétféle szóhasználat</span>
+<p>Az előadásban a <strong>csillagmodell</strong> a szintek nélküli kocka, a <strong>hópehelymodell</strong> a szintekkel bővített. A Kimball-féle dimenzionális modellezésben
+(és a legtöbb adattárház-könyvben) a különbség a dimenziótáblák tárolása: <em>star schema</em> = dimenziónként egyetlen, denormalizált tábla (a kategória is ott van oszlopként),
+<em>snowflake schema</em> = a szintek külön, normalizált táblákban (pl. <code>TERMEK → KATEGORIA</code>). A vizsgán az előadás szóhasználatát kövesd.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – szintek és hierarchiák (5 feladat)</summary>
+<ol>
+  <li><p>Alakíts ki legalább háromszintű hierarchiát egy élelmiszerbolt termékdimenziójához! Melyik szinten kapod a legrészletesebb, melyiken a leginkább összesített eredményt?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>Pl. Termék → Alkategória (pl. kenyérfélék) → Kategória (pékáru) → Összes. Legrészletesebb az alapszint (Termék), leginkább összesített az Összes.</p>
+    </details></li>
+  <li><p>Melyik a helyes idődimenzió-hierarchia a legrészletesebbtől az aggregáltabb felé: (a) NAP → HÓNAP → ÉV; (b) ÉV → NAP → HÓNAP; (c) HÓNAP → ÉV → NAP?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>(a). Minden nap pontosan egy hónapba, minden hónap pontosan egy évbe esik (1:N).</p>
+    </details></li>
+  <li><p>Lehet-e a HÉT a NAP és a HÓNAP közé illesztett szint (NAP → HÉT → HÓNAP)?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>Nem: egy hét átnyúlhat két hónapra, így nem igaz, hogy minden hét pontosan egy hónaphoz tartozik. A hét külön hierarchiába kerül: NAP → HÉT → (naptári hét szerinti) ÉV, a NAP → HÓNAP → ÉV mellé.</p>
+    </details></li>
+  <li><p>A mini kocka Bolt dimenziójában hány tagja van az egyes szinteknek, és mennyi a Város szint tagjainak darabszáma?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>Bolt: 3 (Dobó, Avas, Belváros), Város: 2 (Eger, Miskolc), Összes: 1. Eger = Dobó = 140; Miskolc = Avas + Belváros $= 240 + 135 = 375$.</p>
+    </details></li>
+  <li><p>Egy termék több kategóriába is tartozhat (pl. a kefir „Tejtermék” és „Akciós” is). Mi a baj ezzel, ha a Kategória a Termék szülőszintje?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>Sérül az 1:N kapcsolat: a kefir két szülőhöz tartozna, így a kategóriák összege nagyobb lenne a teljes forgalomnál (a kefir kétszer számítana). Az „Akciós” jelzőt attribútumként vagy külön hierarchiában érdemes kezelni.</p>
+    </details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes4">
+<h2>4. lépés – Relációs sémából hópehelymodell</h2>
+
+<h4>Kis eset</h4>
+<p>A kockát nem a semmiből tervezzük: az adatai a működő rendszerek relációs tábláiból jönnek. A Moodle-anyag bolti forgalmi sémája:</p>
+<pre><code class="language-sql">TERMEK    (termekkod PK, termeknev, kategoria, egysegar, gyarto FK → GYARTO)
+GYARTO    (gyartokod PK, cegnev, adoszam, elerhetoseg)
+BOLT      (boltkod PK, boltnev, cim, telepules FK → TELEPULES, kereskedo FK → KERESKEDO)
+KERESKEDO (kereskedokod PK, cegnev, adoszam, elerhetoseg)
+TELEPULES (telepuleskod PK, nev, regio, orszag)
+FORGALOM  (bolt FK → BOLT, termek FK → TERMEK, ertek, datum)
+PANASZOK  (bolt FK → BOLT, termek FK → TERMEK, datum, leiras)</code></pre>
+<p>Rajzold le, merre mutatnak az idegen kulcsok! A <code>FORGALOM</code>-ból és a <code>PANASZOK</code>-ból csak <strong>kifelé</strong> indulnak nyilak, beléjük egy sem mutat.
+Az összes többi táblába mutat valami. Ez a két tábla írja le a „történéseket” – ezek lesznek a tények.</p>
+
+<div class="box def"><span class="box-title">Szabály – A relációs séma konverziója</span>
+<ol>
+  <li><strong>Az elemzés tárgya:</strong> válaszd ki a mérhető üzleti mennyiségeket (forgalom értéke, panaszok száma).</li>
+  <li><strong>Ténytábla:</strong> az a tábla, amelyből idegen kulcsok <em>indulnak</em>, de amelybe más tábla idegen kulcsa <em>nem mutat</em>. Ebből lesz a ténycella és a mértékek.</li>
+  <li><strong>Dimenziók:</strong> a ténytáblából induló idegenkulcs-láncok mentén lévő táblák. A közvetlenül hivatkozott tábla az <strong>alapszint</strong>, a lánc további táblái az aggregáltabb szintek.</li>
+  <li><strong>Rejtett szintek:</strong> az ismétlődő leíró mezők (pl. a <code>kategoria</code> sok terméknél ugyanaz, a <code>regio</code> sok településnél) és a dátumból képzett hónap, év szintén szintek lehetnek.</li>
+</ol>
+<p><strong>Miért?</strong> Az idegen kulcs „sok → egy” irányba mutat: sok forgalmi sor egy termékre, sok termék egy gyártóra. Pont ez az 1:N, amit a dimenzióhierarchia megkövetel.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – a bolti séma hópehelymodellje</span>
+<details class="solution"><summary>Megoldás</summary>
+<ul>
+  <li><strong>Tények:</strong> <code>FORGALOM</code> (mérték: érték) és <code>PANASZOK</code> (mérték: a panaszok száma; a <code>leiras</code> szöveg, nem összesíthető).</li>
+  <li><strong>BOLT dimenzió</strong> – alapszint: BOLT; földrajzi hierarchia: BOLT → TELEPÜLÉS → RÉGIÓ → ORSZÁG (a régió és az ország a <code>TELEPULES</code> ismétlődő mezői); tulajdonosi hierarchia: BOLT → KERESKEDŐ.</li>
+  <li><strong>TERMÉK dimenzió</strong> – alapszint: TERMÉK; gyártói hierarchia: TERMÉK → GYÁRTÓ; a <code>kategoria</code> mező további szint: TERMÉK → KATEGÓRIA.</li>
+  <li><strong>DÁTUM dimenzió</strong> – alapszint: NAP; NAP → HÓNAP → ÉV (a dátummezőből képezve).</li>
+</ul>
+</details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – a mini kocka visszafelé</span>
+<p>A kis eset négy táblájából (<code>TERMEK</code>, <code>BOLT</code>, <code>IDO</code>, <code>ELADAS</code>) állítsd elő a mini kocka hópehelysémáját!</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Az <code>ELADAS</code>-ba nem mutat idegen kulcs, belőle három indul: ez a ténytábla, mértékei <code>darab</code> és <code>bevetel</code>.
+Dimenziók: <code>TERMEK</code> (alapszint Termék; a <code>kategoria</code> rejtett szint), <code>BOLT</code> (alapszint Bolt; a <code>varos</code> rejtett szint),
+<code>IDO</code> (alapszint a dátum vagy a hónap; a <code>negyedev</code>, <code>ev</code> mezők szintek). Ez pontosan a <a href="#lepes3">3. lépés</a> ábrája.
+Az <code>ar</code> a Termék attribútuma marad.</p>
+</details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – a mérték legyen összeadható</span>
+<p>A Moodle-anyag kiemeli: a mértékek <strong>aggregálható, összeadható (additív)</strong> mennyiségek legyenek. A forgalom értéke, a darabszám ilyen.
+Az <strong>egységár nem</strong>: két termék árának összege értelmetlen, ezért attribútum. A <strong>készlet</strong> félig additív: boltok között összeadható, hónapok között nem
+(a januári és a februári készlet összege nem „a negyedéves készlet”). <em>(Kiegészítés.)</em></p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – sémakonverzió (5 feladat)</summary>
+<ol>
+  <li><p>Könyvtári séma: <code>KONYV(kod PK, cim, szerzo FK, kiado FK, temakor)</code>, <code>SZERZO(kod PK, nev, orszag)</code>, <code>KIADO(kod PK, nev, varos)</code>, <code>TAG(kod PK, nev, telepules)</code>, <code>KOLCSONZES(tag FK, konyv FK, datum, napok)</code>. Melyik a ténytábla, és mi a mérték?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p><code>KOLCSONZES</code>: belőle két idegen kulcs indul, bele egy sem mutat. Mértékek: a kölcsönzés napjainak száma (<code>napok</code>) és a kölcsönzések száma (COUNT).</p>
+    </details></li>
+  <li><p>Ugyanitt add meg a dimenziókat és a szintjeiket!</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>KÖNYV dimenzió: KÖNYV → SZERZŐ → ORSZÁG (a szerző országa), KÖNYV → KIADÓ → VÁROS, KÖNYV → TÉMAKÖR (rejtett szint). TAG dimenzió: TAG → TELEPÜLÉS. DÁTUM dimenzió: NAP → HÓNAP → ÉV.</p>
+    </details></li>
+  <li><p>Mérték lehet-e: (a) az eladott darabszám; (b) a termék egységára; (c) a havi záró készlet; (d) a panasz szövege?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>(a) igen, additív. (b) nem, attribútum. (c) csak félig additív: boltok között összeadható, időben nem (időben pl. az utolsó értéket vagy az átlagot kell venni). (d) nem, szöveg; helyette a panaszok <em>száma</em> lehet mérték.</p>
+    </details></li>
+  <li><p>Az MS Analysis Server-es mintában (Moodle 6. fejezet) a táblák: <code>BOLTOK(BKOD PK, NEV, VAROS)</code>, <code>TERMEKEK(KKOD PK, NEV)</code>, <code>FORGALOM(TERMEK FK, BOLT FK, DB)</code>. Mi a ténytábla, mik a dimenziók és melyik rejtett szint van?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>Ténytábla: <code>FORGALOM</code> (mérték: <code>DB</code>, plusz egy generált rekordszám, COUNT). Dimenziók: <code>BOLTOK</code>, <code>TERMEKEK</code>. Rejtett szint: a <code>VAROS</code> mező (több bolt ugyanabban a városban): BOLT → VÁROS.</p>
+    </details></li>
+  <li><p>Miért nem lehet a <code>TERMEK</code> tábla ténytábla a bolti sémában, pedig van benne idegen kulcs (<code>gyarto</code>)?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>Mert a <code>FORGALOM</code> és a <code>PANASZOK</code> idegen kulcsa <em>bele</em> mutat. A szabály: a ténytáblából csak kifelé indulnak kulcsok. A <code>TERMEK</code> egy dimenzió alapszintje, a <code>gyarto</code> kulcsa pedig a következő szintre (GYÁRTÓ) vezet.</p>
+    </details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l13-lepes4"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes5">
+<h2>5. lépés – MD algebra I: szeletelés és kockázás</h2>
+
+<p>Az <strong>MD algebra</strong> a kockákon végzett műveletek halmaza. Minden művelet egy kockából egy <strong>kockát</strong> állít elő (a műveletek zártak a kockák halmazára),
+ezért egymásba ágyazhatók. A legkisebb kocka a nulladimenziós: egyetlen cella. Az előadás négy alapműveletet sorol fel: szeletelés és kockázás, felgöngyölítés, lefúrás, hajtogatás.</p>
+
+<h4>Kis eset</h4>
+<p>A vezető csak a januári adatokat kéri. A $4 \times 3 \times 2$-es kockából kivágjuk az Idő = Január „lapot”:</p>
+<div class="table-wrap"><table>
+<tr><th>Idő = Január</th><th class="num">Dobó</th><th class="num">Avas</th><th class="num">Belváros</th></tr>
+<tr><td>Kenyér</td><td class="num">20</td><td class="num">30</td><td class="num">10</td></tr>
+<tr><td>Kifli</td><td class="num">40</td><td class="num">50</td><td class="num">30</td></tr>
+<tr><td>Tej</td><td class="num">15</td><td class="num">25</td><td class="num">20</td></tr>
+<tr><td>Sajt</td><td class="num">–</td><td class="num">5</td><td class="num">10</td></tr>
+</table></div>
+<p>12 cellapozíció maradt. A cellák értéke nem változott, csak kevesebb látszik belőlük. Az Idő dimenzió megmaradt, de csak egy tagja (Január) szerepel.</p>
+
+<div class="box def"><span class="box-title">Definíció – Szeletelés és kockázás (slice and dice)</span>
+<ul>
+  <li><strong>Szeletelés</strong> (slice): a kocka szűrése, a feltétel <strong>egyetlen dimenzión</strong> (vagy mértéken) alapul. Pl. Idő.Hónap = Január.</li>
+  <li><strong>Kockázás</strong>, kockaszűrés, többdimenziós szeletelés (dice): a feltétel <strong>egynél több dimenzión</strong> alapul. Pl. Város = Miskolc <em>és</em> Kategória = Tejtermék.</li>
+</ul>
+<p>Az eredmény az eredeti kocka <strong>részkockája</strong>: a dimenziók száma és a cellák értéke nem változik, csak a kiválasztott dimenziók mentén kevesebb tag marad.
+A feltétel lehet egy attribútumérték (Város = Miskolc) vagy összetettebb reláció (Hónap ∈ {Január, Február}).</p>
+<p><strong>Miért?</strong> Az elemzés legtöbbször a kocka egy kis szeletére vonatkozik („csak az idei év”, „csak a budapesti boltok”), és ezt a többi művelet előtt érdemes leszűkíteni.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – szeletelés a mértéken</span>
+<p>A kockában két mérték van. Mi a szeletelés eredménye, ha csak a Bevétel kell?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Ugyanaz a 24 cellapozíció, de mindegyikben csak a bevétel: pl. Kifli–Avas–Február $= 60 \cdot 80 = 4\,800$ Ft. A Moodle-anyag szerint „ha több változónk van, a változó kiválasztása egy szeleteléssel történik” – az MDX ezt a MEASURES dimenzióval valósítja meg (<a href="#lepes7">7. lépés</a>).</p>
+</details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – kockázás két dimenzión</span>
+<p>Feltétel: Bolt.Város = Miskolc <strong>és</strong> Termék.Kategória = Tejtermék. Mi marad?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>2 termék (Tej, Sajt) × 2 bolt (Avas, Belváros) × 2 hónap = 8 cella:</p>
+<div class="table-wrap"><table>
+<tr><th></th><th class="num">Avas – Jan</th><th class="num">Belváros – Jan</th><th class="num">Avas – Feb</th><th class="num">Belváros – Feb</th></tr>
+<tr><td>Tej</td><td class="num">25</td><td class="num">20</td><td class="num">35</td><td class="num">25</td></tr>
+<tr><td>Sajt</td><td class="num">5</td><td class="num">10</td><td class="num">15</td><td class="num">5</td></tr>
+</table></div>
+<p>Az összeg $25+20+35+25+5+10+15+5 = 140$. Mind a három dimenzió megmaradt; az Idő mentén nem szűrtünk, ott mindkét hónap látszik.</p>
+</details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – a szeletelés nem összegez</span>
+<p>A szeletelés <strong>kiválaszt</strong>, nem aggregál. Az „Idő = Január” szelet a 12 januári cellát adja, <em>nem</em> egy 255-ös összeget. Ha a januári végösszeg kell,
+a szeletelés után még egy hajtogatás (<a href="#lepes6">6. lépés</a>) is kell, amely a Termék és a Bolt dimenziót összevonja.</p>
+</div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia – megmarad-e a dimenzió?</span>
+<p>Az előadás és a Moodle-anyag szerint a szeletelés után „az eredménykocka dimenziója megegyezik a forráskockáéval” (a szeletelt dimenzió egy taggal marad meg).
+Sok angol nyelvű forrás a <em>slice</em>-t úgy írja le, hogy az egytagúvá vált dimenzió „eltűnik” (3D-ből 2D lesz). Ez ugyanaz a gondolat kétféle könyveléssel; a vizsgán az előadás változatát használd.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – szeletelés és kockázás (5 feladat)</summary>
+<ol>
+  <li><p>Szeleteld a kockát Idő = Február szerint! Hány cellapozíció marad, hány kitöltött, és mennyi a darabszámuk összege?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>$4 \cdot 3 = 12$ pozíció, ebből 11 kitöltött (Sajt–Dobó üres). Összeg: $65 + 130 + 65 = 260$ (a februári tábla oszlopösszegei).</p>
+    </details></li>
+  <li><p>Szeleteld a kockát Bolt = Avas szerint, és írd fel a Termék × Hónap táblát!</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <div class="table-wrap"><table>
+    <tr><th>Bolt = Avas</th><th class="num">Január</th><th class="num">Február</th></tr>
+    <tr><td>Kenyér</td><td class="num">30</td><td class="num">20</td></tr>
+    <tr><td>Kifli</td><td class="num">50</td><td class="num">60</td></tr>
+    <tr><td>Tej</td><td class="num">25</td><td class="num">35</td></tr>
+    <tr><td>Sajt</td><td class="num">5</td><td class="num">15</td></tr>
+    </table></div>
+    <p>Összesen $110 + 130 = 240$.</p>
+    </details></li>
+  <li><p>Kockázás: Kategória = Pékáru, Hónap = Január, Város = Miskolc. Hány cella marad, és mennyi az összegük?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>2 termék × 2 bolt × 1 hónap = 4 cella: Kenyér–Avas 30, Kenyér–Belváros 10, Kifli–Avas 50, Kifli–Belváros 30. Összeg: $120$.</p>
+    </details></li>
+  <li><p>Feltétel: Darab &gt; 20. Hány kitöltött cella teljesíti a kockában? Hogyan sorolja be ezt az előadás, és mivel valósítja meg az MDX?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>Januárban: Kenyér–Avas 30, Kifli 40, 50, 30, Tej–Avas 25 → 5 cella. Februárban: Kenyér–Dobó 25, Kifli–Dobó 30, Kifli–Avas 60, Tej–Avas 35, Tej–Belváros 25 → 5 cella. Összesen <strong>10</strong>.
+    Az előadás a mértéken alapuló feltételt is a szeleteléshez sorolja; az MDX-ben az ilyen <em>érték alapú</em> szűrést a <code>FILTER</code> függvény végzi (<a href="#lepes9">9. lépés</a>).</p>
+    </details></li>
+  <li><p>„A 2025. januári italforgalom a budapesti üzletekben.” Szeletelés vagy kockázás? Írd fel a feltételeket!</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>Kockázás (három dimenzió): DÁTUM.HÓNAP = 2025. január, TERMÉK.KATEGÓRIA = ital, BOLT.TELEPÜLÉS = Budapest.</p>
+    </details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes6">
+<h2>6. lépés – MD algebra II: felgöngyölítés, lefúrás, hajtogatás</h2>
+
+<h4>Kis eset</h4>
+<p>A januári szeletet a vezető nem boltonként, hanem <strong>városonként</strong> kéri. A Dobó bolt egymaga Eger, az Avas és a Belváros együtt Miskolc:</p>
+<div class="two-col">
+<div>
+<p class="kicker">Január, Bolt szint (12 cella)</p>
+<div class="table-wrap"><table>
+<tr><th></th><th class="num">Dobó</th><th class="num">Avas</th><th class="num">Belváros</th></tr>
+<tr><td>Kenyér</td><td class="num">20</td><td class="num">30</td><td class="num">10</td></tr>
+<tr><td>Kifli</td><td class="num">40</td><td class="num">50</td><td class="num">30</td></tr>
+<tr><td>Tej</td><td class="num">15</td><td class="num">25</td><td class="num">20</td></tr>
+<tr><td>Sajt</td><td class="num">–</td><td class="num">5</td><td class="num">10</td></tr>
+</table></div>
+</div>
+<div>
+<p class="kicker">Január, Város szint (8 cella)</p>
+<div class="table-wrap"><table>
+<tr><th></th><th class="num">Eger</th><th class="num">Miskolc</th></tr>
+<tr><td>Kenyér</td><td class="num">20</td><td class="num">40</td></tr>
+<tr><td>Kifli</td><td class="num">40</td><td class="num">80</td></tr>
+<tr><td>Tej</td><td class="num">15</td><td class="num">45</td></tr>
+<tr><td>Sajt</td><td class="num">–</td><td class="num">15</td></tr>
+</table></div>
+</div>
+</div>
+<p>Balról jobbra: <strong>felgöngyölítés</strong> (Bolt → Város), a tagok és a cellák száma csökken. Jobbról balra: <strong>lefúrás</strong> (Város → Bolt), a tagok száma nő.
+A Bolt dimenzió mindkét esetben megmarad, csak a <em>szintje</em> változik.</p>
+
+<div class="two-col">
+<div class="box def"><span class="box-title">Definíció – Felgöngyölítés (roll-up)</span>
+<p>Megváltoztatja az aktuális szintet: egy <strong>aggregáltabb</strong> (durvább) szintre lép a dimenzióhierarchiában (Bolt → Város, Hónap → Negyedév).
+A gyerektagok értékei a szülőben összegződnek. A dimenziók száma nem változik. Csak hópehelymodellen értelmezett (kell hozzá hierarchia).</p>
+</div>
+<div class="box def"><span class="box-title">Definíció – Lefúrás (drill-down)</span>
+<p>Megváltoztatja az aktuális szintet: egy <strong>kevésbé aggregált</strong> (részletesebb) szintre lép (Város → Bolt, Év → Hónap → Nap).
+A tagok és a cellák száma nő. A dimenziók száma nem változik. Csak hópehelymodellen értelmezett, és csak az alapszintig lehet lefúrni.</p>
+</div>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Hajtogatás, dimenzió-összevonás (fold)</span>
+<p>Megváltoztatja a <strong>dimenziókészletet</strong>: paraméterként a <em>megmaradó</em> dimenziókat adjuk meg. Azok a cellák, amelyek csak a kimaradó dimenziókban különböznek,
+egyetlen cellába aggregálódnak (alapértelmezés szerint összegzéssel). Az eredménykocka dimenziószáma csökken; ha egy dimenzió sem marad, egyetlen összesítő cella marad.</p>
+<p><strong>Miért?</strong> A roll-up „finomhangol” egy dimenzión belül, a fold „kidob” egy egész szempontot. Együtt a szeleteléssel bármely összesítő táblázat előállítható.</p>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – az előadás összefoglaló diája fordítva írja a lefúrást</span>
+<p>Az előadás „MD algebra” diáján ez áll: <em>„drill down: átállás egy aggregáltabb szintre”</em>. Ez <strong>hibás</strong>; két diával később maga az előadás is helyesen írja:
+„lefúrási művelet: egy <strong>kevésbé aggregált</strong> szintre lép”. A helyes irány:</p>
+<ul>
+  <li><strong>roll-up (felgöngyölítés) → aggregáltabb</strong> szint (boltból város, hónapból év), kevesebb tag;</li>
+  <li><strong>drill-down (lefúrás) → részletesebb</strong> szint (évből hónap, városból bolt), több tag.</li>
+</ul>
+<p>Emlékeztető: <em>lefúrni</em> = „lejjebb ásni a részletekbe”; <em>felgöngyölíteni</em> = „feltekerni, összefogni”. A Moodle-anyag is így írja (lefúrás: éves helyett havi, majd napi adatok).</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – felgöngyölítés a Termék dimenzión</span>
+<p>Göngyölítsd fel a januári szeletet Termék → Kategória szerint (a boltok maradnak)!</p>
+<details class="solution"><summary>Megoldás</summary>
+<div class="table-wrap"><table>
+<tr><th>Január</th><th class="num">Dobó</th><th class="num">Avas</th><th class="num">Belváros</th></tr>
+<tr><td>Pékáru</td><td class="num">20 + 40 = 60</td><td class="num">30 + 50 = 80</td><td class="num">10 + 30 = 40</td></tr>
+<tr><td>Tejtermék</td><td class="num">15 + 0 = 15</td><td class="num">25 + 5 = 30</td><td class="num">20 + 10 = 30</td></tr>
+</table></div>
+<p>Ellenőrzés: $60+80+40+15+30+30 = 255$, a januári végösszeg. A felgöngyölítés nem vesz el adatot, csak összefog.</p>
+</details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – lefúrás</span>
+<p>A vezető ezt a táblát látja: januárban a Pékáru Egerben 60, Miskolcon 120. Megkérdezi: „Miskolcon melyik bolt adta el?” Melyik művelet ez, és mi az eredmény?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p><strong>Lefúrás</strong> a Bolt dimenzión: Város → Bolt. Miskolc (120) szétesik: Avas 80, Belváros 40 (az előző példa táblájából). Lefúrni azért lehet, mert a kocka az alapszintű (bolti) adatokat is tárolja.</p>
+</details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – hajtogatás</span>
+<p>Csak termékenként kérjük a forgalmat, bolt és hónap szerinti bontás nélkül. Melyik dimenziók maradnak, és mi az eredmény?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Fold, megmaradó dimenzió: <strong>Termék</strong>. A Bolt és az Idő mentén eltérő, de azonos termékű cellák összeadódnak:</p>
+<div class="table-wrap"><table>
+<tr><th>Termék</th><th class="num">Darab</th></tr>
+<tr><td>Kenyér</td><td class="num">20+30+10+25+20+15 = 120</td></tr>
+<tr><td>Kifli</td><td class="num">40+50+30+30+60+20 = 230</td></tr>
+<tr><td>Tej</td><td class="num">15+25+20+10+35+25 = 130</td></tr>
+<tr><td>Sajt</td><td class="num">5+10+15+5 = 35</td></tr>
+</table></div>
+<p>3 dimenzióból 1 lett. Ha egy dimenziót sem tartunk meg: egyetlen cella, $515$.</p>
+</details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – felgöngyölítés vagy hajtogatás?</span>
+<p>A <strong>roll-up</strong> után a dimenzió <em>megmarad</em> (csak durvább szinten): „városonként” = a Bolt dimenzió Város szinten. A <strong>fold</strong> után a dimenzió <em>eltűnik</em>:
+„bolt szerinti bontás nélkül”. Ha a Bolt dimenziót egészen az „Összes” szintig göngyölíted fel, az eredmény számszerűen megegyezik a Bolt elhagyásával – de a művelet neve más.</p>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés – pivot (forgatás)</span>
+<p>Sok OLAP-tankönyv ötödik műveletként a <strong>pivot</strong>-ot (forgatás, <em>rotate</em>) is felsorolja: a megjelenítés tengelyeinek cseréje (ami eddig sorban volt, oszlopba kerül).
+A cellák értéke nem változik, csak a nézet. Az előadás nem említi; MDX-ben ez annyi, hogy felcseréled az <code>ON COLUMNS</code> és az <code>ON ROWS</code> kifejezést.</p>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Hüvelykujjszabály – kérdésből műveletek</span>
+<p>„<strong>…-onként</strong>” → az a dimenzió megmarad, a megfelelő <em>szintre</em> göngyölítve. „<strong>csak …</strong>” → szeletelés / kockázás. Ami <strong>nem szerepel</strong> a kérdésben → hajtogatással elhagyod.
+Példa (Moodle-anyag): <em>havi italforgalom régiónként</em> = felgöngyölítés (DÁTUM → HÓNAP, BOLT → RÉGIÓ, TERMÉK → KATEGÓRIA) + szeletelés (KATEGÓRIA = ital).</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – szintváltás és hajtogatás (5 feladat)</summary>
+<ol>
+  <li><p>Göngyölítsd fel a februári szeletet Bolt → Város szerint!</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <div class="table-wrap"><table>
+    <tr><th>Február</th><th class="num">Eger</th><th class="num">Miskolc</th></tr>
+    <tr><td>Kenyér</td><td class="num">25</td><td class="num">20 + 15 = 35</td></tr>
+    <tr><td>Kifli</td><td class="num">30</td><td class="num">60 + 20 = 80</td></tr>
+    <tr><td>Tej</td><td class="num">10</td><td class="num">35 + 25 = 60</td></tr>
+    <tr><td>Sajt</td><td class="num">–</td><td class="num">15 + 5 = 20</td></tr>
+    </table></div>
+    </details></li>
+  <li><p>Göngyölítsd fel a februári szeletet Termék → Kategória szerint (boltonként)!</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>Pékáru: Dobó $25+30 = 55$, Avas $20+60 = 80$, Belváros $15+20 = 35$. Tejtermék: Dobó $10$, Avas $35+15 = 50$, Belváros $25+5 = 30$. Ellenőrzés: összesen $260$.</p>
+    </details></li>
+  <li><p>Hajtogasd a kockát úgy, hogy csak a Bolt dimenzió maradjon! Ellenőrizd az összeget!</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>Dobó $75 + 65 = 140$, Avas $110 + 130 = 240$, Belváros $70 + 65 = 135$. Összesen $140 + 240 + 135 = 515$. ✓</p>
+    </details></li>
+  <li><p>Melyik művelet? (a) havi bontás helyett napi bontás; (b) boltonkénti helyett városonkénti forgalom; (c) „a termék szerinti bontás nem kell”; (d) „csak a 2025-ös év”; (e) az évi összesítő táblából negyedéves.</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>(a) lefúrás; (b) felgöngyölítés; (c) hajtogatás (a Termék dimenzió elhagyása); (d) szeletelés; (e) lefúrás (Év → Negyedév, részletesebb).</p>
+    </details></li>
+  <li><p>MOZIK kocka (mértékek: NÉZŐSZÁM, BEVÉTEL; MOZI → VÁROS → ORSZÁG; FILM → KATEGÓRIA; NAP → HÓNAP → ÉV). „Mennyi volt a vígjátékok összbevétele országonként 2024-ben?” Add meg a műveleteket!</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>Felgöngyölítés: MOZI → ORSZÁG, FILM → KATEGÓRIA, NAP → ÉV. Szeletelés: KATEGÓRIA = vígjáték, ÉV = 2024, mérték = BEVÉTEL. Hajtogatás: csak a MOZI dimenzió marad (ORSZÁG szinten), a FILM és a DÁTUM összevonódik (ezeken már csak egy-egy tag maradt).</p>
+    </details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l13-lepes6"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes7">
+<h2>7. lépés – Az MDX adatmodellje: tag, tuple, set, MEASURES</h2>
+
+<p>Az MD algebra eddig absztrakt volt. A kockamotorokat (MS Analysis Services, Oracle Essbase, SAP BW, …) parancsokkal vezéreljük. Erre szolgál az <strong>MDX</strong>
+(<em>MultiDimensional eXpressions</em>): a Microsoft fejlesztette ki (az előadás szerint 2000-ben, a Moodle-anyag szerint az 1990-es évek végén), mára az OLAP de facto szabványa.
+Formailag nagyon hasonlít az SQL-re, de a kocka szemléletét követi, és rengeteg pénzügyi, statisztikai függvénye van.</p>
+
+<h4>Kis eset</h4>
+<p>Hogyan mondod meg a gépnek, hogy a „februári avasi kifli darabszáma” cellát kéred? Meg kell nevezni a dimenziók egy-egy tagját:</p>
+<pre><code class="language-sql">( [Termék].[Termék].[Kifli], [Bolt].[Bolt].[Avas], [Idő].[Hónap].[Február], [Measures].[Darab] )   -- 60</code></pre>
+<p>Az utolsó elem furcsa: a <em>Darab</em> nem dimenzió, hanem mérték. Csakhogy az MDX-ben <strong>egy cella egyetlen értéket tárolhat</strong>. Ha a kockában két változó van
+(Darab és Bevétel), egy kerülő megoldás kell: a változókat kivisszük egy külön, virtuális dimenzióba, a <strong>MEASURES</strong> dimenzióba, amelynek a tagjai a változók nevei.
+Az MDX szemében tehát a mini kocka négydimenziós: $4 \times 3 \times 2 \times 2 = 48$ cella, mindegyikben egyetlen szám.</p>
+
+<div class="box def"><span class="box-title">Definíció – Az MDX adatmodell elemei</span>
+<ul>
+  <li><strong>cella</strong>: csak egy értéket (egy mérték egy értékét) tárolhat; egy cellát egy <strong>tuple</strong> azonosít;</li>
+  <li><strong>tag</strong> (member): egy dimenzió egy elemértéke; a dimenzió atomi vagy összetett (attribútumokkal bíró) tagokat tartalmaz;</li>
+  <li><strong>tulajdonság</strong> (property): egy összetett tag attribútuma;</li>
+  <li><strong>szint</strong> (level): a dimenzióhierarchia egy fokozata;</li>
+  <li><strong>tuple</strong>: <em>különböző</em> dimenziókból származó, összetartozó tagok rendezett listája: <code>(tag1, tag2, …)</code>;</li>
+  <li><strong>set</strong> (halmaz): <em>azonos szerkezetű</em> tuple-ök gyűjteménye: <code>{tuple1, tuple2, …}</code>;</li>
+  <li><strong>MEASURES dimenzió</strong>: a mértékek nevét tároló virtuális dimenzió (pl. [Bevétel, Kiadás, Nyereség]).</li>
+</ul>
+<p>Tag-hivatkozás: <code>[Dimenzió].[Szint].[Tag]</code> – a dimenzióhierarchia hozzáférési útvonala (az előadásban <code>dimension.levels.item</code>).
+A szögletes zárójel csak szóközt, ékezetet, különleges karaktert tartalmazó névnél kötelező (<code>Measures.Profit</code> is jó).</p>
+<p><strong>Miért?</strong> A tuple egy „koordinátavektor”, a set koordinátavektorok listája – ebből épül fel az eredménytábla minden sora és oszlopa.</p>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés – mi van a ki nem írt dimenziókkal?</span>
+<p>Ha egy tuple nem nevez meg minden dimenziót, a hiányzó dimenziók az <strong>alapértelmezett tagjukat</strong> veszik fel. Ez általában az <em>All</em> (Összes) tag,
+a MEASURES dimenzióé pedig az első (alapértelmezett) mérték – nálunk a Darab. Ezért ad egy „hiányos” tuple is egyetlen számot: az összesítést a többi dimenzió mentén.
+Ez az MDX legfontosabb, a diákon ki nem mondott szabálya.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – hiányos tuple</span>
+<p>Mennyi a <code>([Termék].[Termék].[Kifli], [Measures].[Darab])</code> tuple értéke?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>A Bolt és az Idő nincs megadva, ezért mindkettő az All tagon áll: a Kifli összes eladása, minden boltban, mindkét hónapban: $40+50+30+30+60+20 = 230$.</p>
+</details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – nem alapszintű tag</span>
+<p>Mennyi a <code>([Bolt].[Város].[Miskolc], [Measures].[Bevétel])</code>?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>A Miskolc tag a két miskolci bolt aggregátuma; Termék és Idő: All. Avas bevétele $102\,800$, Belvárosé $67\,000$, összesen $169\,800$ Ft.</p>
+</details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – érvényes és érvénytelen set (Moodle-anyag)</span>
+<ol>
+  <li><code>{ (BOLT.VÁROS.Eger), (BOLT.VÁROS.Miskolc) }</code></li>
+  <li><code>{ (BOLT.VÁROS.Eger, TERMÉK.KATEGÓRIA.ital), (BOLT.VÁROS.Miskolc, TERMÉK.KATEGÓRIA.ital) }</code></li>
+  <li><code>{ (BOLT.VÁROS.Eger, TERMÉK.KATEGÓRIA.ital), (BOLT.VÁROS.Miskolc) }</code></li>
+</ol>
+<details class="solution"><summary>Megoldás</summary>
+<p>1. érvényes: két egyelemű tuple (két város). 2. érvényes: mindkét tuple (város, kategória) pár. 3. <strong>érvénytelen</strong>: az első tuple kétdimenziós, a második egydimenziós – a set elemeinek azonos szerkezetűnek kell lenniük.</p>
+</details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – kerek vagy kapcsos zárójel?</span>
+<ul>
+  <li><strong>( )</strong> = tuple: <em>különböző</em> dimenziók tagjai, „és” kapcsolat, <strong>egy</strong> cellát (vagy aggregátumot) jelöl. <code>([Bolt].[Város].[Eger], [Bolt].[Város].[Miskolc])</code> hibás: egy dimenzióból két tag nem lehet egy tuple-ben.</li>
+  <li><strong>{ }</strong> = set: <em>azonos szerkezetű</em> tuple-ök, „vagy / lista” kapcsolat, <strong>több</strong> sort vagy oszlopot ad. Két város helyesen: <code>{[Bolt].[Város].[Eger], [Bolt].[Város].[Miskolc]}</code>.</li>
+</ul>
+<p>Az azonos szerkezet a dimenziók <em>sorrendjére</em> is vonatkozik: <code>{(Eger, Január), (Február, Miskolc)}</code> az Analysis Servicesben hibát ad.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – tuple és set (5 feladat)</summary>
+<ol>
+  <li><p>Mennyi a <code>([Termék].[Termék].[Tej], [Bolt].[Bolt].[Belváros], [Idő].[Hónap].[Február], [Measures].[Darab])</code>? És ha a mérték <code>[Measures].[Bevétel]</code>?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>Darab: 25 (februári tábla). Bevétel: $25 \cdot 400 = 10\,000$ Ft.</p>
+    </details></li>
+  <li><p>Mit ad a <code>([Termék].[Termék].[Sajt], [Bolt].[Bolt].[Dobó])</code>?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>Az Idő All-on áll, a mérték az alapértelmezett Darab. Mindkét hónapban üres a cella, így az eredmény is <strong>üres</strong> (NULL), nem egy szám.</p>
+    </details></li>
+  <li><p>Mennyi a <code>([Termék].[Kategória].[Tejtermék], [Idő].[Hónap].[Február])</code> és a <code>([Termék].[Kategória].[Pékáru], [Bolt].[Város].[Miskolc], [Measures].[Bevétel])</code>?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>Első: Darab (alapértelmezett), minden boltban: Tej $70$ + Sajt $20$ = $90$. Második: Kenyér Miskolcon $30+10+20+15 = 75$ db → $45\,000$ Ft; Kifli Miskolcon $50+30+60+20 = 160$ db → $12\,800$ Ft; összesen $57\,800$ Ft.</p>
+    </details></li>
+  <li><p>Érvényes-e a <code>{([Bolt].[Város].[Eger], [Idő].[Hónap].[Január]), ([Bolt].[Város].[Miskolc], [Idő].[Hónap].[Február])}</code> set? Hány oszlopot adna egy tengelyen?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>Érvényes: mindkét tuple (Város, Hónap) szerkezetű, azonos sorrendben. 2 oszlopot ad: Eger–Január (75) és Miskolc–Február (195). (Nem a 4 kombinációt – ahhoz <code>CROSSJOIN</code> kell, <a href="#lepes9">9. lépés</a>.)</p>
+    </details></li>
+  <li><p>Egy hallgató így akarja Eger és Miskolc darabszámát: <code>([Bolt].[Város].[Eger], [Bolt].[Város].[Miskolc])</code>. Mi a hiba, és hogyan javítod?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>Egy tuple-ben egy dimenzióból csak egy tag lehet. Két külön értéket set ad: <code>{[Bolt].[Város].[Eger], [Bolt].[Város].[Miskolc]}</code> → 140 és 375.</p>
+    </details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes8">
+<h2>8. lépés – Az MDX <code>SELECT</code>: tengelyek, <code>FROM</code>, <code>WHERE</code>, <code>.Members</code>, <code>.Children</code></h2>
+
+<h4>Kis eset</h4>
+<p>Építsük fel lépésenként, mindig a mini kockán:</p>
+<div class="table-wrap"><table>
+<tr><th>Lekérdezés</th><th>Eredmény</th></tr>
+<tr><td><code>SELECT FROM [Értékesítés]</code></td><td>egyetlen cella: <strong>515</strong> (alapértelmezett mérték, minden dimenzió All-on)</td></tr>
+<tr><td><code>SELECT FROM [Értékesítés] WHERE ([Measures].[Bevétel])</code></td><td>egyetlen cella: <strong>212&nbsp;400</strong></td></tr>
+<tr><td><code>SELECT {[Measures].[Darab], [Measures].[Bevétel]} ON COLUMNS FROM [Értékesítés]</code></td><td>egy sor, két oszlop: Darab 515 | Bevétel 212&nbsp;400</td></tr>
+<tr><td><code>SELECT {[Bolt].[Város].Members} ON COLUMNS FROM [Értékesítés]</code></td><td>két oszlop: Eger 140 | Miskolc 375</td></tr>
+</table></div>
+<p>A tengely nélküli lekérdezés nulladimenziós eredményt (egy cellát) ad, egy tengellyel egydimenziósat, kettővel kétdimenziós táblázatot.</p>
+
+<div class="box def"><span class="box-title">Definíció – Az MDX SELECT szerkezete</span>
+<pre><code class="language-sql">[WITH  számított tagok, halmazok]          -- opcionális
+SELECT halmaz ON COLUMNS,                   -- = ON AXIS(0)
+       halmaz ON ROWS                       -- = ON AXIS(1); további: AXIS(2), …
+FROM   [kocka]
+[WHERE ( szeletelő tuple )]                 -- opcionális</code></pre>
+<ul>
+  <li><strong>WITH</strong>: a lekérdezés idejére létrehozott számított, származtatott elemek (mérték, tag, halmaz);</li>
+  <li><strong>tengely-kifejezés</strong> (<code>{set} ON AXIS(n)</code>): az eredménykocka egy dimenziója és a rajta megjelenő tagok;</li>
+  <li><strong>FROM</strong>: a forráskocka neve – <code>JOIN</code> nincs, nem is kell;</li>
+  <li><strong>WHERE</strong> (szeletelő, <em>slicer</em>): a forráskockán elsőként végrehajtott szeletelés, gyakran itt választjuk ki a mértéket. <strong>Diszjunkt a tengelyektől</strong>: ami dimenzió (hierarchia) a tengelyen van, az nem lehet a WHERE-ben.</li>
+</ul>
+<p>Két hasznos tagfüggvény: <code>[Dim].[Szint].Members</code> egy szint <strong>összes tagja</strong>; <code>[Dim].[Szint].[Tag].Children</code> egy tag <strong>közvetlen gyerekei</strong> (eggyel részletesebb szinten).</p>
+<p><strong>Miért?</strong> A tengelyek határozzák meg, <em>mi</em> szerint bontunk (felgöngyölítés: melyik szint jelenik meg), a WHERE pedig, hogy <em>melyik szeleten</em> (szeletelés);
+ami sehol nem szerepel, az az All tagon áll (hajtogatás).</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – két tengely, mérték a WHERE-ben</span>
+<pre><code class="language-sql">SELECT {[Termék].[Kategória].Members} ON COLUMNS,
+       {[Bolt].[Város].Members}       ON ROWS
+FROM [Értékesítés]
+WHERE ([Measures].[Bevétel])</code></pre>
+<details class="solution"><summary>Megoldás – mit ad vissza?</summary>
+<div class="table-wrap"><table>
+<tr><th>Bevétel (Ft)</th><th class="num">Pékáru</th><th class="num">Tejtermék</th></tr>
+<tr><td>Eger</td><td class="num">32&nbsp;600</td><td class="num">10&nbsp;000</td></tr>
+<tr><td>Miskolc</td><td class="num">57&nbsp;800</td><td class="num">112&nbsp;000</td></tr>
+</table></div>
+<p>Pl. Eger–Pékáru: Kenyér $45 \cdot 600 = 27\,000$ + Kifli $70 \cdot 80 = 5\,600$ = $32\,600$. Az Idő nem szerepel: mindkét hónap összege.</p>
+</details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – .Children és szeletelés</span>
+<pre><code class="language-sql">SELECT {[Bolt].[Város].[Miskolc].Children} ON COLUMNS
+FROM [Értékesítés]
+WHERE ([Idő].[Hónap].[Január])</code></pre>
+<details class="solution"><summary>Megoldás – mit ad vissza?</summary>
+<p>A Miskolc tag gyerekei a két miskolci bolt: <strong>Avas 110 | Belváros 70</strong> (januári darabszám, az alapértelmezett mértékkel). Ez lefúrás Miskolcra és szeletelés Januárra.</p>
+</details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – tuple-ök a tengelyen (az előadás 2. példája mintájára)</span>
+<pre><code class="language-sql">SELECT {([Termék].[Kategória].[Pékáru],    [Bolt].[Város].[Eger]),
+        ([Termék].[Kategória].[Tejtermék], [Bolt].[Város].[Miskolc])} ON COLUMNS
+FROM [Értékesítés]</code></pre>
+<details class="solution"><summary>Megoldás – mit ad vissza?</summary>
+<p>Két oszlop, mindegyik egy (kategória, város) pár: <strong>Pékáru–Eger 115 | Tejtermék–Miskolc 140</strong>. (Pékáru–Eger: Kenyér 45 + Kifli 70. Tejtermék–Miskolc: Tej $25+20+35+25 = 105$ + Sajt $35$.)</p>
+</details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – a WHERE nem sorszűrő, és nem ütközhet a tengellyel</span>
+<ul>
+  <li>Az SQL <code>WHERE</code> sorokat dob el. Az MDX <code>WHERE</code> a <strong>kontextust</strong> rögzíti: a tengelyen lévő tagok ugyanazok maradnak, csak a cellaértékek változnak
+  (<code>WHERE ([Idő].[Hónap].[Január])</code> mellett is ugyanaz a két város látszik, csak januári számokkal).</li>
+  <li><code>SELECT {[Bolt].[Város].Members} ON COLUMNS FROM [Értékesítés] WHERE ([Bolt].[Város].[Eger])</code> <strong>hibát</strong> ad: a Bolt dimenzió már a tengelyen van.
+  Ha csak Eger kell, a tengelyre írd: <code>{[Bolt].[Város].[Eger]} ON COLUMNS</code>.</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Analysis Services-ben: <code>.Members</code> és az All tag</span>
+<p>Az előadás jelölésében <code>[Dim].[Szint].Members</code> a szint tagjait adja. Az MS Analysis Services többdimenziós kockájában a dimenzió minden attribútumából egy
+<em>attribútum-hierarchia</em> is lesz (pl. <code>[Bolt].[Város]</code>), és ennek <code>.Members</code>-e az <em>All</em> tagot is visszaadja. Csak a szint tagjaihoz ott a
+<code>[Bolt].[Város].[Város].Members</code> (hierarchia.szint) alakot írd. A Moodle-anyag lekérdezései (<code>BOLTOK.VAROS.members</code>) emiatt egy „All” oszlopot is mutathatnak.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – SELECT (5 feladat)</summary>
+<ol>
+  <li><p>Mit ad vissza: <code>SELECT {[Termék].[Kategória].Members} ON COLUMNS FROM [Értékesítés]</code>?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>Egy sor, két oszlop, darabszám (alapértelmezett mérték): <strong>Pékáru 350 | Tejtermék 165</strong>.</p>
+    </details></li>
+  <li><p>Mi változik, ha hozzáírod: <code>WHERE ([Measures].[Bevétel])</code>?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>Ugyanaz a két oszlop, de bevétellel: Pékáru $72\,000 + 18\,400 = 90\,400$ | Tejtermék $52\,000 + 70\,000 = 122\,000$ Ft.</p>
+    </details></li>
+  <li><p>Mit ad vissza?</p>
+<pre><code class="language-sql">SELECT {[Idő].[Hónap].Members} ON COLUMNS,
+       {[Bolt].[Bolt].Members} ON ROWS
+FROM [Értékesítés]
+WHERE ([Termék].[Kategória].[Tejtermék])</code></pre>
+    <details class="solution"><summary>Megoldás</summary>
+    <div class="table-wrap"><table>
+    <tr><th>Tejtermék, Darab</th><th class="num">Január</th><th class="num">Február</th></tr>
+    <tr><td>Dobó</td><td class="num">15</td><td class="num">10</td></tr>
+    <tr><td>Avas</td><td class="num">30</td><td class="num">50</td></tr>
+    <tr><td>Belváros</td><td class="num">30</td><td class="num">30</td></tr>
+    </table></div>
+    <p>Pl. Avas–Február: Tej 35 + Sajt 15.</p>
+    </details></li>
+  <li><p>Írj lekérdezést, amely a pékáruk termékeit (sorok) városonként (oszlopok) mutatja, és add meg az eredményt!</p>
+    <details class="solution"><summary>Megoldás</summary>
+<pre><code class="language-sql">SELECT {[Bolt].[Város].Members} ON COLUMNS,
+       {[Termék].[Kategória].[Pékáru].Children} ON ROWS
+FROM [Értékesítés]</code></pre>
+    <p>Kenyér: Eger $20+25 = 45$, Miskolc $30+10+20+15 = 75$. Kifli: Eger $40+30 = 70$, Miskolc $50+30+60+20 = 160$.</p>
+    </details></li>
+  <li><p>Miért hibás, és hogyan javítod: <code>SELECT {[Idő].[Hónap].Members} ON COLUMNS FROM [Értékesítés] WHERE ([Idő].[Hónap].[Január], [Measures].[Bevétel])</code>?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>Az Idő dimenzió a tengelyen és a szeletelőben is szerepel – a kettőnek diszjunktnak kell lennie. Ha csak a január kell: <code>SELECT {[Idő].[Hónap].[Január]} ON COLUMNS FROM [Értékesítés] WHERE ([Measures].[Bevétel])</code> → $99\,600$ Ft.</p>
+    </details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l13-lepes8"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes9">
+<h2>9. lépés – MDX-függvények: <code>CROSSJOIN</code>, <code>FILTER</code>, <code>ORDER</code>, <code>NON EMPTY</code>, <code>WITH MEMBER</code></h2>
+
+<p>Eddig csak felsorolt vagy <code>.Members</code>/<code>.Children</code>-nel képzett halmazok voltak a tengelyeken. Most öt eszköz jön, mindegyik egy-egy új kérdéstípusra.</p>
+
+<h3>CROSSJOIN – két szempont egy tengelyen</h3>
+<h4>Kis eset</h4>
+<p>A képernyő kétdimenziós, de mi kategóriánként, városonként <em>és</em> havonta akarjuk látni a számokat. Tegyük a várost és a hónapot együtt az oszlopokra:</p>
+<pre><code class="language-sql">SELECT CROSSJOIN({[Bolt].[Város].Members}, {[Idő].[Hónap].Members}) ON COLUMNS,
+       {[Termék].[Kategória].Members} ON ROWS
+FROM [Értékesítés]</code></pre>
+<div class="table-wrap"><table>
+<tr><th></th><th class="num">Eger – Jan</th><th class="num">Eger – Feb</th><th class="num">Miskolc – Jan</th><th class="num">Miskolc – Feb</th></tr>
+<tr><td>Pékáru</td><td class="num">60</td><td class="num">55</td><td class="num">120</td><td class="num">115</td></tr>
+<tr><td>Tejtermék</td><td class="num">15</td><td class="num">10</td><td class="num">60</td><td class="num">80</td></tr>
+</table></div>
+<p>A <code>CROSSJOIN(set1, set2)</code> a két halmaz <strong>Descartes-szorzata</strong>: minden (város, hónap) pár megjelenik, $2 \cdot 2 = 4$ oszlop.</p>
+
+<h3>FILTER – érték alapú szűrés</h3>
+<h4>Kis eset</h4>
+<p>Melyik boltok adtak el összesen 135 darabnál többet?</p>
+<pre><code class="language-sql">SELECT FILTER({[Bolt].[Bolt].Members}, [Measures].[Darab] &gt; 135) ON COLUMNS
+FROM [Értékesítés]</code></pre>
+<p>Eredmény: <strong>Dobó 140 | Avas 240</strong>. A Belváros (135) kiesik: $135 &gt; 135$ hamis. A <code>FILTER(set, feltétel)</code> a halmaz minden tagjára kiértékeli a feltételt úgy,
+mintha a tag is benne lenne a tuple-ben: valójában <code>([Bolt].[Bolt].CurrentMember, [Measures].[Darab]) &gt; 135</code> fut le.</p>
+<p>A feltételben teljes tuple is állhat. „Melyik boltok adtak el <em>januárban</em> 72-nél többet, és mennyit adtak el havonta?”</p>
+<pre><code class="language-sql">SELECT FILTER({[Bolt].[Bolt].Members},
+              ([Measures].[Darab], [Idő].[Hónap].[Január]) &gt; 72) ON COLUMNS,
+       {[Idő].[Hónap].Members} ON ROWS
+FROM [Értékesítés]</code></pre>
+<p>Januárban Dobó 75, Avas 110, Belváros 70 – a Dobó és az Avas marad. Az eredmény: Dobó 75 / 65, Avas 110 / 130 (Január / Február).
+A szűrés januári adatok alapján dönt, de a sorokon mindkét hónap látszik.</p>
+
+<h3>ORDER – rendezés</h3>
+<p><code>ORDER(set, kulcs, irány)</code>. Az irány: <code>ASC</code> / <code>DESC</code> (növekvő / csökkenő, <strong>a hierarchiát megtartva</strong>: előbb a szülők sorrendje, azon belül a gyerekeké)
+vagy <code>BASC</code> / <code>BDESC</code> (<em>break hierarchy</em>: <strong>a hierarchiát figyelmen kívül hagyva</strong>, tisztán érték szerint).</p>
+<div class="two-col">
+<div class="box example"><span class="box-title"><code>ORDER({[Bolt].[Bolt].Members}, [Measures].[Darab], BDESC)</code></span>
+<p><strong>Avas 240, Dobó 140, Belváros 135</strong> – tiszta csökkenő sorrend.</p>
+</div>
+<div class="box example"><span class="box-title"><code>ORDER({[Bolt].[Bolt].Members}, [Measures].[Darab], DESC)</code></span>
+<p>Előbb a városok: Miskolc (375) &gt; Eger (140). Miskolcon belül Avas &gt; Belváros. Eredmény: <strong>Avas 240, Belváros 135, Dobó 140</strong>.</p>
+</div>
+</div>
+
+<h3>NON EMPTY – üres sorok, oszlopok elhagyása</h3>
+<pre><code class="language-sql">SELECT {[Idő].[Hónap].Members} ON COLUMNS,
+       NON EMPTY {[Termék].[Termék].Members} ON ROWS
+FROM [Értékesítés]
+WHERE ([Bolt].[Bolt].[Dobó])</code></pre>
+<p>A Dobó boltban nincs sajt, a Sajt sor mindkét hónapban üres lenne. A <code>NON EMPTY</code> a tengely elé írva elhagyja azokat a tagokat, amelyekhez <strong>minden</strong> cella üres:
+marad Kenyér 20 / 25, Kifli 40 / 30, Tej 15 / 10.</p>
+
+<h3>WITH MEMBER – számított mérték</h3>
+<pre><code class="language-sql">WITH MEMBER [Measures].[Átlagár] AS [Measures].[Bevétel] / [Measures].[Darab]
+SELECT {[Measures].[Darab], [Measures].[Bevétel], [Measures].[Átlagár]} ON COLUMNS,
+       {[Termék].[Kategória].Members} ON ROWS
+FROM [Értékesítés]</code></pre>
+<div class="table-wrap"><table>
+<tr><th></th><th class="num">Darab</th><th class="num">Bevétel</th><th class="num">Átlagár</th></tr>
+<tr><td>Pékáru</td><td class="num">350</td><td class="num">90&nbsp;400</td><td class="num">258,29</td></tr>
+<tr><td>Tejtermék</td><td class="num">165</td><td class="num">122&nbsp;000</td><td class="num">739,39</td></tr>
+</table></div>
+<p>A <code>WITH MEMBER név AS kifejezés</code> egy csak a lekérdezés idejére élő tagot hoz létre (itt a MEASURES dimenzióban), amelyre a <code>SELECT</code>-ben név szerint hivatkozhatsz.
+Az előadás példája ugyanez: <code>WITH MEMBER [Measures].[UProfit] AS [Measures].[Profit] + 100</code>.</p>
+
+<div class="box def"><span class="box-title">Összefoglaló – az öt eszköz</span>
+<div class="table-wrap"><table>
+<tr><th>Szintaxis</th><th>Mit csinál</th></tr>
+<tr><td><code>CROSSJOIN(set1, set2)</code></td><td>a két halmaz minden párja egy tengelyen (Descartes-szorzat)</td></tr>
+<tr><td><code>FILTER(set, feltétel)</code></td><td>a halmaz azon tagjai, amelyekre a (cellaértéken alapuló) feltétel igaz</td></tr>
+<tr><td><code>ORDER(set, kulcs, ASC|DESC|BASC|BDESC)</code></td><td>rendezés; <code>B…</code>: a hierarchiát megtörve</td></tr>
+<tr><td><code>NON EMPTY set</code></td><td>a teljesen üres sorok / oszlopok elhagyása</td></tr>
+<tr><td><code>WITH MEMBER [Dim].[Név] AS kifejezés</code></td><td>számított tag (mérték) a lekérdezés idejére</td></tr>
+</table></div>
+<p><strong>Miért?</strong> Az előadás szerint az induló, projekció jellegű szűrések (szeletelés, kockázás) a <code>WHERE</code>-ben vannak, az összetettebb, <strong>érték alapú</strong> szűrések a tengelykifejezésben, <code>FILTER</code>-rel.</p>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktatók</span>
+<ul>
+  <li><strong>Szűrőmérték ≠ megjelenített mérték.</strong> <code>FILTER(…, [Measures].[Darab] &gt; 135)</code> és <code>WHERE ([Measures].[Bevétel])</code> együtt: darab szerint szűr, de bevételt mutat (Dobó 42&nbsp;600, Avas 102&nbsp;800).</li>
+  <li><strong>A számított mérték az összesítés <em>után</em> számol.</strong> A Pékáru átlagára $90\,400 / 350 \approx 258{,}29$ Ft, nem a két ár átlaga ($(600+80)/2 = 340$): a sok olcsó kifli lehúzza.</li>
+  <li><strong>ASC ≠ BASC.</strong> Ha a halmaz tagjainak különböző szülei vannak, az <code>ASC</code>/<code>DESC</code> szülőnként csoportosít. Tiszta toplistához <code>BASC</code>/<code>BDESC</code> kell.</li>
+  <li><strong>A CROSSJOIN nem SQL-es JOIN.</strong> Nem táblákat kapcsol kulcs szerint, hanem tagok <em>összes</em> kombinációját adja – az üreseket is. Ezeket <code>NON EMPTY</code> szűri ki.</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">💡 MDX ↔ SQL megfeleltetés</span>
+<div class="table-wrap"><table>
+<tr><th>SQL</th><th>MDX</th><th>Megjegyzés</th></tr>
+<tr><td><code>FROM … JOIN … JOIN …</code></td><td><code>FROM [kocka]</code></td><td>a kocka már „összekapcsolt”</td></tr>
+<tr><td><code>GROUP BY varos, honap</code></td><td>a tengelyeken lévő szintek (<code>[Bolt].[Város].Members ON ROWS</code>, …)</td><td>a szint kiválasztása = felgöngyölítés</td></tr>
+<tr><td><code>SUM(darab)</code> a <code>SELECT</code>-ben</td><td>mérték: <code>[Measures].[Darab]</code> (tengelyen vagy a <code>WHERE</code>-ben)</td><td>az aggregáció a mértékbe van építve</td></tr>
+<tr><td><code>WHERE kategoria = 'Pékáru'</code></td><td><code>WHERE ([Termék].[Kategória].[Pékáru])</code></td><td>szeletelés; a tengely tagjait nem dobja el</td></tr>
+<tr><td><code>HAVING SUM(darab) &gt; 135</code></td><td><code>FILTER(set, [Measures].[Darab] &gt; 135)</code></td><td>érték alapú szűrés összesítés után</td></tr>
+<tr><td><code>ORDER BY SUM(darab) DESC</code></td><td><code>ORDER(set, [Measures].[Darab], BDESC)</code></td><td><code>DESC</code> a hierarchiát is figyeli</td></tr>
+<tr><td>számított oszlop (<code>bevetel / darab AS atlagar</code>)</td><td><code>WITH MEMBER [Measures].[Átlagár] AS …</code></td><td>összesítés után számol</td></tr>
+<tr><td><code>GROUP BY ROLLUP / CUBE</code></td><td>szülő- és All tagok a tengelyen</td><td>az SQL OLAP-kiterjesztései (ROLAP)</td></tr>
+</table></div>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – MDX-függvények (6 feladat)</summary>
+<ol>
+  <li><p>Mit ad vissza: <code>SELECT CROSSJOIN({[Termék].[Kategória].Members}, {[Idő].[Hónap].Members}) ON COLUMNS FROM [Értékesítés]</code>?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>Egy sor, 4 oszlop: Pékáru–Január 180 | Pékáru–Február 170 | Tejtermék–Január 75 | Tejtermék–Február 90.</p>
+    </details></li>
+  <li><p>Mit ad vissza: <code>SELECT FILTER({[Termék].[Termék].Members}, [Measures].[Bevétel] &gt; 50000) ON COLUMNS FROM [Értékesítés]</code>?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>Bevétel: Kenyér 72&nbsp;000, Kifli 18&nbsp;400, Tej 52&nbsp;000, Sajt 70&nbsp;000 → a Kifli kiesik. A cellákban viszont az <em>alapértelmezett mérték</em>, a Darab látszik: <strong>Kenyér 120 | Tej 130 | Sajt 35</strong>.</p>
+    </details></li>
+  <li><p>Rendezd a termékeket darabszám szerint <code>BDESC</code> és <code>DESC</code> iránnyal (a Termék → Kategória hierarchiában)!</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p><code>BDESC</code>: Kifli 230, Tej 130, Kenyér 120, Sajt 35. <code>DESC</code>: előbb a kategóriák (Pékáru 350 &gt; Tejtermék 165), azon belül: Kifli 230, Kenyér 120, Tej 130, Sajt 35.</p>
+    </details></li>
+  <li><p>Mit hagy el a <code>NON EMPTY</code> ebben: <code>SELECT {[Bolt].[Bolt].Members} ON COLUMNS, NON EMPTY {[Termék].[Termék].Members} ON ROWS FROM [Értékesítés] WHERE ([Idő].[Hónap].[Február])</code>?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p><strong>Semmit.</strong> A Sajt sorban Avas 15 és Belváros 5 van, csak a Dobó cella üres. A <code>NON EMPTY</code> csak a <em>teljesen</em> üres sorokat hagyja el; az egyes üres cellák megmaradnak.</p>
+    </details></li>
+  <li><p>Számold ki az <code>[Measures].[Átlagár]</code> (Bevétel / Darab) értékét városonként!</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>Eger: $42\,600 / 140 \approx 304{,}29$ Ft. Miskolc: $169\,800 / 375 = 452{,}8$ Ft. (Miskolcon több sajtot adnak el, ezért drágább az átlagos tétel.)</p>
+    </details></li>
+  <li><p>Mit ad vissza?</p>
+<pre><code class="language-sql">WITH MEMBER [Idő].[Hónap].[Változás] AS
+     ([Idő].[Hónap].[Február]) - ([Idő].[Hónap].[Január])
+SELECT {[Idő].[Hónap].[Változás]} ON COLUMNS,
+       {[Termék].[Termék].Members} ON ROWS
+FROM [Értékesítés]</code></pre>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>A számított tag nem csak mérték lehet: itt az Idő dimenzió egy új tagja. Darabszámban: Kenyér $60 - 60 = 0$, Kifli $110 - 120 = -10$, Tej $70 - 60 = 10$, Sajt $20 - 15 = 5$.</p>
+    </details></li>
+</ol>
+</details>
+
+<div class="quiz" data-quiz="l13-lepes9"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes10">
+<h2>10. lépés – Kockafejlesztés MS Analysis Serverben</h2>
+
+<p>A Moodle-anyag ingyenes eszközökkel építi fel a gyakorlókörnyezetet. Négy komponens kell: az <strong>SQL Server</strong> relációs adatbázis (forrás), a <strong>Visual Studio</strong>
+OLAP-projekt (a kocka szerkezetének megtervezése), az <strong>MS Analysis Server</strong> (a kocka tárolása, MOLAP) és az <strong>SQL Server Management Studio</strong> (SSMS: SQL- és MDX-parancsok kiadása).</p>
+
+<h4>Kis eset – a forrástáblák</h4>
+<pre><code class="language-sql">CREATE TABLE BOLTOK   (BKOD INT PRIMARY KEY, NEV CHAR(10), VAROS CHAR(20));
+CREATE TABLE TERMEKEK (KKOD INT PRIMARY KEY, NEV CHAR(20));
+CREATE TABLE FORGALOM (TERMEK INT REFERENCES TERMEKEK, BOLT INT REFERENCES BOLTOK, DB INT);</code></pre>
+<div class="two-col">
+<div>
+<p class="kicker">Boltok és termékek</p>
+<div class="table-wrap"><table>
+<tr><th>BKOD</th><th>NEV</th><th>VAROS</th></tr>
+<tr><td class="num">1</td><td>BOLT1</td><td>EGER</td></tr>
+<tr><td class="num">2</td><td>BOLT2</td><td>MISKOLC</td></tr>
+<tr><td class="num">3</td><td>BOLT3</td><td>MISKOLC</td></tr>
+</table></div>
+<p>Termékek (KKOD → NEV): 1 KENYER, 2 ALMA, 3 TEJ, 4 FASIRT.</p>
+</div>
+<div>
+<p class="kicker">FORGALOM – DB (darab), sor: termék, oszlop: bolt</p>
+<div class="table-wrap"><table>
+<tr><th></th><th class="num">BOLT1</th><th class="num">BOLT2</th><th class="num">BOLT3</th></tr>
+<tr><td>KENYER</td><td class="num">20</td><td class="num">6</td><td class="num">10</td></tr>
+<tr><td>ALMA</td><td class="num">41</td><td class="num">20</td><td class="num">16</td></tr>
+<tr><td>TEJ</td><td class="num">12</td><td class="num">26</td><td class="num">9</td></tr>
+<tr><td>FASIRT</td><td class="num">21</td><td class="num">20</td><td class="num">–</td></tr>
+</table></div>
+</div>
+</div>
+
+<div class="box def"><span class="box-title">Lépéslista – a kockafejlesztés menete</span>
+<ol>
+  <li><strong>SQL Server telepítése</strong> (ingyenes <em>Developer</em> kiadás) – ez lesz a relációs adatforrás.</li>
+  <li><strong>SSMS telepítése</strong>, kapcsolódás a szerverhez (ha nem megy, a titkosítást állítsd „kötelező”-ről „opcionális”-ra).</li>
+  <li><strong>Forrásadatbázis és táblák</strong> létrehozása SQL-lel (BOLTOK, TERMEKEK, FORGALOM).</li>
+  <li><strong>Analysis Services</strong> hozzáadása a meglévő példányhoz, <strong>Multidimensional</strong> módban (nem Tabular).</li>
+  <li><strong>Visual Studio</strong> (Community) a <em>Data Storage and Processing</em> csomaggal és a <em>Microsoft Analysis Services Projects</em> bővítménnyel.</li>
+  <li>Új projekt: <strong>Analysis Services Multidimensional Project</strong>. A Solution Explorerben: Data Sources, Data Source Views, Cubes, Dimensions.</li>
+  <li><strong>Data Source</strong> (adatforrás): kapcsolat az SQL Server-adatbázishoz (provider: <em>Microsoft OLE DB Driver for SQL Server</em>), ellenőrzés: Test Connection.</li>
+  <li><strong>Data Source View</strong> (adatforrás-nézet): a felhasznált táblák kijelölése.</li>
+  <li><strong>Kocka</strong> (Cube Wizard, <em>use existing tables</em>): ténytábla a FORGALOM (mértékek: DB és egy generált rekordszám, <em>Forgalom Count</em>), dimenziók: BOLTOK, TERMEKEK.</li>
+  <li><strong>Deploy</strong>: a kockaleírás átkerül az Analysis Serverre, és feltöltődik adatokkal (Process). Tipikus hiba: jogosultság – az SQL Server és az Analysis Server szolgáltatás fiókját kell beállítani.</li>
+  <li><strong>Tesztelés SSMS-ben</strong>: kapcsolódás az Analysis Serverhez, Cubes / Dimensions ellenőrzése, MDX-ablak, első lekérdezés.</li>
+  <li><strong>Bővítés</strong>: dimenzióattribútumok (NEV, VAROS: <em>New Attribute from Column</em>), hierarchia (VAROS → NEV: <em>Start New Hierarchy</em>), majd újra Process.</li>
+</ol>
+<p><strong>Miért ez a sorrend?</strong> Minden lépés az előzőre épül: forrás nélkül nincs mit nézetbe tenni, nézet nélkül nincs miből kockát építeni, deploy nélkül nincs mit lekérdezni.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa – az első lekérdezések</span>
+<pre><code class="language-sql">-- Q1: boltonkénti összforgalom          -- Q2: városonként (felgöngyölítés)
+SELECT {BOLTOK.NEV.members} ON AXIS(0)     SELECT {BOLTOK.VAROS.members} ON AXIS(0)
+FROM [FORGALOM_MD];                        FROM [FORGALOM_MD];</code></pre>
+<details class="solution"><summary>Megoldás – mit adnak vissza?</summary>
+<p>Q1: BOLT1 $20+41+12+21 = 94$, BOLT2 $6+20+26+20 = 72$, BOLT3 $10+16+9 = 35$. Q2: EGER 94, MISKOLC $72 + 35 = 107$.
+(A Moodle-anyag <code>FROM KL</code>-t ír; a <code>FROM</code> után mindig a kocka neve áll, ahogy az SSMS objektumfájában látod. Az Analysis Services egy „All” oszlopot is mutathat, lásd a <a href="#lepes8">8. lépés</a> tippjét.)</p>
+</details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató – Data Source és Data Source View</span>
+<p>A <strong>Data Source</strong> csak a <em>kapcsolat</em> (melyik szerver, melyik adatbázis, milyen meghajtóval). A <strong>Data Source View</strong> a <em>táblák kiválasztása</em> ebből az adatbázisból.
+A kocka a nézetből épül, nem közvetlenül az adatforrásból. És a Visual Studióban megtervezett kocka még csak <em>leírás</em>: használható kocka a deploy után lesz az Analysis Serveren.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Analysis Services (5 feladat)</summary>
+<ol>
+  <li><p>Tedd sorrendbe: deploy; Data Source View; MDX-teszt SSMS-ben; Data Source; Cube Wizard.</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>Data Source → Data Source View → Cube Wizard → deploy → MDX-teszt SSMS-ben.</p>
+    </details></li>
+  <li><p>Melyik komponens mit csinál? SQL Server, Visual Studio-projekt, Analysis Server, SSMS.</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>SQL Server: a relációs forrásadatok tárolása. Visual Studio: a kocka szerkezetének (hópehelymodell) megtervezése a relációs sémából. Analysis Server: a kocka tárolása és a lekérdezések végrehajtása. SSMS: kliens, SQL- és MDX-parancsok kiadása, a kocka ellenőrzése.</p>
+    </details></li>
+  <li><p>Miért a Multidimensional és nem a Tabular módot választjuk?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>A Tabular mód táblákra támaszkodó, táblázatorientált modell (nyelve főként a DAX). A Multidimensional módban az adatok kockában tárolódnak, a műveletek kockán értelmezettek – ez kell a MOLAP-kockához és az MDX gyakorlásához.</p>
+    </details></li>
+  <li><p>A bővített kockán mit ad vissza a Q3: <code>SELECT {BOLTOK.[MISKOLC].Children} ON AXIS(0) FROM [FORGALOM_MD]</code> és a Q4: <code>SELECT FILTER({BOLTOK.VAROS.Members}, Measures.DB &gt; 100) ON AXIS(0) FROM [FORGALOM_MD]</code>?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>Q3: a Miskolc tag gyerekei: BOLT2 72 | BOLT3 35. Q4: EGER 94, MISKOLC 107 → csak <strong>MISKOLC 107</strong> marad.</p>
+    </details></li>
+  <li><p>Q5: <code>SELECT {BOLTOK.VAROS.members} ON AXIS(0), {TERMEKEK.NEV.members} ON AXIS(1) FROM [FORGALOM_MD] WHERE {Measures.[Forgalom Count]}</code>. Mit mutatnak a cellák?</p>
+    <details class="solution"><summary>Megoldás</summary>
+    <p>Nem darabszámot, hanem a FORGALOM-<strong>rekordok számát</strong> (tranzakciók). Egerben (1 bolt) minden termék 1. Miskolcon (2 bolt): KENYER 2, ALMA 2, TEJ 2, FASIRT 1 (a BOLT3-ban nincs fasírt).</p>
+    </details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="alkalmazas">
+<h2>Alkalmazás – a motivációs kérdés és az előadás Sales-példái</h2>
+
+<h3>A motivációs kérdés</h3>
+<p><em>„Városonként és havonta mennyi pékárut adtunk el?”</em> Felgöngyölítés (Bolt → Város, Termék → Kategória), szeletelés (Kategória = Pékáru), a hónap és a város marad:</p>
+<pre><code class="language-sql">SELECT {[Idő].[Hónap].Members} ON COLUMNS,
+       {[Bolt].[Város].Members} ON ROWS
+FROM [Értékesítés]
+WHERE ([Termék].[Kategória].[Pékáru], [Measures].[Darab])</code></pre>
+<div class="table-wrap"><table>
+<tr><th>Pékáru, Darab</th><th class="num">Január</th><th class="num">Február</th></tr>
+<tr><td>Eger</td><td class="num">60</td><td class="num">55</td></tr>
+<tr><td>Miskolc</td><td class="num">120</td><td class="num">115</td></tr>
+</table></div>
+<p><em>„Melyik boltjaink adtak el januárban 72 darabnál többet?”</em> Érték alapú szűrés, a feltételben a januári tuple:</p>
+<pre><code class="language-sql">SELECT FILTER({[Bolt].[Bolt].Members},
+              ([Measures].[Darab], [Idő].[Hónap].[Január]) &gt; 72) ON COLUMNS
+FROM [Értékesítés]
+WHERE ([Idő].[Hónap].[Január])</code></pre>
+<p>Eredmény: <strong>Dobó 75 | Avas 110</strong>. Egyetlen <code>JOIN</code> és <code>GROUP BY</code> sem kellett; ha holnap negyedévenként kérik, csak a <code>[Idő].[Hónap]</code> helyére <code>[Idő].[Negyedév]</code> kerül.</p>
+
+<h3>Az előadás Sales-kockás példái – mit ad vissza?</h3>
+<p>A diák a klasszikus <em>FoodMart</em> mintaadatbázis <code>[Sales]</code> kockáját használják (dimenziók: Product, Store, Customers, Time; mértékek: pl. Unit Sales, Store Sales, Profit).
+A számokat nem ismerjük, de az eredmény <strong>alakja</strong> és <strong>jelentése</strong> minden esetben kiolvasható.</p>
+<div class="table-wrap"><table>
+<tr><th>#</th><th>Lekérdezés (rövidítve)</th><th>Mit ad vissza?</th></tr>
+<tr><td>1</td><td><code>{…[Product Category].Bread, …Drinks} ON COLUMNS</code></td><td>1 sor, 2 oszlop: a Bread és a Drinks kategória összesítése az alapértelmezett mértékkel (minden bolt, vevő, időszak).</td></tr>
+<tr><td>2</td><td><code>{(Drinks, [Los Angeles]), (Bread, [Santa Fe])} ON COLUMNS</code></td><td>2 oszlop, mindegyik egy tuple: a Los Angeles-i vevők italvásárlása és a Santa Fe-i vevők kenyérvásárlása.</td></tr>
+<tr><td>3</td><td><code>[Product Category].Members ON COLUMNS, {[Measures].[Profit]} ON ROWS</code></td><td>1 sor (Profit), annyi oszlop, ahány termékkategória van: kategóriánkénti profit.</td></tr>
+<tr><td>4</td><td><code>[Product Category].Members ON COLUMNS, [Store City].Members ON ROWS</code></td><td>Kereszttábla: kategória × bolti város, az alapértelmezett mértékkel.</td></tr>
+<tr><td>5</td><td>ugyanez <code>WHERE {Measures.Profit}</code></td><td>Ugyanaz a kereszttábla, de profittal: a mértéket a szeletelő választja ki.</td></tr>
+<tr><td>6</td><td><code>{Measures.Members} on Axis(0)</code></td><td>1 sor, minden mérték 1 oszlop: a teljes kocka végösszegei mértékenként.</td></tr>
+<tr><td>7</td><td><code>ORDER([Product Category].members, Measures.Profit, BASC)</code> <code>WHERE {Measures.Profit}</code></td><td>A kategóriák profit szerint <strong>növekvő</strong> sorrendben, a hierarchiát megtörve (tiszta érték szerinti sor); a cellákban a profit.</td></tr>
+<tr><td>8</td><td><code>FILTER({…Members}, Measures.Profit &gt; 10000) ON COLUMNS, {[Time].[1997]} ON ROWS</code></td><td>Csak a 10&nbsp;000 feletti profitú kategóriák, egy sorban (1997), profittal. Vigyázat: a <code>FILTER</code> a <em>saját</em> kontextusában értékel – a sortengely 1997-e nem hat rá, csak a <code>WHERE</code> és az Idő alapértelmezett tagja. Ha az 1997-es profit szerint akarsz szűrni, írd a feltételbe (ahogy a 9. példa teszi).</td></tr>
+<tr><td>9</td><td><code>FILTER({[Store City].Members}, (Measures.Profit, Time.[1997].Q1) &gt; 7000) ON COLUMNS, {[Time].[1997].Children} ON ROWS</code></td><td>Azok a városok, ahol 1997 <strong>első negyedévében</strong> 7&nbsp;000 feletti volt a profit; soronként 1997 négy negyedéve, profittal.</td></tr>
+<tr><td>10</td><td><code>{[Time].[Year].[1997].CHILDREN} ON COLUMNS, FILTER({[Store City].MEMBERS}, (Measures.[Unit Sales], [Time].[1997]) &gt; 1000) ON ROWS</code> <code>WHERE ([Measures].[Store Sales])</code></td><td>Oszlopok: 1997 negyedévei. Sorok: azok a városok, ahol 1997-ben 1&nbsp;000 darabnál többet adtak el. A cellákban <strong>bolti árbevétel</strong> (Store Sales) – a szűrés darabszám szerint, a megjelenítés bevétel szerint.</td></tr>
+<tr><td>11</td><td><code>CROSSJOIN([Product Family].members, [Store Type].[Store Type].members) on axis(0)</code> <code>WHERE {Measures.Profit}</code></td><td>1 sor; oszloponként minden (termékcsalád, bolttípus) pár profitja. <code>NON EMPTY</code> nélkül az üres párok is megjelennek.</td></tr>
+<tr><td>12</td><td><code>WITH MEMBER [Measures].[UProfit] AS [Measures].[Profit] + 100</code> … <code>{Profit, UProfit} on COLUMNS, NON EMPTY [Product Family].MEMBERS ON Rows</code></td><td>Két oszlop (Profit és a 100-zal megnövelt UProfit), soronként a nem üres termékcsaládok.</td></tr>
+</table></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="osszefoglalas">
+<h2>Összefoglalás</h2>
+<ul>
+  <li>Az MD modell az adatokat egyetlen <strong>kockában</strong> tárolja: a cellát a <strong>dimenziók</strong> tagjai jelölik ki, benne a <strong>mértékek</strong> értékei (tények). Nincs <code>JOIN</code>.</li>
+  <li>Fizikailag: <strong>MOLAP</strong> (saját kockatároló), <strong>ROLAP</strong> (ténytábla + dimenziótáblák, csillagséma), <strong>HOLAP</strong> (vegyes).</li>
+  <li>A dimenziók <strong>szintekre</strong> bomlanak, a szintek 1:N <strong>hierarchiát</strong> alkotnak; az <strong>alapszint</strong> a legrészletesebb. Ez a <strong>hópehelymodell</strong>.</li>
+  <li>Relációs sémából: a <strong>ténytábla</strong>ból csak kifelé indulnak idegen kulcsok; a dimenziók az FK-láncok mentén vannak; az ismétlődő mezők (kategória, dátumból hónap) rejtett szintek.</li>
+  <li>MD algebra: <strong>szeletelés</strong> (1 dimenzió), <strong>kockázás</strong> (több dimenzió), <strong>felgöngyölítés</strong> (→ aggregáltabb szint), <strong>lefúrás</strong> (→ részletesebb szint), <strong>hajtogatás</strong> (dimenzió elhagyása aggregálással).</li>
+  <li>MDX: tag <code>[Dim].[Szint].[Tag]</code>, tuple <code>( )</code>, set <code>{ }</code>; a mértékek a <strong>MEASURES</strong> dimenzió tagjai, mert egy cella egy értéket tárol; a ki nem írt dimenzió az All tagon áll.</li>
+  <li><code>SELECT … ON COLUMNS / ROWS FROM [kocka] WHERE (…)</code>: a tengely és a szeletelő diszjunkt. Függvények: <code>.Members</code>, <code>.Children</code>, <code>CROSSJOIN</code>, <code>FILTER</code>, <code>ORDER</code>, <code>NON EMPTY</code>, <code>WITH MEMBER</code>.</li>
+  <li>SSAS-ban: Data Source → Data Source View → Cube → Dimensions → deploy → MDX-teszt SSMS-ben.</li>
+</ul>
+
+<h3>Döntési táblázat</h3>
+<div class="table-wrap"><table>
+<tr><th>Ha a feladatban ez áll…</th><th>…MD művelet</th><th>…MDX-ben</th></tr>
+<tr><td>„csak januárban”, „csak a pékáru”</td><td>szeletelés</td><td><code>WHERE ([Idő].[Hónap].[Január])</code></td></tr>
+<tr><td>„csak a miskolci boltok tejtermékei”</td><td>kockázás</td><td><code>WHERE ([Bolt].[Város].[Miskolc], [Termék].[Kategória].[Tejtermék])</code></td></tr>
+<tr><td>„a bevétel” (több mérték közül)</td><td>szeletelés a MEASURES-ön</td><td><code>WHERE ([Measures].[Bevétel])</code> vagy mérték a tengelyen</td></tr>
+<tr><td>„városonként” (boltok helyett)</td><td>felgöngyölítés</td><td><code>{[Bolt].[Város].Members} ON …</code></td></tr>
+<tr><td>„Miskolcon belül boltonként”</td><td>lefúrás</td><td><code>{[Bolt].[Város].[Miskolc].Children} ON …</code></td></tr>
+<tr><td>„bolt szerinti bontás nélkül”</td><td>hajtogatás</td><td>a Bolt dimenzió sehol sem szerepel (All tag)</td></tr>
+<tr><td>„sorok és oszlopok cseréje”</td><td>pivot (kiegészítés)</td><td>az <code>ON COLUMNS</code> és <code>ON ROWS</code> felcserélése</td></tr>
+<tr><td>„városonként és havonta” egy tengelyen</td><td>–</td><td><code>CROSSJOIN({…Város.Members}, {…Hónap.Members})</code></td></tr>
+<tr><td>„ahol a forgalom &gt; 100”</td><td>érték alapú szűrés</td><td><code>FILTER(set, [Measures].[Darab] &gt; 100)</code></td></tr>
+<tr><td>„forgalom szerint csökkenő toplista”</td><td>–</td><td><code>ORDER(set, [Measures].[Darab], BDESC)</code></td></tr>
+<tr><td>„üres sorok nélkül”</td><td>–</td><td><code>NON EMPTY set ON ROWS</code></td></tr>
+<tr><td>„átlagár”, „árrés”, „változás az előző hónaphoz”</td><td>–</td><td><code>WITH MEMBER [Measures].[…] AS …</code></td></tr>
+<tr><td>„melyik a ténytábla?”</td><td>sémakonverzió</td><td>amelyikből csak kifelé mutatnak idegen kulcsok</td></tr>
+</table></div>
+</section>
+
+<section id="kviz">
+<h2>Ellenőrző kvíz</h2>
+<p>A kérdések a teljes leckét lefedik, a mini kockára hivatkoznak (<a href="#adatok">lásd fent</a>).</p>
+<div class="quiz" data-quiz="l13-vegso"></div>
+</section>
+
+<nav class="pager">
+  <a href="12-adattarolas-adattarhaz.html">← 12. Adattárolás és adattárház</a>
+  <a href="07-sql-ablakfuggvenyek.html">7. SQL ablakfüggvények →</a>
+</nav>
+</main>
+</body>
+</html>

@@ -227,6 +227,10 @@ customers["average_basket_value"] = customers["total_spent"] / customers["purcha
 <p>$\sqrt{(x_1-y_1)^2+(x_2-y_2)^2} \neq |x_1-y_1|+|x_2-y_2|$. Az utóbbi a Manhattan-távolság (pl. $(1;2)$ és $(4;6)$ között 7, nem 5). Előjelre nem kell figyelni: a négyzetre emelés miatt $(1-4)^2=(4-1)^2$.</p>
 </div>
 
+<div class="box extra"><span class="box-title">➕ Kiegészítés (előadásanyag) – nem csak euklideszi távolság van</span>
+<p>Az előadásanyag szerint a K-közép módszerben a „közelség” más mértékkel is mérhető: Manhattan-, Csebisev- vagy Minkowski-távolsággal, koszinusz-hasonlósággal vagy korrelációval; korrelált változóknál a Mahalanobis-távolság, 0/1 adaton (kosarak) a Jaccard-együttható a természetes választás. Ezeket a <a href="14-suruseg-validalas-kiugrok.html#lepes1">14. lecke 1–4. lépése</a> mutatja be. (A scikit-learn <code>KMeans</code> csak euklideszi távolsággal dolgozik.)</p>
+</div>
+
 <details class="box practice"><summary>✏️ Gyakorlás – Euklideszi távolság (5 feladat)</summary>
 <ol>
   <li><p>$d\big((3;-1),(-1;2)\big)=?$</p>
@@ -508,6 +512,10 @@ scaling_parameters = pd.DataFrame({"feature": FEATURES,
 <p>Az órán az inertia „átlagos távolságként” is elhangzott – ez pontatlan. Az inertia a <strong>négyzetes</strong> távolságok <strong>összege</strong> (nem átlaga, nem gyökös távolságok összege). Az 1. kidolgozott példában a sima távolságok összege 1+0+1+1+1 = 4 lenne – itt véletlenül egyezik, de pl. {1, 3} | {8, 10, 12} esetén az inertia 10, a távolságösszeg 6.</p>
 </div>
 
+<div class="box extra"><span class="box-title">➕ Kiegészítés (előadásanyag) – SSE, kohézió, szeparáció</span>
+<p>Az előadásanyag az inertiát <strong>hibanégyzetösszegnek</strong> (SSE, <em>sum of squared errors</em>) nevezi: ugyanaz a mennyiség. A klaszter-validálásban ez a <strong>kohézió</strong> mérőszáma; párja a <strong>szeparáció</strong> (klaszterek közötti négyzetösszeg, SSB), és a kettő összege állandó: $\mathrm{SSE}+\mathrm{SSB}=\mathrm{SST}$ (a gyakorlaton $k=3$-ra $17{,}02+222{,}98=240$). Ezt és a Davies–Bouldin-indexet a <a href="14-suruseg-validalas-kiugrok.html#lepes7">14. lecke 7. lépése</a> tárgyalja.</p>
+</div>
+
 <details class="box practice"><summary>✏️ Gyakorlás – Inertia (5 feladat)</summary>
 <ol>
   <li><p>Egyetlen klaszter: (0;0), (2;0), (1;3). Mennyi az inertia?</p>
@@ -562,6 +570,19 @@ scaling_parameters = pd.DataFrame({"feature": FEATURES,
 <p>Az órán elhangzott, hogy a 10 futás „átlagát” nézi – ez téves. A futások eredményét nem lehet átlagolni (a klaszterek sorszámai futásonként mást jelenthetnek). A scikit-learn a <strong>legkisebb inertiájú</strong> futást választja.</p>
 <p>A <code>n_iter_</code> attribútum pedig nem az <code>n_init</code>: azt adja meg, hány iteráció (hozzárendelés + frissítés) kellett a legjobb futásban. A gyakorlaton: 3.</p>
 <p>És a klasztercímkék futásonként felcserélődhetnek: ugyanaz a felosztás egyszer 1–2–3, máskor 3–1–2 sorszámmal jöhet ki. Különböző futások sorszámai automatikusan nem feleltethetők meg.</p>
+</div>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés (előadásanyag) – a K-means kihívásai és kezelésük</span>
+<p><strong>Kihívások:</strong> (1) a rossz kezdőpontok esélye elég nagy, és az algoritmus lokális optimumba ragadhat; (2) kivételesen <strong>üres klaszter</strong> is keletkezhet; (3) nem működik jól, ha a klaszterek <strong>mérete vagy sűrűsége eltérő</strong>, vagy <strong>nem gömb alakúak</strong> (ilyenkor a nagy klasztert kettévágja, a ritkát a sűrűbe olvasztja). Előnye viszont, hogy gyors: futásideje lineáris a pontok, a klaszterek, az iterációk és a jellemzők számában.</p>
+<p><strong>Kezelés:</strong></p>
+<ul>
+<li>több futtatás (<em>run</em>) különböző kezdőpontokkal – ez az <code>n_init</code>;</li>
+<li>a kezdő középpontokat egy mintán futtatott hierarchikus klaszterezés adja (<a href="04-hierarchikus-klaszterezes.html">4. lecke</a>), vagy $k$-nál több kezdőpontot választunk, és ezek közül válogatunk (ennek finomított változata a k-means++);</li>
+<li><strong>előfeldolgozás:</strong> standardizálás (<a href="#lepes4">4. lépés</a>) és a kiugró rekordok eltávolítása (<a href="14-suruseg-validalas-kiugrok.html#lepes8">14. lecke</a>);</li>
+<li><strong>utófeldolgozás:</strong> a túl nagy (nagy SSE-jű) klaszterek felosztása, a túl kicsik összevonása;</li>
+<li><strong>felező K-közép</strong> (<em>bisecting K-means</em>), egy felosztó hierarchikus módszer: egyetlen klaszterből indul, és mindig a legnagyobb SSE-jű klasztert vágja ketté egy 2-közép futással, amíg $k$ klaszter nem lesz.</li>
+</ul>
+<p><strong>Példa (felező K-közép):</strong> pontok 1, 2, 3, 10, 11, 20; $k=3$. 1. vágás (az összes pont): a legjobb kettévágás {1, 2, 3} | {10, 11, 20}, SSE $2+60{,}67$. 2. vágás: a nagyobb SSE-jű {10, 11, 20}-at vágjuk: {10, 11} | {20}. Eredmény: {1, 2, 3}, {10, 11}, {20}, összes SSE $2+0{,}5+0=2{,}5$.</p>
 </div>
 
 <details class="box practice"><summary>✏️ Gyakorlás – Kezdőpontok (5 feladat)</summary>
@@ -1062,7 +1083,7 @@ cluster_profile = customers.groupby("cluster").agg(
 </section>
 
 <nav class="pager">
-  <a href="02-kosarelemzes.html">← 2. Kosárelemzés</a>
+  <a href="07-sql-ablakfuggvenyek.html">← 7. SQL ablakfüggvények</a>
   <a href="04-hierarchikus-klaszterezes.html">4. Hierarchikus klaszterezés →</a>
 </nav>
 </main>

@@ -144,6 +144,63 @@ QUIZZES["l02-lepes5"] = {
   ]
 };
 
+QUIZZES["l02-lepes7"] = {
+  title: "Mini-kvíz – Szabályból döntés",
+  questions: [
+    {
+      type: "single",
+      q: "A vevő kosarában csak kávé van. Megbízhatóság szerint a két legjobb jelölt: coffee → biscuits (conf 0,607, lift 1,40) és coffee → bread (conf 0,550, lift 0,995). Mit ajánlasz?",
+      options: [
+        "Kekszet; a coffee → bread liftje kb. 1, a kávé nem növeli a kenyér esélyét, ezt a szabályt nem érdemes használni.",
+        "Kenyeret, mert az a legnépszerűbb termék.",
+        "Mindkettőt egyenrangúan, mert mindkét megbízhatóság 0,5 fölött van.",
+        "Semmit: 0,7 alatti megbízhatóságú szabály nem használható ajánlásra."
+      ],
+      answer: 0,
+      hint: "A magas megbízhatóság a jobb oldal népszerűségéből is jöhet. Melyik mutató szűri ki ezt?",
+      explain: "A kenyér a kosarak 55,3%-ában amúgy is benne van; a kávés kosarakban 55,0%-ban – a lift 0,995. A keksz esélyét viszont a kávé 43,4%-ról 60,7%-ra emeli. A „legnépszerűbb termék” ajánlása semmit nem tesz hozzá ahhoz, amit a vevő magától is megvenne."
+    },
+    {
+      type: "match",
+      q: "Párosítsd a szabálytípust a hozzá illő üzleti lépéssel!",
+      pairs: [
+        ["lift > 1, nagy támogatottság (sok kosár)", "termékelhelyezés, csomagajánlat"],
+        ["lift > 1, magas megbízhatóság, kisebb támogatottság", "célzott ajánlás azoknak, akiknek A a kosarában van"],
+        ["lift ≈ 1, magas megbízhatóság", "nincs teendő: B-t A nélkül is így veszik"],
+        ["lift < 1", "lehetséges helyettesítők, közös akcióra nem alkalmas"]
+      ],
+      hint: "A lift az erősséget és az irányt mondja meg, a támogatottság azt, hány vásárlót érint.",
+      explain: "A tömeges intézkedés (polc, csomag) sok érintett kosarat kíván; a kisebb hatókörű, de erős szabály célzott ajánlásra való. Az 1 körüli lift a függetlenség jele, az 1 alatti negatív kapcsolatot jelez – a vevők inkább vagy az egyiket, vagy a másikat veszik."
+    },
+    {
+      type: "single",
+      q: "A niu öt kosarán ({kenyér, tej}, {kenyér, pelenka, sör, vaj}, {pelenka, sajt, sör, tej}, {kenyér, pelenka, sör, tej}, {kenyér, pelenka, sajt, sör}) mennyi a {pelenka, tej} → {sör} szabály támogatottsága, megbízhatósága és liftje?",
+      options: [
+        "0,4; 1; 1,25",
+        "0,4; 1; 1",
+        "0,8; 1; 1,25",
+        "0,4; 0,5; 0,625"
+      ],
+      answer: 0,
+      hint: "Hány kosárban van együtt mindhárom termék, és hányban a {pelenka, tej}? Mekkora a sör támogatottsága?",
+      explain: R`Mindhárom termék a 3. és a 4. kosárban van: support $2/5 = 0{,}4$. A {pelenka, tej} is csak ebben a kettőben: conf $2/2 = 1$. A sör 4 kosárban van ($0{,}8$): lift $1/0{,}8 = 1{,}25$. A 0,8 a pelenka → sör támogatottsága, az 1-es lift a nevező (support(B)) elhagyásából jön.`
+    },
+    {
+      type: "single",
+      q: "Miben különbözik az FP-growth az Apriori algoritmustól?",
+      options: [
+        "Ugyanazokat a gyakori halmazokat adja, de jelöltgenerálás nélkül, egy tömörítő előtagfából (FP-fa) olvassa ki őket, ezért nagy adaton általában gyorsabb.",
+        "Kevesebb gyakori halmazt talál, mert a ritka termékeket eleve kihagyja.",
+        "Asszociációs szabályokat is generál, ezért nem kell hozzá megbízhatósági küszöb.",
+        "Csak kételemű halmazokat tud keresni."
+      ],
+      answer: 0,
+      hint: "Ugyanazt a feladatot oldja meg – a különbség a hogyanban van, nem az eredményben.",
+      explain: "Az Apriori a jelöltek számát csökkenti a metszéssel, de szintenként újraolvassa a kosarakat. Az FP-growth két olvasással felépíti az FP-fát, és abból bontja ki a gyakori halmazokat. A gyakorlat adatán mindkettő ugyanazt a 100 halmazt adja. A szabálygenerálás mindkettő után külön lépés."
+    }
+  ]
+};
+
 QUIZZES["l02-vegso"] = {
   title: "Ellenőrző kvíz – Kosárelemzés",
   questions: [

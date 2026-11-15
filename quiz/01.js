@@ -127,6 +127,109 @@ QUIZZES["l01-lepes7"] = {
   ]
 };
 
+QUIZZES["l01-lepes10"] = {
+  title: "Mini-kvíz – Alak, robusztus mutatók, ábrák",
+  questions: [
+    {
+      type: "single",
+      q: "A tisztított adaton az <code>unit_price</code> ferdesége 1,45. Melyik állítás igaz?",
+      options: [
+        "Erősen jobbra ferde: néhány drága termék (kávé, csirke) hosszú jobb farkat ad, az átlag a medián fölött van.",
+        "Erősen balra ferde: a legtöbb tétel drága, és néhány olcsó húzza le az átlagot.",
+        "Közel szimmetrikus, mert a ferdeség 2 alatt van.",
+        "Csúcsos eloszlás: a ferdeség a csúcs magasságát méri."
+      ],
+      answer: 0,
+      hint: "A ferdeség előjele a hosszabb farok oldalát mutatja. Mekkora |ferdeség| számít erősnek?",
+      explain: R`Pozitív ferdeség = jobbra ferde; $|g_1| > 1$ erősnek számít. Itt az átlag (936,74) valóban a medián (750) fölött van. A csúcs „magasságát” (pontosabban a farok vastagságát) a csúcsosság méri, nem a ferdeség.`
+    },
+    {
+      type: "single",
+      q: R`Adat: $2, 3, 3, 5, 7, 40$. Mennyi a medián abszolút eltérés (MAD)?`,
+      options: ["1,5", "10", "14,81", "1"],
+      answer: 0,
+      hint: "Előbb a medián, aztán az attól vett abszolút eltérések, és azoknak megint a mediánja.",
+      explain: R`Medián $4$; $|x-4|$: $2,1,1,1,3,36$, rendezve $1,1,1,2,3,36$, a két középső átlaga $(1+2)/2 = 1{,}5$. A 10 az átlagos abszolút eltérés (AAD, az átlagtól mérve), a 14,81 a szórás. Az 1 akkor jön ki, ha a rendezett lista 3. elemét veszed, a 3. és 4. átlaga helyett.`
+    },
+    {
+      type: "match",
+      q: "Párosítsd a mutatót az összegző statisztikák csoportjával!",
+      pairs: [
+        ["csonkolt átlag", "helyzetmutató"],
+        ["medián abszolút eltérés (MAD)", "szóródási mutató"],
+        ["csúcsosság", "alakmutató"],
+        ["kvantilis, gyakoriság", "eloszlásmutató"]
+      ],
+      hint: "Helyzet: hol a közép? Szóródás: mennyire ingadozik? Alak: milyen formájú?",
+      explain: "A csonkolt átlag a „közepet” adja meg robusztusan; a MAD az ingadozást; a csúcsosság (és a ferdeség) az eloszlás alakját; a kvantilisek és a gyakoriságok magát az eloszlást írják le."
+    },
+    {
+      type: "match",
+      q: "Melyik ábra illik a feltáró elemzés kérdéséhez?",
+      pairs: [
+        ["a kosárértékek eloszlásának alakja", "hisztogram"],
+        ["a napi árbevétel alakulása három hónapon át", "vonaldiagram"],
+        ["az átlagos tételérték és a vásárolt mennyiség kapcsolata vásárlónként", "szórásdiagram"],
+        ["a tételértékek kvartilisei és kiugrói régiónként", "csoportonkénti dobozábra"]
+      ],
+      hint: "Egy folytonos változó alakja, időbeli trend, két numerikus kapcsolata, csoportok összevetése – mindegyiknek megvan a maga ábrája.",
+      explain: "Alakhoz hisztogram, időhöz vonaldiagram, két numerikus változóhoz szórásdiagram, kvartilisekhez és csoportok összevetéséhez dobozábra. Tortadiagram egyikhez sem jó: az csak kevés kategória rész–egész arányára való."
+    }
+  ]
+};
+
+QUIZZES["l01-lepes11"] = {
+  title: "Mini-kvíz – Előfeldolgozási eszközök",
+  questions: [
+    {
+      type: "single",
+      q: "A termékárak 250 Ft és 2400 Ft között vannak. Mennyi a kávé (2200 Ft) min–max normalizált ára?",
+      options: ["0,907", "0,917", "0,813", "2,25"],
+      answer: 0,
+      hint: R`$x' = (x - \min)/(\max - \min)$. Mit kell kivonni, és mivel kell osztani?`,
+      explain: R`$(2200-250)/(2400-250) = 1950/2150 \approx 0{,}907$. A 0,917 a $2200/2400$ (a minimum kivonása kimaradt), a 0,813 az $1950/2400$ (a terjedelem helyett a maximummal osztva), a 2,25 a kávé tételszintű z-pontszáma, ami standardizálás, nem normalizálás.`
+    },
+    {
+      type: "match",
+      q: "Párosítsd a műveletet a nevével!",
+      pairs: [
+        ["a régióból négy 0/1 oszlop", "binarizálás (dummy-kódolás)"],
+        ["a kosárértékek három egyforma létszámú sávba", "diszkretizálás (egyenlő gyakoriságú)"],
+        ["az árak a [0, 1] intervallumba", "normalizálás (min–max)"],
+        ["6945 tételből 1151 kosár értéke", "aggregálás"]
+      ],
+      hint: "Új oszlopok, kategóriák, átskálázás, vagy a sorok összevonása?",
+      explain: R`A <code>get_dummies</code> binarizál, a <code>qcut</code> egyenlő gyakoriságú sávokba sorol, a min–max $[0,1]$-be skáláz, a <code>groupby(...).sum()</code> aggregál. Az utolsónál a megfigyelési egység is megváltozik (tétel → kosár).`
+    },
+    {
+      type: "single",
+      q: "Mikor jobb a rétegzett mintavétel az egyszerű véletlen mintánál?",
+      options: [
+        "Ha egy fontos csoport (pl. a 2%-nyi lemorzsolódó ügyfél) arányának pontosan meg kell maradnia a mintában.",
+        "Mindig, mert a rétegzett minta nagyobb.",
+        "Ha ugyanazt a rekordot többször is ki akarjuk választani.",
+        "Ha nincs semmilyen csoportosító változó az adatban."
+      ],
+      answer: 0,
+      hint: "A rétegzett minta minden csoportból arányosan választ. Mikor számít ez igazán?",
+      explain: "Rétegzéskor csoportonként, arányosan veszünk mintát, így a ritka csoport sem csúszhat el véletlenül. A minta mérete ettől nem lesz nagyobb. A többszöri kiválasztás a visszatevéses mintavétel. Csoportosító változó nélkül nincs mi szerint rétegezni."
+    },
+    {
+      type: "single",
+      q: "A K-means bemenetébe a régiót East = 1, North = 2, South = 3, West = 4 kóddal teszed. Mi a gond?",
+      options: [
+        "Hamis sorrendet és távolságot visz be (East–West távolsága 3, East–North 1); nominális változóhoz dummy-kódolás kell.",
+        "Semmi, a K-means bármilyen számot elfogad.",
+        "Csak az, hogy a kódokat előbb standardizálni kellene, és akkor rendben van.",
+        "Az, hogy a kódoknak 0-tól kellene indulniuk."
+      ],
+      answer: 0,
+      hint: "Van-e a régióknak sorrendje? Mit számol a K-means a számokkal?",
+      explain: "A K-means távolságot számol, így a sorszámkód egy nem létező sorrendet tanul meg. A standardizálás vagy a 0-tól induló kód ezen nem segít, mert a sorrend megmarad. A <code>pd.get_dummies</code> után bármely két különböző régió egyforma távolságra van."
+    }
+  ]
+};
+
 QUIZZES["l01-vegso"] = {
   title: "Ellenőrző kvíz – 1. lecke",
   questions: [
