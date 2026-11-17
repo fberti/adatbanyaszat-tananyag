@@ -33,7 +33,7 @@
 <main>
 <p class="kicker">17. · ismétlés · a „Fogalmi témakörök” listája alapján</p>
 <h1>Vizsgatételek röviden</h1>
-<p class="lead">A vizsgatémakörök tömör kidolgozása: tételenként a definíció és a lényeg néhány pontban. A részletek, a levezetések és a gyakorló feladatok a 📖 linkkel elérhető leckékben vannak. A 12–15. tétel (Python SQL API, grafikonrajzolás) nincs benne.</p>
+<p class="lead">A vizsgatémakörök tömör kidolgozása: tételenként a definíció és a lényeg néhány pontban. A részletek, a levezetések és a gyakorló feladatok a 📖 linkkel elérhető leckékben vannak. A Python SQL API és a grafikonrajzolás (12–15.), a naiv Bayes (48–49.) és a RapidMiner (60.) tétele nincs benne.</p>
 
 <div class="box tip"><span class="box-title">💡 Hogyan felelj?</span>
 <p>Egy jó felelet szerkezete: <strong>definíció → szerep (mire való) → működés (lépések, képlet) → kis példa → korlát / buktató</strong>. Az alábbi pontok ezt a sorrendet követik.</p></div>
@@ -47,9 +47,8 @@
 <li><a href="#dw">Adattárház, MD modell</a> (24–34.)</li>
 <li><a href="#mdx">MDX</a> (35–39.)</li>
 <li><a href="#klaszter">Adatbányászat, klaszterezés</a> (40–45.)</li>
-<li><a href="#osztalyozas">Osztályozás</a> (46–52.)</li>
+<li><a href="#osztalyozas">Osztályozás</a> (46–47., 50–52.)</li>
 <li><a href="#nn">Neurális háló, tanítás</a> (53–59.)</li>
-<li><a href="#rapidminer">RapidMiner / Altair AI Studio</a> (60.)</li>
 </ul>
 </section>
 
@@ -506,7 +505,7 @@ FROM [kocka]
 
 <!-- ============================================================ -->
 <section id="osztalyozas">
-<h2>Osztályozás (46–52.)</h2>
+<h2>Osztályozás (46–47., 50–52.)</h2>
 
 <div class="tetel" id="t46"><h3>46. Az osztályozás célja és jellemzése</h3>
 <ul>
@@ -533,43 +532,6 @@ FROM [kocka]
 <li>Mindig <strong>független teszthalmazon</strong> mérünk, és összevetjük a <strong>többségi alapmodellel</strong>. Kiegyensúlyozatlan osztályoknál a pontosság félrevezet.</li>
 </ul>
 <p class="ref">📖 <a href="05-dontesi-fa.html#lepes6">5. lecke, 6–9. lépés</a></p></div>
-
-<div class="tetel" id="t48"><h3>48. A naiv Bayes-osztályozó tanító algoritmusa</h3>
-<ul>
-<li><strong>Alapfeltevés:</strong> az osztályon belül az attribútumok <strong>függetlenek</strong>. Ettől „naiv”.</li>
-<li><strong>A tanítás</strong> valószínűségek becslése gyakoriságokkal a tanítóhalmazból:
-  <ol>
-  <li>minden $c$ osztályra az <strong>a priori valószínűség</strong>: $P(c)=\dfrac{|c|}{|T|}$;</li>
-  <li>minden attribútumra, értékre és osztályra a <strong>feltételes valószínűség</strong>: $P(a_j=v\mid c)=\dfrac{\#\{a_j=v \text{ és } c\}}{|c|}$.</li>
-  </ol></li>
-<li>A modell maga ez a <strong>valószínűségtábla</strong>. Nincs iteráció, egyetlen áthaladás elég, ezért gyors.</li>
-<li>Numerikus attribútumot előbb diszkretizálunk, vagy normális eloszlást illesztünk rá (Gauss-féle naiv Bayes).</li>
-<li><strong>Nulla gyakoriság:</strong> ha egy érték egy osztályban nem fordult elő, a szorzat 0 lenne. Ellenszer a Laplace-simítás: $\frac{\#+1}{|c|+m}$, ahol $m$ az attribútum értékeinek száma.</li>
-</ul>
-<p class="ref">📖 <a href="05-dontesi-fa.html#lepes10">5. lecke, 10. lépés</a> · <a href="01-adattisztitas.html#diszkretizalas">diszkretizálás</a></p></div>
-
-<div class="tetel" id="t49"><h3>49. A naiv Bayes-osztályozó predikciós algoritmusa</h3>
-<ul>
-<li>Új eset: $x=(v_1,\dots,v_m)$. Minden osztályra kiszámítjuk az erősségét: $P(c)\cdot\prod_j P(a_j=v_j\mid c)$.</li>
-<li>A győztes a <strong>legnagyobb értékű osztály</strong>. A Bayes-tétel nevezője minden osztálynál ugyanaz, ezért elhagyható.</li>
-<li><strong>Példa.</strong> A tanítóhalmaz:
-  <ul>
-  <li>napos, hétvége → igen;</li>
-  <li>napos, hétköznap → igen;</li>
-  <li>esős, hétvége → igen;</li>
-  <li>esős, hétköznap → nem;</li>
-  <li>napos, hétköznap → nem;</li>
-  <li>esős, hétköznap → nem.</li>
-  </ul>
-  Új eset: (napos, hétvége).
-  <ul>
-  <li>Igen: $\frac36\cdot\frac23\cdot\frac23\approx0{,}222$.</li>
-  <li>Nem: $\frac36\cdot\frac13\cdot\frac03=0$.</li>
-  </ul>
-  A predikció: <strong>igen</strong>. Laplace-simítással $0{,}18$ és $0{,}04$ jön ki, a döntés ugyanaz.</li>
-<li>RapidMiner / Altair AI Studio: Naive Bayes operátor, majd Apply Model (az egyik bemenete a modell, a másik az adat).</li>
-</ul>
-<p class="ref">📖 <a href="#t60">60. tétel</a></p></div>
 
 <div class="tetel" id="t50"><h3>50. A döntési fa felépítése és jellemzése</h3>
 <ul>
@@ -699,34 +661,6 @@ FROM [kocka]
 <li><strong>Szivárgás ellen:</strong> skálázót, diszkretizálót csak a tanítóhalmazon illesztünk (Pipeline).</li>
 </ul>
 <p class="ref">📖 <a href="06-neuralis-halo.html#lepes10">6. lecke, 10. lépés</a> · <a href="05-dontesi-fa.html#lepes2">5. lecke, 2. lépés</a></p></div>
-</section>
-
-<!-- ============================================================ -->
-<section id="rapidminer">
-<h2>RapidMiner / Altair AI Studio (60.)</h2>
-
-<div class="tetel" id="t60"><h3>60. A RapidMiner működése és használata</h3>
-<ul>
-<li>Grafikus, <strong>kódolás nélküli</strong> adatelemző és gépi tanulási környezet. A RapidMiner az Altair céghez került, és ott <strong>Altair AI Studio</strong> néven él tovább.</li>
-<li><strong>Működési elv:</strong> a feldolgozás egy <strong>folyamat</strong> (process), amely <strong>operátorokból</strong> áll. Az operátorokat a portjaikon kötjük össze, így az adat az operátorláncon folyik végig. Működésüket paraméterekkel állítjuk.</li>
-<li><strong>A felület részei:</strong>
-  <ul>
-  <li>menüsor (tervező és futtató nézet, indítás);</li>
-  <li>operátor- és mintaadat-panel (több mint 450 funkció);</li>
-  <li>munkaterület (a folyamat);</li>
-  <li>paraméter- és súgópanel.</li>
-  </ul></li>
-<li><strong>Tipikus folyamat:</strong>
-  <ol>
-  <li>adatbeolvasás (Read Excel, Read CSV, Read Database);</li>
-  <li>előkészítés (szűrés, Normalize, Discretize, dimenziócsökkentés);</li>
-  <li>modell (Naive Bayes, Decision Tree, Random Forest, k-Means, neurális háló);</li>
-  <li><strong>Apply Model</strong> (predikció);</li>
-  <li><strong>Performance</strong> (mérőszámok);</li>
-  <li>validálás (Split Validation, Cross Validation) a túltanulás ellen.</li>
-  </ol></li>
-</ul>
-<p class="ref">📖 forrás: NIU-jegyzet, 14. fejezet (<code>../resources/niu/14_14.-Altair-AI-Studio.md</code>)</p></div>
 </section>
 
 <nav class="pager">
