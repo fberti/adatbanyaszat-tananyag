@@ -524,5 +524,68 @@ consistent = price_counts[price_counts == 1].index</code></pre>Mit tartalmaz a <
     answer: 0,
     hint: R`$x' = (x - \min)/(\max - \min)$. Mi lesz a nevező, ha a maximum tízszeres?`,
     explain: R`$(550-250)/(24\,000-250) = 300/23\,750 \approx 0{,}013$ (eredetileg $300/2150 \approx 0{,}140$). A min–max a két szélső értékre épül, ezért egyetlen kiugró az egész skálát összenyomja. A minimum nem változik, tehát negatív érték nem lesz. Ezért a tisztítás sorrendje: kiugrók vizsgálata (IQR) → utána skálázás.`
+  },
+  {
+    id: "b01-035",
+    topic: "01",
+    level: 1,
+    ref: "01-adattisztitas.html#diszkretizalas",
+    type: "match",
+    q: "Párosítsd a <code>KBinsDiscretizer</code> stratégiáját a működési elvével!",
+    pairs: [
+      ["<code>uniform</code>", "a [min, max] tartomány k egyforma széles részre"],
+      ["<code>quantile</code>", "minden sávba nagyjából ugyanannyi érték"],
+      ["<code>kmeans</code>", "egydimenziós klaszterezés; határ a szomszédos középpontok felezőpontja"],
+      ["döntési fa küszöbei", "a célváltozó osztályait legjobban elválasztó vágások (felügyelt)"]
+    ],
+    hint: "Melyik nézi a szélességet, melyik a darabszámot, melyik a csomókat, és melyik a célváltozót?",
+    explain: "Az első három nem felügyelt (csak a változót nézi), a negyedik felügyelt. pandasban az uniform a <code>pd.cut</code>, a quantile a <code>pd.qcut</code> megfelelője."
+  },
+  {
+    id: "b01-036",
+    topic: "01",
+    level: 2,
+    ref: "01-adattisztitas.html#kbins-pelda",
+    type: "single",
+    q: R`A $1, 2, 5, 10, 20, 50$ értékekre <code>KBinsDiscretizer(n_bins=3, strategy="kmeans")</code> a $4{,}5$; $20$; $50$ középpontokat találja. Mik a belső sávhatárok?`,
+    options: [R`$12{,}25$ és $35$`, R`$17{,}33$ és $33{,}67$`, R`$3{,}5$ és $15$`, R`$4{,}5$ és $20$`],
+    answer: 0,
+    hint: "A határ két szomszédos középpont között félúton van.",
+    explain: R`$(4{,}5+20)/2=12{,}25$, $(20+50)/2=35$. A $17{,}33$ és $33{,}67$ az egyenlő szélességű, a $3{,}5$ és $15$ az egyenlő gyakoriságú határ. A „$4{,}5$ és $20$” a középpontokat adja meg határ helyett.`
+  },
+  {
+    id: "b01-037",
+    topic: "01",
+    level: 3,
+    ref: "01-adattisztitas.html#kbins-pipeline",
+    type: "single",
+    q: "Egy elemző a teljes adathalmazon futtatja a <code>pd.qcut(df[\"age\"], 4)</code>-et, utána osztja tanító- és teszthalmazra az adatot, és ezen tanít egy modellt. Mi a gond?",
+    options: [
+      "Adatszivárgás: a sávhatárokba a tesztadat is beleszólt, ezért a teszteredmény túl optimista lehet.",
+      "Semmi, a kvartilisek a felosztástól függetlenek.",
+      "A <code>qcut</code> csak egyenlő szélességű sávokat tud, ezért rossz eszköz.",
+      "Csak az, hogy 4 helyett 3 sáv kellene."
+    ],
+    answer: 0,
+    hint: "Melyik adatból számolódnak a kvartilisek? Szabad-e a tesztadatnak bármit befolyásolnia a tanítás során?",
+    explain: R`A határok (mint a standardizálás $\mu$-je és $\sigma$-ja) a tanítás részei, ezért csak a tanítóadatból jöhetnek. A Pipeline-ba tett <code>KBinsDiscretizer</code> ezt automatikusan biztosítja. A <code>qcut</code> egyenlő gyakoriságú, nem egyenlő szélességű; a sávszám nem a hiba oka.`
+  },
+  {
+    id: "b01-038",
+    topic: "01",
+    level: 2,
+    ref: "01-adattisztitas.html#diszkretizalas",
+    type: "multi",
+    q: "Miért diszkretizálunk egy folytonos változót? Jelöld az előadásban szereplő indokokat!",
+    options: [
+      "Egyes algoritmusok (pl. ID3, kategorikus naiv Bayes) csak kategorikus bemenetet fogadnak.",
+      "Tompítja a mérési zajt és a kiugró értékek hatását.",
+      "Az intervallumok (pl. „fiatal”, „középkorú”) könnyebben értelmezhetők.",
+      "Csökkenti a számítási igényt.",
+      "Növeli a változóban lévő információt."
+    ],
+    answer: [0, 1, 2, 3],
+    hint: "Egy állítás az ellenkezőjét mondja annak, ami történik.",
+    explain: "A diszkretizálás információt veszít (a sávon belüli különbségek eltűnnek), nem nyer. Cserébe kompatibilitást, robusztusságot, értelmezhetőséget és gyorsaságot ad."
   }
 );

@@ -486,7 +486,7 @@ A tesztadat nem része a tanításnak.</p>
 <p>A tananyag (11. fejezet) a döntési fák klasszikus képviselőjeként az <strong>ID3</strong>-at mutatja be (Ross Quinlan, 1986). Az sklearn fája egy másik családba tartozik. A három legismertebb:</p>
 <div class="table-wrap"><table>
 <tr><th>Algoritmus</th><th>Bemenet</th><th>Vágás</th><th>Kevertség</th><th>Megjegyzés</th></tr>
-<tr><td><strong>ID3</strong></td><td>csak diszkrét (kategorikus) tulajdonságok; a számokat előbb kategóriákba kell sorolni</td><td><strong>többágú</strong>: a tulajdonság minden értékéhez külön gyerekág</td><td>entrópia (információnyereség)</td><td>egy úton egy tulajdonság <strong>nem ismétlődhet</strong>; levél, ha az ág homogén, vagy elfogyott a tulajdonság</td></tr>
+<tr><td><strong>ID3</strong></td><td>csak diszkrét (kategorikus) tulajdonságok; a számokat előbb kategóriákba kell sorolni (<a class="xref" href="01-adattisztitas.html#diszkretizalas">diszkretizálás, 1. lecke</a>)</td><td><strong>többágú</strong>: a tulajdonság minden értékéhez külön gyerekág</td><td>entrópia (információnyereség)</td><td>egy úton egy tulajdonság <strong>nem ismétlődhet</strong>; levél, ha az ág homogén, vagy elfogyott a tulajdonság</td></tr>
 <tr><td>C4.5</td><td>kategorikus és numerikus (küszöbbel)</td><td>többágú / küszöbös</td><td>nyereségarány (<em>gain ratio</em>)</td><td>az ID3 továbbfejlesztése (szintén Quinlan); metszést is végez</td></tr>
 <tr><td><strong>CART</strong></td><td>kategorikus és numerikus</td><td><strong>bináris</strong> (mindig két gyerek)</td><td>Gini (vagy entrópia)</td><td>regresszióra is; az sklearn <code>DecisionTreeClassifier</code>-e ennek optimalizált változata</td></tr>
 </table></div>

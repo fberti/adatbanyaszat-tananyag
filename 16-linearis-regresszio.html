@@ -1,0 +1,629 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lineáris regresszió</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script defer src="assets/quiz.js"></script>
+<script defer src="quiz/16.js"></script>
+<script defer src="assets/common.js"></script>
+</head>
+<body>
+<nav class="topnav"><div class="inner">
+  <a href="index.html">← Tartalom</a>
+  <span>16. lecke · Lineáris regresszió</span>
+  <span class="spacer"></span>
+  <button id="theme-toggle" type="button" title="Világos/sötét téma">◐</button>
+</div></nav>
+<main>
+<p class="kicker">16. lecke · előadásanyag</p>
+<h1>Lineáris regresszió</h1>
+<p class="lead">Hogyan jósolunk számot egy másik számból? A korreláció táblázatos kiszámításától a legkisebb négyzetek módszeréig: egyenes illesztése kézzel, a hiba mérése, az R², és ugyanez scikit-learnnel a hallgatói adaton.</p>
+
+<section id="motivacio">
+<h2>Motiváció</h2>
+<p>Az 5. gyakorlat 114 hallgatójáról tudjuk, hány órát tanultak hetente (<code>study_hours</code>) és hány pontot értek el a vizsgán (<code>exam_score</code>, 0–100). A döntési fa (<a class="xref" href="05-dontesi-fa.html">5. lecke</a>) csak azt mondta meg, hogy valaki átmegy-e. Most magát a pontszámot szeretnénk megbecsülni.</p>
+<div class="box tip"><span class="box-title">🎯 A lecke kérdése</span>
+<p>Hány pontra számíthat egy hallgató, aki heti 10 órát tanul? És aki heti 40-et? Mennyire bízhatunk ezekben a számokban?</p>
+</div>
+<p>A lecke végén (<a href="#alkalmazas">Alkalmazás</a>) erre konkrét választ adunk, és kiderül, hogy a két kérdésre nagyon különböző minőségű válasz adható.</p>
+</section>
+
+<section id="utiterv">
+<h2>Útiterv</h2>
+<ol class="roadmap">
+  <li><a href="#lepes1">1. lépés – Regresszió: számot jóslunk; interpoláció és extrapoláció</a></li>
+  <li><a href="#lepes2">2. lépés – Előzmény: a korreláció táblázatos kiszámítása; Spearman és Kendall</a></li>
+  <li><a href="#lepes3">3. lépés – A modell: egyenes két súllyal</a></li>
+  <li><a href="#lepes4">4. lépés – Reziduum és négyzetes hibaösszeg (SSE)</a></li>
+  <li><a href="#lepes5">5. lépés – A legkisebb négyzetek módszere: a súlyok zárt képlete</a></li>
+  <li><a href="#lepes6">6. lépés – Mennyire jó az illesztés? A determinációs együttható (R²)</a></li>
+  <li><a href="#lepes7">7. lépés – scikit-learn; több magyarázó változó és multikollinearitás</a></li>
+  <li><a href="#alkalmazas">Alkalmazás – vizsgapontszám a tanulási időből</a></li>
+  <li><a href="#osszefoglalas">Összefoglalás és döntési táblázat</a></li>
+  <li><a href="#kviz">Ellenőrző kvíz</a></li>
+</ol>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes1">
+<h2>1. lépés – Regresszió: számot jóslunk; interpoláció és extrapoláció</h2>
+
+<h4>Kis eset</h4>
+<p>Két kérdés ugyanarról a hallgatóról: (a) <em>átmegy-e</em> a vizsgán? (b) <em>hány pontot</em> ér el? Az (a) válasza két érték egyike (yes / no) – ez <strong>osztályozás</strong>. A (b) válasza bármilyen szám lehet 0 és 100 között, pl. 61,7 – ez <strong>regresszió</strong>. Mindkettő felügyelt tanulás: ismert (bemenet, cél) párokból tanulunk (<a class="xref" href="10-bi-adatbanyaszat-alapok.html#lepes8">10. lecke, 8. lépés</a>).</p>
+
+<div class="box def"><span class="box-title">Definíció – Regresszió</span>
+<p>A <strong>regresszió</strong> olyan felügyelt tanulási feladat, amelyben a célváltozó <strong>folytonos szám</strong>. Célja egy olyan $f(x)$ függvény megtalálása, amely a lehető legkisebb hibával írja le, hogyan függ $y$ az $x$ bemenettől: $\hat y = f(x)$.</p>
+<p>Alkalmazások: árelőrejelzés, értékesítési prognózis, trendelemzés, mérnöki rendszerek modellezése.</p>
+<p><strong>Miért külön feladat?</strong> Osztályozásnál egy jóslat vagy talál, vagy nem (accuracy). Regressziónál a jóslat „majdnem jó” is lehet: 60 pontot jósolni 62 helyett kis hiba, 30-at jósolni nagy. Ezért itt a hiba <em>nagyságát</em> mérjük.</p>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Interpoláció és extrapoláció</span>
+<ul>
+  <li><strong>Interpoláció:</strong> becslés az ismert mintapontok tartományán <em>belül</em> (a megfigyelt pontok közötti „hézagok kitöltése”).</li>
+  <li><strong>Extrapoláció:</strong> becslés a megfigyelt tartományon <em>kívül</em> (jövőbeli vagy nem látott helyzet).</li>
+</ul>
+<p>Az extrapoláció lényegesen bizonytalanabb, mert feltételezi, hogy a trend a megfigyelt tartományon túl is változatlanul folytatódik. Erre semmi garancia nincs.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Melyik feladat regresszió?</span>
+<p>(a) Mennyi lesz a jövő havi árbevétel? (b) Lemorzsolódik-e az ügyfél? (c) Hány nap múlva fizet egy vevő? (d) Melyik szegmensbe tartozik a vásárló?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>(a) és (c) regresszió (szám a cél). (b) osztályozás (igen/nem). (d) osztályozás, ha a szegmensek előre adottak és címkézett példáink vannak; klaszterezés, ha a szegmenseket még keresni kell (<a class="xref" href="03-kmeans.html#lepes1">3. lecke, 1. lépés</a>).</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Interpoláció vagy extrapoláció?</span>
+<p>A hallgatók heti tanulási ideje a mintában 1 és 25,3 óra között van. Melyik becslés interpoláció: 10 óra, 20 óra, 40 óra, 0 óra?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>A 10 és a 20 óra a tartományon belül van: interpoláció. A 40 óra és a 0 óra kívül esik: extrapoláció. A 0 óra „csak kicsit” van kívül, de ott sincs adatunk – a modell ott is csak feltételez.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+  <li><strong>„Regresszió” a nevében, mégis osztályoz:</strong> a <em>logisztikus regresszió</em> osztályozó (<a class="xref" href="05-dontesi-fa.html#lepes10">5. lecke, 10. lépés</a>). Fordítva: a döntési fának is van regressziós változata (<code>DecisionTreeRegressor</code>).</li>
+  <li><strong>Az idő is lehet bemenet.</strong> Egy trend jövőbe vetítése (pl. jövő évi árbevétel) mindig extrapoláció.</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia</span>
+<p><em>regression</em> = regresszió · <em>target, dependent variable, response</em> = célváltozó, függő változó · <em>feature, independent / explanatory variable, predictor</em> = bemeneti, független, magyarázó változó · <em>interpolation / extrapolation</em> = interpoláció / extrapoláció.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Regresszió vagy osztályozás; inter- vagy extrapoláció (5 feladat)</summary>
+<ol>
+  <li><p>Egy lakás alapterületéből a vételárát becsüljük. Regresszió vagy osztályozás?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Regresszió: a cél (ár) folytonos szám.</p></details></li>
+  <li><p>Egy lakás adataiból azt becsüljük, hogy „drága”, „átlagos” vagy „olcsó”. Regresszió vagy osztályozás? Hogyan kapcsolódik ez az előző feladathoz?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Osztályozás (három kategória). Ugyanaz a célváltozó, csak diszkretizálva (<a class="xref" href="01-adattisztitas.html#diszkretizalas">1. lecke, diszkretizálás</a>). A sávokba sorolás információt veszít: a 39,9 és a 40,1 millió más kategóriába kerülhet.</p></details></li>
+  <li><p>Egy bolt 2020–2025 közötti havi forgalmából 2026 decemberére becslünk. Inter- vagy extrapoláció?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Extrapoláció: 2026 a megfigyelt időszakon kívül van.</p></details></li>
+  <li><p>A modell 40–100 m²-es lakásokon tanult. Becsüld meg egy 75 m²-es és egy 300 m²-es lakás árát. Melyikben bízol jobban, és miért?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A 75 m² interpoláció, ebben jobban bízhatunk. A 300 m² messze kívül esik a tanítóadaton (extrapoláció): a nagy lakások ára más logika szerint alakulhat (luxuspiac), amit a modell sosem látott.</p></details></li>
+  <li><p>Igaz vagy hamis: „A logisztikus regresszió egy számot jósol, ezért regressziós feladatra való.”</p>
+    <details class="solution"><summary>Megoldás</summary><p>Hamis. A logisztikus regresszió egy osztály valószínűségét számolja (0 és 1 között), és ebből osztályoz. Osztályozó, a neve ellenére.</p></details></li>
+</ol>
+</details>
+
+<h4>Mini-kvíz</h4>
+<div class="quiz" data-quiz="l16-lepes1"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes2">
+<h2>2. lépés – Előzmény: a korreláció táblázatos kiszámítása; Spearman és Kendall</h2>
+
+<p>Mielőtt egyenest illesztünk, érdemes megnézni, van-e egyáltalán lineáris kapcsolat. Erre való a Pearson-féle korreláció. A definícióját, a kovarianciát és a tipikus félreértéseket az <a class="xref" href="01-adattisztitas.html#lepes9">1. lecke 9. lépése</a> tárgyalja. Itt csak azt nézzük meg, hogyan számolható ki kézzel, <em>táblázatban</em> – így szerepel az előadáson is.</p>
+
+<h4>Kis eset</h4>
+<p>Az 1. lecke példája: $x = 1,2,3,4,5$ (hirdetési napok), $y = 2,4,5,4,5$ (eladás, ezer db). Ott eltérésekkel számoltunk, és $r\approx0{,}77$ jött ki. Most az eredeti értékekkel dolgozunk: kiegészítjük a táblát az $x^2$, $y^2$, $xy$ oszlopokkal, és összeadjuk az oszlopokat.</p>
+<div class="table-wrap"><table>
+<tr><th>$x$</th><th>$y$</th><th>$x^2$</th><th>$y^2$</th><th>$xy$</th></tr>
+<tr><td class="num">1</td><td class="num">2</td><td class="num">1</td><td class="num">4</td><td class="num">2</td></tr>
+<tr><td class="num">2</td><td class="num">4</td><td class="num">4</td><td class="num">16</td><td class="num">8</td></tr>
+<tr><td class="num">3</td><td class="num">5</td><td class="num">9</td><td class="num">25</td><td class="num">15</td></tr>
+<tr><td class="num">4</td><td class="num">4</td><td class="num">16</td><td class="num">16</td><td class="num">16</td></tr>
+<tr><td class="num">5</td><td class="num">5</td><td class="num">25</td><td class="num">25</td><td class="num">25</td></tr>
+<tr><td class="num"><strong>Σ 15</strong></td><td class="num"><strong>20</strong></td><td class="num"><strong>55</strong></td><td class="num"><strong>86</strong></td><td class="num"><strong>66</strong></td></tr>
+</table></div>
+
+<div class="box def"><span class="box-title">Képlet – Pearson-féle korreláció oszlopösszegekből</span>
+<p>$$r_{xy}=\frac{\sum (x_i-\bar x)(y_i-\bar y)}{\sqrt{\sum (x_i-\bar x)^2}\,\sqrt{\sum (y_i-\bar y)^2}}=\frac{n\sum xy-\sum x\sum y}{\sqrt{n\sum x^2-\left(\sum x\right)^2}\,\sqrt{n\sum y^2-\left(\sum y\right)^2}}$$</p>
+<p>Lépések (az előadás „step-by-step” sémája): 1. tábla $x$, $y$ oszloppal; 2. kiegészítés $x^2$, $y^2$, $xy$ oszloppal; 3. oszlopösszegek; 4. képlet; 5. az előjel és a nagyság értelmezése.</p>
+<p><strong>Miért ugyanaz a két alak?</strong> Mert $\sum (x_i-\bar x)(y_i-\bar y)=\sum xy-\frac{\sum x\sum y}{n}$; a számlálót és a nevezőt is $n$-nel szorozva kapjuk a jobb oldalt. A második alak előnye: nem kell előre kiszámolni az átlagot, és nem kell törtekkel bajlódni.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – A kis eset</span>
+<p>Számold ki $r$-t a fenti oszlopösszegekből!</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Számláló: $5\cdot66-15\cdot20=330-300=30$. Nevező: $\sqrt{5\cdot55-15^2}\cdot\sqrt{5\cdot86-20^2}=\sqrt{50}\cdot\sqrt{30}=\sqrt{1500}\approx38{,}73$. $r=30/38{,}73\approx0{,}775$ – ugyanaz, mint az 1. leckében.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Az előadás feladata: $X_3 = 3\cdot X_1$</span>
+<p>Az előadás 20 elemű $X_1$ sorozatából $X_3$ úgy készül, hogy minden elemet megszorzunk 3-mal: <code>X3 = [round(3*x, 2) for x in X1]</code>. Mennyi $r(X_1, X_3)$?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>$r=1$, számolás nélkül. A korreláció mértékegység-független: pozitív számmal szorzás és eltolás nem változtat rajta, és $X_3$ pontosan egy egyenesen fekszik $X_1$ függvényében. (Az előadás másik feladatában $X_1$ és a független, véletlen $X_2$ korrelációja géppel számolva $\approx0{,}28$ – gyenge, és 20 elemnél ez akár a véletlen műve is lehet.)</p></details>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Spearman- és Kendall-féle rangkorreláció</span>
+<p>A Pearson-korreláció <em>lineáris</em> kapcsolatot mér. Ha csak az a kérdés, hogy a kapcsolat <strong>monoton</strong>-e (ha $x$ nő, $y$ is nő-e, akármilyen ütemben), rangkorrelációt használunk:</p>
+<ul>
+  <li><strong>Spearman ($\rho$):</strong> az értékeket rangokra (1., 2., …) cseréljük, és a rangok Pearson-korrelációját számoljuk. Ismétlődés nélkül: $\rho=1-\dfrac{6\sum d_i^2}{n(n^2-1)}$, ahol $d_i$ a két rang különbsége.</li>
+  <li><strong>Kendall ($\tau$):</strong> minden pontpárt megnézünk: <em>egyező</em> (konkordáns), ha $x$ és $y$ ugyanabba az irányba változik, <em>ellentétes</em> (diszkordáns), ha ellentétesbe. $\tau=\dfrac{C-D}{\binom n2}$.</li>
+</ul>
+<p>pandasban: <code>df.corr(method="pearson")</code> (alapértelmezés), <code>method="spearman"</code>, <code>method="kendall"</code>. Mindhárom $[-1;1]$ közötti.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 3 – Monoton, de nem lineáris</span>
+<p>$x=1,2,3,4,5$, $y=x^2=1,4,9,16,25$. Mennyi a Pearson- és a Spearman-korreláció?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>A rangok mindkét változóban 1, 2, 3, 4, 5, tehát $\rho=1$ (és $\tau=1$: mind a 10 pár egyező). A Pearson $r\approx0{,}981$: nagyon erős, de nem 1, mert a pontok görbén, nem egyenesen vannak.</p></details>
+</div>
+
+<pre><code class="language-python">import numpy as np, pandas as pd
+data = {"A": np.random.rand(100), "B": np.random.rand(100) * 10, "C": np.random.rand(100) - 5}
+data["D"] = data["A"] * 2 + np.random.normal(0, 0.1, 100)   # D erősen korrelál A-val
+df = pd.DataFrame(data)
+print(df.corr(method="pearson"))   # korrelációs mátrix; 'spearman', 'kendall' is lehet</code></pre>
+<p>Az előadás kódja: <code>D</code> az <code>A</code> kétszerese plusz kis zaj, ezért $r(A,D)$ közel 1; a többi pár független, a korrelációjuk 0 közelében van.</p>
+
+<div class="box warn"><span class="box-title">⚠ Buktatók</span>
+<ul>
+  <li><strong>Korreláció ≠ ok-okozat</strong> (az előadás külön figyelmeztet rá). Lásd az 1. lecke példáit (<a class="xref" href="01-adattisztitas.html#lepes9">9. lépés</a>).</li>
+  <li><strong>A táblázatos képletben könnyű összekeverni</strong> a $\sum x^2$-et (a négyzetek összege, a kis esetben 55) és a $(\sum x)^2$-et (az összeg négyzete, $15^2=225$). A nevezőben $n\sum x^2-(\sum x)^2$ áll.</li>
+  <li><strong>Az $r\approx0$ nem jelenti, hogy nincs kapcsolat</strong> – csak lineáris nincs (U alakú példa: <a class="xref" href="01-adattisztitas.html#lepes9">1. lecke, 9. lépés</a>). A Spearman ezen sem segít, mert az U nem monoton.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Korreláció táblázatban (5 feladat)</summary>
+<ol>
+  <li><p>$x=1,2,3$; $y=1,3,2$. Töltsd ki az oszlopösszegeket, és számold ki $r$-t.</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\sum x=6$, $\sum y=6$, $\sum x^2=14$, $\sum y^2=14$, $\sum xy=1+6+6=13$. Számláló $3\cdot13-36=3$; nevező $\sqrt{42-36}\cdot\sqrt{42-36}=6$. $r=0{,}5$.</p></details></li>
+  <li><p>$x=2,4,6,8$; $y=3,7,5,9$. Mennyi $r$?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\sum x=20$, $\sum y=24$, $\sum x^2=120$, $\sum y^2=164$, $\sum xy=6+28+30+72=136$. Számláló $4\cdot136-20\cdot24=544-480=64$. Nevező $\sqrt{480-400}\cdot\sqrt{656-576}=\sqrt{80}\cdot\sqrt{80}=80$. $r=0{,}8$.</p></details></li>
+  <li><p>Az előző feladatban minden $y$-hoz hozzáadunk 100-at, és minden $x$-et megszorzunk 10-zel. Mennyi lesz $r$?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Továbbra is $0{,}8$. Eltolás és pozitív számmal való szorzás nem változtat a korreláción (negatív szorzó csak az előjelét fordítaná meg).</p></details></li>
+  <li><p>$x=1,2,3,4$; $y=1,3,2,4$. Számold ki a Spearman-féle $\rho$-t a $d_i$-s képlettel, és a Kendall-féle $\tau$-t a párok összeszámolásával.</p>
+    <details class="solution"><summary>Megoldás</summary><p>A rangok maguk az értékek. $d=0,-1,1,0$, $\sum d^2=2$. $\rho=1-\frac{6\cdot2}{4\cdot15}=1-0{,}2=0{,}8$. Párok ($\binom42=6$): csak a (2., 3.) pár ellentétes ($x$ nő, $y$ 3-ról 2-re csökken), 5 egyező. $\tau=(5-1)/6\approx0{,}667$.</p></details></li>
+  <li><p>Melyik korrelációt választanád? (a) Egy termék ára és eladott mennyisége, a pontdiagramon szép egyenes. (b) Két zsűritag sorrendje 10 versenyzőről. (c) Életkor és jövedelem: nő, de egyre lassabban.</p>
+    <details class="solution"><summary>Megoldás</summary><p>(a) Pearson (lineáris). (b) Spearman vagy Kendall – maga az adat is rang. (c) Spearman/Kendall: monoton, de nem lineáris kapcsolat.</p></details></li>
+</ol>
+</details>
+
+<h4>Mini-kvíz</h4>
+<div class="quiz" data-quiz="l16-lepes2"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes3">
+<h2>3. lépés – A modell: egyenes két súllyal</h2>
+
+<p>A korreláció azt mondja meg, <em>mennyire</em> állnak a pontok egy egyenes mentén. Most magát az egyenest keressük, amivel jósolni is lehet.</p>
+
+<h4>Kis eset</h4>
+<p>Négy lakás: 40, 60, 80, 100 m², áruk 30, 40, 56, 62 millió Ft. Valaki ezt az egyenest illesztette rájuk: $\hat y = 7{,}8 + 0{,}56\,x$. Mit jósol egy 70 m²-es lakásra? $7{,}8+0{,}56\cdot70=7{,}8+39{,}2=47$ millió Ft. Minden további négyzetméter $0{,}56$ millió Ft-tal (560 ezer Ft-tal) növeli a becsült árat.</p>
+
+<div class="box def"><span class="box-title">Definíció – Egyváltozós lineáris regressziós modell</span>
+<p>$$\hat y = w_0 + w_1 x$$</p>
+<ul>
+  <li>$w_1$ a <strong>meredekség</strong> (együttható, súly): ennyivel változik a becsült $y$, ha $x$ egy egységgel nő. Mértékegysége: $y$ egysége / $x$ egysége.</li>
+  <li>$w_0$ a <strong>tengelymetszet</strong> (konstans, <em>intercept</em>): a becslés $x=0$-nál.</li>
+  <li>A <strong>tanítóadat</strong> $N$ darab $(x_i, y_i)$ pár: $x_i$ a bemenet, $y_i$ a valódi célérték, $\hat y_i$ a modell becslése.</li>
+</ul>
+<p>A tanítás célja: olyan $w_0, w_1$ meghatározása, amely mellett a becslések a lehető legközelebb vannak a valódi értékekhez – és amely új, nem látott $x$-ekre is jól becsül (<strong>általánosítás</strong>).</p>
+<p><strong>Miért „lineáris”?</strong> Mert a modell a súlyok lineáris kombinációja. Ez a <em>paraméterekben</em> való linearitás: $\hat y = w_0 + w_1x + w_2x^2$ is lineáris regresszió (görbét illeszt, de a súlyokban lineáris), és ugyanazzal a módszerrel tanítható.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – A súlyok értelmezése</span>
+<p>Az <a href="#alkalmazas">Alkalmazás</a> részben a hallgatói adatra ez jön ki: $\widehat{\text{pont}} = 44{,}97 + 1{,}677\cdot\text{óra}$. Mit jelent a két szám?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>$w_1=1{,}677$: heti egy órával több tanulás átlagosan kb. 1,7 ponttal magasabb vizsgaponttal jár együtt. $w_0=44{,}97$: a modell ennyit jósol 0 óra tanulásra. Ez extrapoláció (a legkevesebb a mintában 1 óra), ezért óvatosan kezeljük.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Negatív meredekség</span>
+<p>Egy kávézó napi forgalmára: $\widehat{\text{eladott kávé}} = 400 - 12\cdot\text{hőmérséklet}\ (^\circ\text{C})$. Mennyi a becslés 10 °C-on és 25 °C-on?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>$400-120=280$ és $400-300=100$ kávé. Fokonként 12-vel kevesebb: a negatív $w_1$ ellentétes irányú kapcsolat (negatív korreláció).</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+  <li><strong>A $w_0$-nak gyakran nincs valódi jelentése.</strong> A lakáspéldában a 0 m²-es lakás 7,8 millió Ft-os „ára” értelmetlen: a $w_0$ csak az egyenest rögzíti, nem állítás a valóságról.</li>
+  <li><strong>A $w_1$ nagysága a mértékegységtől függ.</strong> Ha az árat ezer Ft-ban mérnénk, $w_1=560$ lenne. A nagy súly nem jelent erős kapcsolatot – az erősséget a korreláció és az R² mutatja (<a href="#lepes6">6. lépés</a>).</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – A modell olvasása (5 feladat)</summary>
+<ol>
+  <li><p>$\hat y = 0{,}5 + 1{,}5x$. Mennyi a becslés $x=2$-re és $x=5$-re?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$0{,}5+3=3{,}5$ és $0{,}5+7{,}5=8$.</p></details></li>
+  <li><p>Egy webshopban $\widehat{\text{árbevétel (ezer Ft)}} = 120 + 3{,}2\cdot\text{látogatók száma}$. Mit jelent a 3,2?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Minden további látogató átlagosan 3,2 ezer Ft (3200 Ft) többletbevétellel jár együtt. (Együttjárás, nem feltétlenül ok-okozat.)</p></details></li>
+  <li><p>Az egyenes átmegy a $(0; 2)$ és a $(4; 10)$ ponton. Írd fel a modellt!</p>
+    <details class="solution"><summary>Megoldás</summary><p>$w_0=2$ (érték $x=0$-nál), $w_1=\frac{10-2}{4-0}=2$. $\hat y=2+2x$.</p></details></li>
+  <li><p>A lakásmodellben ($\hat y = 7{,}8 + 0{,}56x$, millió Ft) mennyivel drágább a becslés szerint egy 90 m²-es lakás, mint egy 80 m²-es?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$10\cdot0{,}56=5{,}6$ millió Ft. A különbséghez $w_0$ nem kell: kiesik.</p></details></li>
+  <li><p>Igaz-e, hogy $\hat y = w_0 + w_1 x + w_2 x^2$ már nem lineáris regresszió?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Hamis. A modell a <em>súlyokban</em> lineáris; az $x^2$ csak egy újabb (számolt) bemeneti oszlop. Görbét illeszt, de lineáris regresszióként tanítható.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes4">
+<h2>4. lépés – Reziduum és négyzetes hibaösszeg (SSE)</h2>
+
+<p>Melyik egyenes a „legjobb”? Ehhez először mérni kell, mennyire rossz egy adott egyenes.</p>
+
+<h4>Kis eset</h4>
+<p>Vissza a 2. lépés öt pontjához ($x=1..5$, $y=2,4,5,4,5$). Három jelölt egyenes: (A) $\hat y=4$ (vízszintes, az átlag), (B) $\hat y=1+x$, (C) $\hat y=2{,}2+0{,}6x$. Minden pontnál kiszámoljuk a hibát, $y-\hat y$-t:</p>
+<div class="table-wrap"><table>
+<tr><th>$x$</th><th>$y$</th><th>(A) $\hat y$</th><th>(A) hiba</th><th>(B) $\hat y$</th><th>(B) hiba</th><th>(C) $\hat y$</th><th>(C) hiba</th></tr>
+<tr><td class="num">1</td><td class="num">2</td><td class="num">4</td><td class="num">−2</td><td class="num">2</td><td class="num">0</td><td class="num">2,8</td><td class="num">−0,8</td></tr>
+<tr><td class="num">2</td><td class="num">4</td><td class="num">4</td><td class="num">0</td><td class="num">3</td><td class="num">1</td><td class="num">3,4</td><td class="num">0,6</td></tr>
+<tr><td class="num">3</td><td class="num">5</td><td class="num">4</td><td class="num">1</td><td class="num">4</td><td class="num">1</td><td class="num">4,0</td><td class="num">1,0</td></tr>
+<tr><td class="num">4</td><td class="num">4</td><td class="num">4</td><td class="num">0</td><td class="num">5</td><td class="num">−1</td><td class="num">4,6</td><td class="num">−0,6</td></tr>
+<tr><td class="num">5</td><td class="num">5</td><td class="num">4</td><td class="num">1</td><td class="num">6</td><td class="num">−1</td><td class="num">5,2</td><td class="num">−0,2</td></tr>
+<tr><td colspan="3"><strong>hibák összege</strong></td><td class="num">0</td><td></td><td class="num">0</td><td></td><td class="num">0</td></tr>
+<tr><td colspan="3"><strong>négyzetes hibák összege</strong></td><td class="num">6</td><td></td><td class="num">4</td><td></td><td class="num"><strong>2,4</strong></td></tr>
+</table></div>
+<p>A sima hibaösszeg mindháromnál 0 – nem tesz különbséget. A négyzetes összeg igen: a (C) a legjobb.</p>
+
+<div class="box def"><span class="box-title">Definíció – Reziduum, négyzetes hibaösszeg (SSE), költségfüggvény</span>
+<p><strong>Reziduum</strong> (maradék, hiba): $e_i = y_i - \hat y_i$, a valódi és a becsült érték különbsége.</p>
+<p><strong>Négyzetes hibaösszeg</strong> (<em>Sum of Squared Errors</em>, SSE) – a regresszió <strong>költségfüggvénye</strong>:</p>
+<p>$$J(w_0,w_1)=\mathrm{SSE}=\sum_{i=1}^{N}(y_i-\hat y_i)^2=\sum_{i=1}^{N}\big(y_i-w_0-w_1x_i\big)^2$$</p>
+<p>A cél: minimális $J$ a teljes tanítóállományon. A regresszió tehát <strong>optimalizálási feladat</strong>.</p>
+<p><strong>Miért négyzet?</strong> (1) A pozitív és negatív hibák nem oltják ki egymást (a kis esetben a sima összeg mindig 0 volt). (2) A nagy eltérést jobban bünteti: egy 2-es hiba 4-et, egy 1-es csak 1-et ér. (3) Deriválható, így zárt képlet jön ki a minimumra (<a href="#lepes5">5. lépés</a>).</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Abszolút hiba kontra négyzetes hiba</span>
+<p>A kis eset (B) és (C) egyenesére számold ki az abszolút hibák összegét is!</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>(B): $0+1+1+1+1=4$. (C): $0{,}8+0{,}6+1+0{,}6+0{,}2=3{,}2$. Itt is a (C) nyer. Az abszolút hiba is jó mérték (ez a <em>MAE</em> alapja), de nem deriválható mindenhol, és a nagy hibákat kevésbé bünteti.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – A hibák mértékegysége: RMSE</span>
+<p>A (C) egyenes SSE-je 2,4 (ezer db)². Hogyan kapunk ebből „ezer db”-ban mérhető tipikus hibát?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Átlagolunk és gyököt vonunk: $\mathrm{MSE}=2{,}4/5=0{,}48$, $\mathrm{RMSE}=\sqrt{0{,}48}\approx0{,}69$ ezer db. Egy becslés tipikusan kb. 700 darabbal tér el a valóságtól.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+  <li><strong>Előjel:</strong> a reziduum $y-\hat y$ (valódi mínusz becsült). Ha a modell túlbecsül, a reziduum negatív.</li>
+  <li><strong>A négyzet miatt egyetlen kiugró pont nagyon sokat számít.</strong> Egy 10-es hiba 100-at ad az SSE-hez – annyit, mint száz 1-es hiba. Ezért húzza el a kiugró az egyenest (<a href="#lepes5">5. lépés, kidolgozott példa 3</a>).</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Reziduum és SSE (5 feladat)</summary>
+<ol>
+  <li><p>$y=7$, $\hat y=5{,}5$. Mennyi a reziduum és a négyzete?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$e=7-5{,}5=1{,}5$; $e^2=2{,}25$.</p></details></li>
+  <li><p>Pontok: $(1;1)$, $(2;3)$, $(3;2)$. Számold ki az SSE-t a $\hat y=1+0{,}5x$ egyenesre.</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\hat y=1{,}5;\ 2;\ 2{,}5$. $e=-0{,}5;\ 1;\ -0{,}5$. $\mathrm{SSE}=0{,}25+1+0{,}25=1{,}5$.</p></details></li>
+  <li><p>Ugyanezekre a pontokra mennyi az SSE a vízszintes $\hat y=\bar y=2$ egyenesre? Melyik egyenes jobb?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$e=-1;\ 1;\ 0$, $\mathrm{SSE}=2$. A $1+0{,}5x$ (SSE = 1,5) jobb.</p></details></li>
+  <li><p>Két modell reziduumai: (P) $1, -1, 1, -1$; (Q) $0, 0, 0, 4$. Melyik a jobb az abszolút hibaösszeg, és melyik az SSE szerint?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Abszolút összeg: mindkettő 4 – döntetlen. SSE: (P) $1+1+1+1=4$, (Q) $16$ – a (P) sokkal jobb. A négyzetes hiba egyetlen nagy tévedést jobban büntet, mint sok kicsit.</p></details></li>
+  <li><p>Egy modell SSE-je 50 pontnégyzet 8 hallgatón. Mennyi az RMSE?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\sqrt{50/8}=\sqrt{6{,}25}=2{,}5$ pont.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes5">
+<h2>5. lépés – A legkisebb négyzetek módszere: a súlyok zárt képlete</h2>
+
+<p>Tudjuk mérni, mennyire jó egy egyenes. De az összes lehetséges egyenest nem próbálhatjuk végig. Van-e képlet a legjobbra?</p>
+
+<h4>Kis eset</h4>
+<p>Az előző lépés (C) egyenese, $\hat y=2{,}2+0{,}6x$, nem véletlenül lett a legjobb. Figyeld meg: a 2. lépés táblájából $\operatorname{cov}(x,y)=1{,}5$ és $s_x^2=2{,}5$ (<a class="xref" href="01-adattisztitas.html#lepes9">1. lecke, 9. lépés</a>), és $1{,}5/2{,}5=0{,}6$ – pont a meredekség. A tengelymetszet: $\bar y-0{,}6\,\bar x=4-1{,}8=2{,}2$.</p>
+
+<div class="box def"><span class="box-title">Képlet – Legkisebb négyzetek (OLS), egy magyarázó változó</span>
+<p>$$w_1=\frac{\sum (x_i-\bar x)(y_i-\bar y)}{\sum (x_i-\bar x)^2}=\frac{\operatorname{cov}(x,y)}{s_x^2}=\frac{n\sum xy-\sum x\sum y}{n\sum x^2-\left(\sum x\right)^2},\qquad w_0=\bar y-w_1\bar x$$</p>
+<p><strong>Miért?</strong> (levezetés-vázlat) A $J(w_0,w_1)=\sum(y_i-w_0-w_1x_i)^2$ egy „tál” alakú (konvex) függvény; a minimumában mindkét parciális derivált nulla:</p>
+<ul>
+  <li>$\dfrac{\partial J}{\partial w_0}=-2\sum(y_i-w_0-w_1x_i)=0\ \Rightarrow\ \sum e_i=0\ \Rightarrow\ w_0=\bar y-w_1\bar x$.</li>
+  <li>$\dfrac{\partial J}{\partial w_1}=-2\sum x_i(y_i-w_0-w_1x_i)=0$. Ide $w_0$-t behelyettesítve és rendezve kijön a $w_1$-re vonatkozó képlet.</li>
+</ul>
+<p>Ez az <strong>analitikus</strong> megoldás: közvetlen, zárt képlet, iteráció nélkül (<em>Ordinary Least Squares</em>, OLS). Következmények: a reziduumok összege 0, és az egyenes mindig átmegy az $(\bar x;\bar y)$ ponton.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Oszlopösszegekből</span>
+<p>A kis eset oszlopösszegeivel ($n=5$, $\sum x=15$, $\sum y=20$, $\sum x^2=55$, $\sum xy=66$) számold ki a súlyokat!</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>$w_1=\dfrac{5\cdot66-15\cdot20}{5\cdot55-15^2}=\dfrac{30}{50}=0{,}6$. $w_0=\frac{20}{5}-0{,}6\cdot\frac{15}{5}=4-1{,}8=2{,}2$. Ugyanaz a táblázat adja a korrelációt is (2. lépés) – az $r$ számlálója és a $w_1$ számlálója azonos.</p></details>
+</div>
+
+<div class="box example" id="dia-pelda"><span class="box-title">Kidolgozott példa 2 – Az előadás példája</span>
+<p>$X=1,2,3,4$; $y=2;\ 3{,}5;\ 5;\ 6{,}5$. Mik a súlyok, és mit jósol a modell $X=5$-re?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>$\bar x=2{,}5$, $\bar y=4{,}25$. Eltérések: $x$: $-1{,}5;-0{,}5;0{,}5;1{,}5$, $y$: $-2{,}25;-0{,}75;0{,}75;2{,}25$. $\sum(x-\bar x)(y-\bar y)=3{,}375+0{,}375+0{,}375+3{,}375=7{,}5$, $\sum(x-\bar x)^2=5$. $w_1=1{,}5$, $w_0=4{,}25-3{,}75=0{,}5$. Becslés: $0{,}5+1{,}5\cdot5=8{,}00$ – ugyanaz, mint a scikit-learn kimenete (<a href="#lepes7">7. lépés</a>). Megjegyzés: az $X=5$ már extrapoláció.</p></details>
+</div>
+
+<div class="box example" id="kiugro-pelda"><span class="box-title">Kidolgozott példa 3 – Egyetlen kiugró pont hatása</span>
+<p>A kis esetben az utolsó pontot elírják: $(5;5)$ helyett $(5;15)$. Hogyan változik a meredekség?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>$\bar y=6$; $\sum(x-\bar x)(y-\bar y)=26$, $\sum(x-\bar x)^2=10$, így $w_1=2{,}6$ (0,6 helyett!) és $w_0=6-7{,}8=-1{,}8$. Egyetlen pont a meredekséget több mint négyszeresére húzta. A négyzetes hiba miatt az OLS mindenáron csökkenteni akarja a nagy reziduumot. Ezért illesztés előtt a kiugrókat vizsgálni kell (<a class="xref" href="01-adattisztitas.html#lepes7">1. lecke, 7. lépés</a>).</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+  <li><strong>A $w_1$ nevezője $x$ varianciája, nem $y$-é.</strong> Ha felcseréled, az „$x$ becslése $y$-ból” egyenes meredekségét kapod, ami általában nem a reciproka az előzőnek.</li>
+  <li><strong>$n-1$ vagy $n$?</strong> A $\operatorname{cov}/s_x^2$ hányadosban mindegy, mert ugyanazzal osztunk fent és lent – csak következetesen használd.</li>
+  <li><strong>Ha minden $x$ egyforma</strong>, a nevező 0: nincs egyértelmű egyenes (függőleges pontoszlopra nem lehet $y=f(x)$-et illeszteni).</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Legkisebb négyzetek (5 feladat)</summary>
+<ol>
+  <li><p>$x=0,1,2,3$; $y=1,3,5,7$. Számold ki $w_0$-t és $w_1$-et!</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\bar x=1{,}5$, $\bar y=4$. $\sum(x-\bar x)(y-\bar y)=(-1{,}5)(-3)+(-0{,}5)(-1)+(0{,}5)(1)+(1{,}5)(3)=10$, $\sum(x-\bar x)^2=5$. $w_1=2$, $w_0=4-3=1$. A pontok pontosan a $\hat y=1+2x$ egyenesen vannak.</p></details></li>
+  <li><p>$x=1,2,3$; $y=1,3,2$. Súlyok?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\bar x=2$, $\bar y=2$. $\sum(x-\bar x)(y-\bar y)=(-1)(-1)+0+(1)(0)=1$, $\sum(x-\bar x)^2=2$. $w_1=0{,}5$, $w_0=2-1=1$: $\hat y=1+0{,}5x$ (a 4. lépés gyakorlásának egyenese).</p></details></li>
+  <li><p>$x=2,4,6,8$; $y=3,7,5,9$. Használd a 2. lépés gyakorlásának oszlopösszegeit ($\sum x=20$, $\sum y=24$, $\sum x^2=120$, $\sum xy=136$)!</p>
+    <details class="solution"><summary>Megoldás</summary><p>$w_1=\frac{4\cdot136-20\cdot24}{4\cdot120-400}=\frac{64}{80}=0{,}8$. $w_0=6-0{,}8\cdot5=2$. $\hat y=2+0{,}8x$.</p></details></li>
+  <li><p>Egy adathalmazban $\bar x=10$, $\bar y=50$, $\operatorname{cov}(x,y)=12$, $s_x^2=4$. Írd fel az egyenest, és becsülj $x=12$-re!</p>
+    <details class="solution"><summary>Megoldás</summary><p>$w_1=12/4=3$, $w_0=50-30=20$. $\hat y(12)=20+36=56$.</p></details></li>
+  <li><p>Miért megy át a legkisebb négyzetes egyenes mindig az $(\bar x;\bar y)$ ponton?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Mert $w_0=\bar y-w_1\bar x$, így $\hat y(\bar x)=w_0+w_1\bar x=\bar y$. Ez a $\partial J/\partial w_0=0$ feltételből jön (a reziduumok összege 0).</p></details></li>
+</ol>
+</details>
+
+<h4>Mini-kvíz</h4>
+<div class="quiz" data-quiz="l16-lepes5"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes6">
+<h2>6. lépés – Mennyire jó az illesztés? A determinációs együttható (R²)</h2>
+
+<p>Az SSE mértékegységes (pont², millió Ft²), ezért önmagában nem mondja meg, jó-e a modell. Mihez viszonyítsunk?</p>
+
+<h4>Kis eset</h4>
+<p>A 4. lépés táblájában a vízszintes (A) egyenes, $\hat y=\bar y=4$, a legbutább modell: mindenkinek az átlagot jósolja. Az SSE-je 6 – ez az $y$ teljes négyzetes eltérése az átlagtól. A legjobb egyenes (C) SSE-je 2,4. A teljes ingadozásnak tehát $2{,}4/6=40\%$-a maradt megmagyarázatlan, $60\%$-át az egyenes megmagyarázta.</p>
+
+<div class="box def"><span class="box-title">Definíció – Determinációs együttható</span>
+<p>$$R^2 = 1-\frac{\mathrm{SSE}}{\mathrm{SST}},\qquad \mathrm{SST}=\sum (y_i-\bar y)^2$$</p>
+<p>Az $R^2$ azt mondja meg, hogy $y$ ingadozásának (varianciájának) mekkora hányadát magyarázza a modell. $R^2=1$: minden pont az egyenesen van. $R^2=0$: a modell nem jobb, mint az átlag jóslása.</p>
+<p><strong>Egy magyarázó változónál</strong> (és OLS-illesztésnél, tanítóadaton) $R^2=r^2$: a korreláció négyzete. A kis esetben $0{,}775^2=0{,}6$. ✓</p>
+<p>scikit-learnben: <code>model.score(X, y)</code> az $R^2$-et adja.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Tökéletes illeszkedés</span>
+<p>Az előadás példájában ($X=1..4$, $y=2;3{,}5;5;6{,}5$) mennyi $R^2$?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>A pontok pontosan a $0{,}5+1{,}5x$ egyenesen vannak: SSE = 0, így $R^2=1$. Valódi adaton ilyen szinte sosem fordul elő.</p></details>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Magas R², mégis rossz modell</span>
+<p>$x=1..5$, $y=x^2=1,4,9,16,25$. Az OLS-egyenes $\hat y=-7+6x$, $R^2\approx0{,}963$. Nézd meg a reziduumokat! Jó-e a modell?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>$\hat y=-1,5,11,17,23$; $e=2,-1,-2,-1,2$. A reziduumok mintázatot mutatnak (+, −, −, −, +: U alak): a kapcsolat nem lineáris, az egyenes rendszeresen téved – a széleken alá-, középen fölébecsül. A magas $R^2$ ezt elrejti. Ezért mindig nézd meg a reziduumokat (vagy a pontdiagramot) is. Itt az $x^2$ mint bemenet (<a href="#lepes3">3. lépés</a>) tökéletes modellt adna.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktatók</span>
+<ul>
+  <li><strong>A teszthalmazon az $R^2$ negatív is lehet.</strong> Ha a modell az új adaton rosszabbul jósol, mint ha mindenkire egyszerűen a teszthalmaz átlagát mondanánk, akkor $\mathrm{SSE}&gt;\mathrm{SST}$. Lásd az <a href="#alkalmazas">Alkalmazást</a>.</li>
+  <li><strong>Kis $R^2$ ≠ haszontalan változó.</strong> A tanulási idő a vizsgapontok ingadozásának csak 13%-át magyarázza, mégis valódi kapcsolat – csak sok más is számít.</li>
+  <li><strong>Több változó hozzáadásával a tanító-$R^2$ sosem csökken</strong>, akkor sem, ha a változó haszontalan. A modellek összehasonlításához teszthalmaz (vagy keresztvalidáció, <a class="xref" href="06-neuralis-halo.html#lepes10">6. lecke, 10. lépés</a>) kell.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – R² (5 feladat)</summary>
+<ol>
+  <li><p>$\mathrm{SSE}=1{,}5$, $\mathrm{SST}=2$. Mennyi $R^2$?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$1-1{,}5/2=0{,}25$. (Ez a $(1;1),(2;3),(3;2)$ pontok illesztése; $r=0{,}5$, $r^2=0{,}25$ ✓.)</p></details></li>
+  <li><p>Egy egyváltozós regresszióban $r=-0{,}9$. Mennyi $R^2$? Mit tudsz $w_1$ előjeléről?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$R^2=0{,}81$. $w_1$ negatív, mert $w_1$ és $r$ előjele mindig megegyezik (ugyanaz a kovariancia a számlálójuk).</p></details></li>
+  <li><p>$x=2,4,6,8$; $y=3,7,5,9$; az egyenes $\hat y=2+0{,}8x$. Számold ki az SSE-t, az SST-t és az $R^2$-et!</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\hat y=3{,}6;5{,}2;6{,}8;8{,}4$, $e=-0{,}6;1{,}8;-1{,}8;0{,}6$, $\mathrm{SSE}=0{,}36+3{,}24+3{,}24+0{,}36=7{,}2$. $\bar y=6$, $\mathrm{SST}=9+1+1+9=20$. $R^2=1-7{,}2/20=0{,}64=0{,}8^2$ ✓.</p></details></li>
+  <li><p>Egy modell $R^2$-e a tanítóhalmazon 0,95, a teszthalmazon 0,20. Mi történhetett?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Túltanulás: a modell (pl. túl sok változóval vagy magas fokú polinommal) a tanítóadat zaját is megtanulta, és nem általánosít (<a class="xref" href="05-dontesi-fa.html#lepes8">5. lecke, 8. lépés</a>).</p></details></li>
+  <li><p>Mit jelent, ha a teszthalmazon $R^2=-0{,}08$?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A modell az új adaton rosszabb, mint ha mindenkire egyszerűen az átlagot mondaná. Ilyen modellt nem érdemes használni.</p></details></li>
+</ol>
+</details>
+
+<h4>Mini-kvíz</h4>
+<div class="quiz" data-quiz="l16-lepes6"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes7">
+<h2>7. lépés – scikit-learn; több magyarázó változó és multikollinearitás</h2>
+
+<h4>Kis eset</h4>
+<p>Az előadás kódja ugyanazt számolja ki, amit az <a href="#dia-pelda">5. lépés 2. példájában</a> kézzel:</p>
+<pre><code class="language-python">from sklearn.linear_model import LinearRegression
+import numpy as np
+
+# 1. Tanítóadatok (X kétdimenziós: sor = példa, oszlop = bemeneti változó)
+X = np.array([[1], [2], [3], [4]])
+y = np.array([2, 3.5, 5, 6.5])
+
+# 2. Modell példányosítása és illesztése
+model = LinearRegression()
+model.fit(X, y)
+
+# 3. Előrejelzés új értékre
+y_pred = model.predict([[5]])
+print(f"Becsült érték X=5 esetén: {y_pred[0]:.2f}")   # 8.00
+print(model.intercept_, model.coef_)                  # 0.5 [1.5]
+print(model.score(X, y))                              # R² = 1.0</code></pre>
+
+<div class="box def"><span class="box-title">Definíció – A <code>LinearRegression</code> fő metódusai</span>
+<ul>
+  <li><code>fit(X, y)</code>: kiszámolja az optimális súlyokat a legkisebb négyzetek módszerével.</li>
+  <li><code>predict(X)</code>: előrejelzés új bemenetekre a megtanult súlyokkal.</li>
+  <li><code>score(X, y)</code>: az $R^2$ (determinációs együttható).</li>
+  <li>Attribútumok: <code>intercept_</code> ($w_0$), <code>coef_</code> ($w_1, w_2, \dots$ – változónként egy).</li>
+</ul>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Többváltozós lineáris regresszió</span>
+<p>$$\hat y = w_0 + w_1x_1 + w_2x_2 + \dots + w_px_p$$</p>
+<p>Ugyanaz a költségfüggvény (SSE) és ugyanaz a módszer (OLS); a zárt képlet mátrixos alakban: $w=(X^\top X)^{-1}X^\top y$. A $w_j$ jelentése: ennyivel változik a becslés, ha $x_j$ egy egységgel nő, <strong>miközben a többi változó változatlan</strong>.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Ugyanaz az információ kétszer</span>
+<p>A hallgatói adathoz a <code>study_hours</code> mellé felveszünk egy <code>study_minutes = 60 * study_hours</code> oszlopot, és mindkettővel illesztünk. Mi lesz a két súly?</p>
+<details class="solution"><summary>Megoldás (valódi adat)</summary>
+<p><code>coef_ ≈ [0,00047; 0,02795]</code>, $R^2=0{,}131$ – ugyanannyi, mint egy változóval. A két súly „megosztozik” a hatáson: $0{,}00047+60\cdot0{,}02795\approx1{,}677$, az egyváltozós meredekség. A felosztás önkényes; egy kicsit más adaton egészen más (akár ellentétes előjelű) súlyok jöhetnek ki. A súlyok értelmezhetetlenné váltak.</p></details>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Multikollinearitás és jellemzőkiválasztás</span>
+<p><strong>Multikollinearitás:</strong> a bemeneti változók között erős (közel lineáris) kapcsolat van. Ilyenkor a regressziós súlyok matematikailag instabilak: kis adatváltozásra nagyot változnak, és nem lehet tudni, melyik változó „mennyit ér”.</p>
+<p><strong>Megoldás – jellemzőkiválasztás korrelációval.</strong> A korrelációs mátrixból kiolvasható, mely bemenetek ismétlik egymást. Az <strong>mRMR</strong> (<em>Maximum Relevance, Minimum Redundancy</em>) elve: olyan változókat válassz, amelyek a célváltozóval <em>erősen</em> (maximális relevancia), egymással <em>gyengén</em> (minimális redundancia) függenek össze. Előny: gyorsabb számítás, kisebb túltanulási veszély, egyszerűbb, értelmezhetőbb modell.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Korrelációs mátrix a hallgatói adaton</span>
+<p>A <code>df[cols].corr()</code> kimenete (kerekítve). Van-e multikollinearitás? Melyik változó a legrelevánsabb?</p>
+<div class="table-wrap"><table>
+<tr><th></th><th class="num">study_hours</th><th class="num">attendance</th><th class="num">previous_gpa</th><th class="num">assignments</th><th class="num">exam_score</th></tr>
+<tr><td>study_hours</td><td class="num">1</td><td class="num">0,136</td><td class="num">0,055</td><td class="num">−0,160</td><td class="num">0,362</td></tr>
+<tr><td>attendance</td><td class="num">0,136</td><td class="num">1</td><td class="num">0,137</td><td class="num">0,043</td><td class="num">0,404</td></tr>
+<tr><td>previous_gpa</td><td class="num">0,055</td><td class="num">0,137</td><td class="num">1</td><td class="num">0,178</td><td class="num">0,503</td></tr>
+<tr><td>assignments</td><td class="num">−0,160</td><td class="num">0,043</td><td class="num">0,178</td><td class="num">1</td><td class="num">0,223</td></tr>
+</table></div>
+<details class="solution"><summary>Megoldás</summary>
+<p>A bemenetek egymás közötti korrelációja mind kicsi ($|r|\le0{,}18$): nincs multikollinearitás, mind a négy maradhat. A célváltozóval a <code>previous_gpa</code> korrelál a legerősebben (0,503), utána az <code>attendance</code> (0,404) és a <code>study_hours</code> (0,362). mRMR szerint az első választás a <code>previous_gpa</code> lenne.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktatók</span>
+<ul>
+  <li><strong><code>X</code> mindig kétdimenziós.</strong> <code>model.fit([1, 2, 3, 4], y)</code> hibát dob; <code>[[1], [2], [3], [4]]</code> vagy <code>df[["study_hours"]]</code> (dupla szögletes zárójel) kell. A <code>predict</code> is 2D bemenetet vár: <code>[[5]]</code>.</li>
+  <li><strong>A súlyok nagysága nem hasonlítható össze</strong> különböző mértékegységű változók között (óra vs. százalék vs. jegy). Összehasonlításhoz standardizálj előbb (<a class="xref" href="03-kmeans.html#lepes4">3. lecke, 4. lépés</a>).</li>
+  <li><strong>Dummy-kódolásnál</strong> a <code>drop_first=True</code> pont a tökéletes multikollinearitást kerüli el: a kategóriák 0/1 oszlopainak összege mindig 1 (<a class="xref" href="01-adattisztitas.html#regio-kodolas">1. lecke, 4. kidolgozott példa</a>).</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">🔤 Terminológia</span>
+<p><em>slope / coefficient, weight</em> = meredekség / együttható, súly · <em>intercept</em> = tengelymetszet, konstans · <em>residual</em> = reziduum, maradék · <em>SSE / RSS (sum of squared errors / residuals)</em> = négyzetes hibaösszeg · <em>cost function</em> = költségfüggvény · <em>ordinary least squares (OLS)</em> = (közönséges) legkisebb négyzetek módszere · <em>coefficient of determination ($R^2$)</em> = determinációs együttható · <em>MSE / RMSE</em> = átlagos négyzetes hiba / annak gyöke · <em>multiple regression</em> = többváltozós regresszió · <em>multicollinearity</em> = multikollinearitás · <em>feature selection</em> = jellemzőkiválasztás · <em>rank correlation (Spearman's $\rho$, Kendall's $\tau$)</em> = rangkorreláció.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – scikit-learn és több változó (5 feladat)</summary>
+<ol>
+  <li><p>Mit ír ki a kód: <code>LinearRegression().fit([[0],[1],[2],[3]], [1,3,5,7]).predict([[10]])</code>?</p>
+    <details class="solution"><summary>Megoldás</summary><p><code>[21.]</code>: az egyenes $1+2x$ (<a href="#lepes5">5. lépés, 1. gyakorló feladat</a>), $1+20=21$. Extrapoláció!</p></details></li>
+  <li><p>Hibás-e: <code>model.fit(df["study_hours"], df["exam_score"])</code>? Ha igen, javítsd!</p>
+    <details class="solution"><summary>Megoldás</summary><p>Igen: <code>df["study_hours"]</code> egydimenziós Series. Helyesen <code>df[["study_hours"]]</code> (DataFrame, egy oszloppal). A célváltozó maradhat 1D.</p></details></li>
+  <li><p>Egy modell: $\widehat{\text{pont}}=-43{,}9+1{,}53\cdot\text{óra}+0{,}47\cdot\text{jelenlét \%}+11{,}5\cdot\text{előző átlag}+2{,}2\cdot\text{beadott házi}$. Mit jelent a 11,5?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Ha a korábbi tanulmányi átlag egy jeggyel magasabb, <em>a többi változó változatlansága mellett</em> a becsült vizsgapont 11,5-tel nagyobb.</p></details></li>
+  <li><p>Egy ingatlanmodellben az alapterület (m²) és a szobák száma közötti korreláció 0,93. Mi a gond, és mit tennél?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Multikollinearitás: a két változó nagyrészt ugyanazt méri, a súlyaik instabilak, értelmezhetetlenek. Az mRMR szellemében tartsd meg azt, amelyik a célváltozóval erősebben korrelál (jellemzően az alapterületet), a másikat hagyd el – vagy képezz belőlük egy új változót (pl. átlagos szobaméret).</p></details></li>
+  <li><p>Egy változó hozzáadása után a tanító-$R^2$ 0,483-ről 0,485-re nőtt. Biztosan jobb lett a modell?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Nem. Új változótól a tanító-$R^2$ sosem csökken, akkor sem, ha a változó haszontalan. Teszthalmazon vagy keresztvalidációval kell összevetni.</p></details></li>
+</ol>
+</details>
+
+<h4>Mini-kvíz</h4>
+<div class="quiz" data-quiz="l16-lepes7"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="alkalmazas">
+<h2>Alkalmazás – vizsgapontszám a tanulási időből</h2>
+<p>Az 5. gyakorlat adatán (<code>student_performance.csv</code>, 114 hallgató, hiányzó érték nincs) a vizsgapontszámot (<code>exam_score</code>) becsüljük. Az <code>exam_score</code> itt a <em>célváltozó</em> – az osztályozásnál épp azért hagytuk ki, mert a <code>passed</code> ebből készült (<a class="xref" href="05-dontesi-fa.html#lepes1">5. lecke, 1. lépés</a>).</p>
+
+<h4>1. Egy magyarázó változó</h4>
+<pre><code class="language-python">import pandas as pd
+from sklearn.linear_model import LinearRegression
+
+df = pd.read_csv("student_performance.csv", sep=";", encoding="utf-8-sig")
+X = df[["study_hours"]]          # 2D!
+y = df["exam_score"]
+
+model = LinearRegression().fit(X, y)
+print(model.intercept_, model.coef_)    # 44.97  [1.677]
+print(model.score(X, y))                # R² = 0.131
+print(df["study_hours"].corr(df["exam_score"]))   # r = 0.362
+print(model.predict(pd.DataFrame({"study_hours": [10, 15, 40]})))   # [61.7  70.1  112.1]</code></pre>
+<div class="table-wrap"><table>
+<tr><th>Mennyiség</th><th class="num">Érték</th><th>Ellenőrzés kézzel</th></tr>
+<tr><td>$\bar x$ (óra), $\bar y$ (pont)</td><td class="num">11,30; 63,93</td><td></td></tr>
+<tr><td>$\operatorname{cov}(x,y)$, $s_x^2$</td><td class="num">34,52; 20,58</td><td></td></tr>
+<tr><td>$w_1$</td><td class="num">1,677</td><td>$34{,}52/20{,}58=1{,}677$ ✓</td></tr>
+<tr><td>$w_0$</td><td class="num">44,97</td><td>$63{,}93-1{,}677\cdot11{,}30=44{,}97$ ✓</td></tr>
+<tr><td>$r$; $R^2$</td><td class="num">0,362; 0,131</td><td>$0{,}362^2=0{,}131$ ✓</td></tr>
+<tr><td>SSE; SST; RMSE</td><td class="num">43&nbsp;363; 49&nbsp;906; 19,5 pont</td><td>$1-43\,363/49\,906=0{,}131$ ✓</td></tr>
+</table></div>
+
+<h4>2. Válasz a motiváló kérdésre</h4>
+<ul>
+  <li><strong>Heti 10 óra:</strong> $44{,}97+1{,}677\cdot10\approx61{,}7$ pont. Ez interpoláció (a mintában 1–25,3 óra van), de a tipikus hiba (RMSE) kb. ±19,5 pont: a tanulási idő a pontszám ingadozásának csak 13%-át magyarázza.</li>
+  <li><strong>Heti 40 óra:</strong> a modell 112,1 pontot mond – a skála 0–100! Ez extrapoláció: 40 órás hallgató nincs a mintában, és a lineáris trend biztosan nem folytatódik a végtelenségig. Erre a kérdésre a modell <strong>nem ad</strong> használható választ.</li>
+</ul>
+
+<h4>3. Több változó, tanító- és teszthalmaz</h4>
+<pre><code class="language-python">from sklearn.model_selection import train_test_split
+cols = ["study_hours", "attendance", "previous_gpa", "assignments_completed"]
+train, test = train_test_split(df, test_size=0.25, random_state=42)   # 85 / 29 hallgató
+
+for c in (["study_hours"], cols):
+    m = LinearRegression().fit(train[c], train["exam_score"])
+    print(c, m.score(train[c], train["exam_score"]), m.score(test[c], test["exam_score"]))</code></pre>
+<div class="table-wrap"><table>
+<tr><th>Bemenet</th><th class="num">$R^2$ (tanító)</th><th class="num">$R^2$ (teszt)</th></tr>
+<tr><td><code>study_hours</code></td><td class="num">0,197</td><td class="num">−0,084</td></tr>
+<tr><td>mind a négy numerikus változó</td><td class="num">0,483</td><td class="num">0,446</td></tr>
+</table></div>
+<p>Csak a tanulási idővel a teszthallgatókra <em>rosszabb</em> a becslés, mint ha mindenkire egyszerűen a teszthallgatók átlagpontszámát mondanánk (negatív $R^2$). A négy változóval a modell a teszten is a pontszám-ingadozás kb. 45%-át magyarázza, és a tanító- és teszt-$R^2$ közel van egymáshoz: nincs számottevő túltanulás. A teljes adaton illesztett négyváltozós modell súlyai a <a href="#lepes7">7. lépés 3. gyakorló feladatában</a> szerepelnek ($R^2=0{,}487$).</p>
+
+<div class="box tip"><span class="box-title">💡 Mit mondanánk egy ZH-n?</span>
+<p>„A lineáris regresszió folytonos célváltozót becsül a bemenetek lineáris kombinációjaként. A súlyokat a legkisebb négyzetek módszere adja: minimalizáljuk a reziduumok négyzetösszegét (SSE), a deriváltakat nullává téve zárt képlet jön ki ($w_1=\operatorname{cov}/\operatorname{var}$, $w_0=\bar y-w_1\bar x$). A jóságot az $R^2$ méri. Az extrapoláció bizonytalan, a kiugrók és az egymással korreláló bemenetek torzítják a modellt.”</p>
+</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="osszefoglalas">
+<h2>Összefoglalás</h2>
+<ul>
+<li><strong>Regresszió</strong>: felügyelt tanulás folytonos célváltozóra. <strong>Interpoláció</strong> a megfigyelt tartományon belül, <strong>extrapoláció</strong> azon kívül – az utóbbi bizonytalan.</li>
+<li><strong>Pearson-korreláció táblázatban</strong>: $x, y, x^2, y^2, xy$ oszlopok összegeivel, $r=\frac{n\sum xy-\sum x\sum y}{\sqrt{n\sum x^2-(\sum x)^2}\sqrt{n\sum y^2-(\sum y)^2}}$. Monoton kapcsolatra <strong>Spearman</strong> (rangok), <strong>Kendall</strong> (egyező/ellentétes párok).</li>
+<li><strong>Modell</strong>: $\hat y=w_0+w_1x$; $w_1$ meredekség, $w_0$ tengelymetszet. Lineáris a paraméterekben.</li>
+<li><strong>Reziduum</strong> $e_i=y_i-\hat y_i$; <strong>költségfüggvény</strong> $J=\mathrm{SSE}=\sum e_i^2$ – a négyzet miatt a hibák nem oltják ki egymást, a nagy hiba többet nyom.</li>
+<li><strong>OLS</strong>: $\partial J/\partial w=0$ → $w_1=\operatorname{cov}(x,y)/s_x^2$, $w_0=\bar y-w_1\bar x$; az egyenes átmegy $(\bar x;\bar y)$-on.</li>
+<li><strong>$R^2=1-\mathrm{SSE}/\mathrm{SST}$</strong>; egy változónál $r^2$. Teszten negatív is lehet. Magas $R^2$ mellett is nézd meg a reziduumokat.</li>
+<li><strong>scikit-learn</strong>: <code>LinearRegression().fit(X, y)</code>, <code>predict</code>, <code>score</code> ($R^2$), <code>intercept_</code>, <code>coef_</code>; $X$ mindig 2D. <strong>Multikollinearitás</strong> esetén a súlyok instabilak → jellemzőkiválasztás (mRMR).</li>
+</ul>
+
+<h3>Döntési táblázat</h3>
+<div class="table-wrap"><table>
+<tr><th>Ha a feladatban ez áll…</th><th>…ezt használd</th></tr>
+<tr><td>„becsüld meg az árat / pontszámot / bevételt” (szám a cél)</td><td>regresszió (nem osztályozás)</td></tr>
+<tr><td>„a megfigyelt tartományon kívül”, jövőbeli érték</td><td>extrapoláció – jelezd a bizonytalanságot</td></tr>
+<tr><td>„számold ki a korrelációt” kézzel, nyers adatokkal</td><td>táblázat: $\sum x, \sum y, \sum x^2, \sum y^2, \sum xy$ → $r$ képlete</td></tr>
+<tr><td>sorrendek, rangok, monoton (de nem lineáris) kapcsolat</td><td>Spearman ($\rho$) vagy Kendall ($\tau$); <code>df.corr(method=...)</code></td></tr>
+<tr><td>„illessz egyenest”, „add meg a súlyokat”</td><td>$w_1=\operatorname{cov}/s_x^2$ (vagy oszlopösszegekből), $w_0=\bar y-w_1\bar x$</td></tr>
+<tr><td>„mennyire jó a modell?”</td><td>$R^2=1-\mathrm{SSE}/\mathrm{SST}$ (egy változónál $r^2$), RMSE a hiba mértékegységében</td></tr>
+<tr><td>„miért négyzetes a hiba?”</td><td>nincs kioltás, a nagy hiba nagyobb büntetést kap, deriválható → zárt képlet</td></tr>
+<tr><td>egy pont messze van a többitől</td><td>kiugró: erősen elhúzza az OLS-egyenest – vizsgáld illesztés előtt</td></tr>
+<tr><td>két bemenet erősen korrelál egymással</td><td>multikollinearitás → az egyiket hagyd el (mRMR: releváns, de nem redundáns)</td></tr>
+<tr><td>Pythonban illesztés</td><td><code>LinearRegression().fit(df[["x"]], df["y"])</code>, <code>.predict</code>, <code>.score</code></td></tr>
+</table></div>
+</section>
+
+<section id="kviz">
+<h2>Ellenőrző kvíz</h2>
+<p>Vegyes kérdések a teljes leckéből. Ha elakadsz, használd a tippet.</p>
+<div class="quiz" data-quiz="l16-vegso"></div>
+</section>
+
+<nav class="pager">
+  <a href="15-statisztikai-alapok.html">← 15. Statisztikai alapok</a>
+  <a href="02-kosarelemzes.html">2. Kosárelemzés →</a>
+</nav>
+</main>
+</body>
+</html>

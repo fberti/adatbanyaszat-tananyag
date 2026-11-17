@@ -48,7 +48,7 @@
 
 <section id="folyamat">
 <h2>1. A teljes adatbányászati folyamat</h2>
-<p>Mind a hat gyakorlat ugyanazt a láncot járta végig, csak más-más ponton mélyült el. Az előadásanyag (10–13. lecke) a lánc elejét adja: honnan jön és hogyan tárolódik az adat (adattárház, ETL, MD kocka), és hogyan kezeljük Pythonban.</p>
+<p>Mind a hat gyakorlat ugyanazt a láncot járta végig, csak más-más ponton mélyült el. Az előadásanyag (10–13. lecke) a lánc elejét adja: honnan jön és hogyan tárolódik az adat (adattárház, ETL, MD kocka), és hogyan kezeljük Pythonban. A 15. lecke a feltáró elemzés statisztikai hátterét (eloszlások, t-próba, konfidencia-intervallum), a 16. a számbecslés legegyszerűbb modelljét, a lineáris regressziót adja.</p>
 <figure>
 <svg viewBox="0 0 820 150" role="img" aria-label="Az adatbányászati folyamat lépései" font-family="Inter, system-ui, sans-serif" font-size="13">
   <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
@@ -60,9 +60,9 @@
   <g fill="currentColor" text-anchor="middle">
     <text x="62" y="56" font-weight="700">Adatgyűjtés</text><text x="62" y="74">10–13. lecke</text>
     <text x="202" y="56" font-weight="700">Tisztítás</text><text x="202" y="74">1. lecke</text>
-    <text x="342" y="56" font-weight="700">Feltáró elemzés</text><text x="342" y="74">1. lecke</text>
+    <text x="342" y="56" font-weight="700">Feltáró elemzés</text><text x="342" y="74">1., 15. lecke</text>
     <text x="482" y="56" font-weight="700">Előkészítés</text><text x="482" y="74">aggregálás, skálázás</text>
-    <text x="622" y="56" font-weight="700">Modellezés</text><text x="622" y="74">2–6., 14. lecke</text>
+    <text x="622" y="56" font-weight="700">Modellezés</text><text x="622" y="74">2–6., 14., 16. l.</text>
     <text x="760" y="56" font-weight="700">Értékelés</text><text x="760" y="74">mutatók, értelmezés</text>
   </g>
   <g stroke="currentColor" stroke-width="1.3" marker-end="url(#arr)">
@@ -86,6 +86,9 @@
 <tr><td>„hiányzó érték”, „duplikátum”, „eltérő írásmód”, „kiugró érték”</td><td>adattisztítás</td><td>drop_duplicates, egységesítés, to_numeric(errors='coerce'), pótlás/törlés, IQR-szabály</td><td>hibák száma előtte/utána</td><td><a href="01-adattisztitas.html">1</a></td></tr>
 <tr><td>„milyen az eloszlása?”, „mi a jellemző érték?”</td><td>egyváltozós elemzés</td><td>átlag, medián, módusz, szórás, kvartilisek; hisztogram, boxplot</td><td>–</td><td><a href="01-adattisztitas.html">1</a></td></tr>
 <tr><td>„van-e kapcsolat két változó között?”</td><td>kétváltozós elemzés</td><td>korreláció, csoportosított összehasonlítás; szórásdiagram</td><td>korrelációs együttható</td><td><a href="01-adattisztitas.html">1</a></td></tr>
+<tr><td>„eltér-e az átlag a … értéktől?”, „szignifikáns-e?”, „adj intervallumot a várható értékre”</td><td>statisztikai próba, becslés</td><td>egymintás t-próba, konfidencia-intervallum (Student-eloszlás); több csoport: F-próba / ANOVA; teljes eloszlás: Kolmogorov–Szmirnov</td><td>próbastatisztika, p-érték, szignifikanciaszint</td><td><a href="15-statisztikai-alapok.html">15</a></td></tr>
+<tr><td>„becsüljük meg a számértéket”, „mennyivel nő $y$, ha $x$ eggyel nő?”</td><td>regresszió (felügyelt)</td><td>lineáris regresszió, legkisebb négyzetek (<code>LinearRegression</code>)</td><td>SSE, $R^2$</td><td><a href="16-linearis-regresszio.html">16</a></td></tr>
+<tr><td>„sorold sávokba / kategóriákba a számokat”</td><td>diszkretizálás</td><td><code>pd.cut</code> (egyenlő szélesség), <code>pd.qcut</code> (egyenlő gyakoriság), <code>KBinsDiscretizer</code> (uniform / quantile / kmeans)</td><td>sávonkénti elemszám</td><td><a href="01-adattisztitas.html#lepes11">1</a></td></tr>
 <tr><td>„mit vesznek együtt?”, „kosár”, „ajánlás”</td><td>asszociációs szabályok</td><td>Apriori + szabálygenerálás</td><td>támogatottság, megbízhatóság, lift</td><td><a href="02-kosarelemzes.html">2</a></td></tr>
 <tr><td>„csoportosítsuk”, „szegmentáljuk”, nincs címke, <strong>k nagyjából adott</strong>, sok adat</td><td>klaszterezés</td><td>K-means (előtte standardizálás!)</td><td>inertia (könyök), silhouette</td><td><a href="03-kmeans.html">3</a></td></tr>
 <tr><td>„csoportosítsuk”, <strong>k nem ismert</strong>, látni akarjuk a hierarchiát, kevés adat</td><td>klaszterezés</td><td>HAC + dendrogram (Ward / single / complete / average)</td><td>legnagyobb ugrás a dendrogramon, silhouette</td><td><a href="04-hierarchikus-klaszterezes.html">4</a></td></tr>
@@ -104,7 +107,7 @@
 <div class="two-col">
 <div class="box def"><span class="box-title">Felügyelt tanulás</span>
 <p>A tanítóadatokban <strong>ismert a célváltozó</strong> ($y$). A modell az $X \to y$ hozzárendelést tanulja meg, és új adatokra megbecsüli $y$-t.</p>
-<p>Ide tartozik: döntési fa, MLP (osztályozás).</p></div>
+<p>Ide tartozik: döntési fa, MLP (osztályozás), lineáris regresszió (számbecslés).</p></div>
 <div class="box def"><span class="box-title">Felügyelet nélküli tanulás</span>
 <p><strong>Nincs célváltozó.</strong> A módszer a jellemzők hasonlósága alapján maga talál szerkezetet az adatokban.</p>
 <p>Ide tartozik: K-means, HAC (klaszterezés), és tágabb értelemben a kosárelemzés.</p></div>
@@ -120,6 +123,10 @@
 <tr><td>Megbízhatóság</td><td>$\mathrm{conf}(A\to B)=\dfrac{\mathrm{supp}(A\cup B)}{\mathrm{supp}(A)}$</td><td>az $A$-t tartalmazó kosarak hányadában van $B$ is; <strong>irányfüggő</strong></td></tr>
 <tr><td>Lift</td><td>$\mathrm{lift}(A\to B)=\dfrac{\mathrm{conf}(A\to B)}{\mathrm{supp}(B)}=\dfrac{\mathrm{supp}(A\cup B)}{\mathrm{supp}(A)\,\mathrm{supp}(B)}$</td><td>&gt;1: gyakrabban együtt, mint függetlenül; =1: független; &lt;1: ritkábban; <strong>szimmetrikus</strong></td></tr>
 <tr><td>Standardizálás</td><td>$z_i=\dfrac{x_i-\mu}{\sigma}$</td><td>hány szórással tér el az átlagtól; nem teszi normálissá az eloszlást</td></tr>
+<tr><td>Egymintás t-próba</td><td>$t=\dfrac{\bar x-\mu_0}{s/\sqrt n}$, szabadságfok $n-1$</td><td>hány standard hibányira van a mintaátlag a feltételezett $\mu_0$-tól</td></tr>
+<tr><td>Konfidencia-intervallum</td><td>$\bar x \pm t_{\alpha/2,\,n-1}\,\dfrac{s}{\sqrt n}$</td><td>pl. 98%-os szinten a várható értékre</td></tr>
+<tr><td>Pearson-korreláció</td><td>$r=\dfrac{\sum(x_i-\bar x)(y_i-\bar y)}{\sqrt{\sum(x_i-\bar x)^2}\sqrt{\sum(y_i-\bar y)^2}}$</td><td>$-1\ldots1$; csak a lineáris kapcsolatot méri</td></tr>
+<tr><td>Lineáris regresszió (OLS)</td><td>$w_1=\dfrac{\operatorname{cov}(x,y)}{s_x^2}$, $\ w_0=\bar y-w_1\bar x$; $\ R^2=1-\dfrac{SSE}{SST}$</td><td>a négyzetes hibaösszeget minimalizálja; egy változónál $R^2=r^2$</td></tr>
 <tr><td>Euklideszi távolság</td><td>$d(x,y)=\sqrt{\sum_j (x_j-y_j)^2}$</td><td>a K-means és a HAC alapja</td></tr>
 <tr><td>Inertia</td><td>$\sum_{k}\sum_{x\in C_k}\lVert x-\mu_k\rVert^2$</td><td>klaszteren belüli négyzetösszeg; $k$ növelésével mindig csökken → könyök</td></tr>
 <tr><td>Silhouette</td><td>$s=\dfrac{b-a}{\max(a,b)}$</td><td>$a$: átlagos távolság a saját klaszterben, $b$: a legközelebbi másik klaszterben; $-1\ldots1$, nagyobb a jobb</td></tr>
@@ -143,6 +150,8 @@
 <div class="box warn"><span class="box-title">⚠ Alultanulás vs. túltanulás</span><p>Alultanulásnál a tanító- és a teszteredmény is gyenge. Túltanulásnál a tanítóeredmény kiváló, a teszteredmény viszont romlik: a modell „bemagolta” a tanítóadatokat.</p></div>
 <div class="box warn"><span class="box-title">⚠ K-means vs. HAC</span><p>A K-means-nek előre meg kell adni $k$-t, és az eredménye függ a kezdőpontoktól. A HAC determinisztikus, a dendrogramból választható $k$, de a korábbi összevonásokat nem bontja vissza, és nagy adaton lassú.</p></div>
 <div class="box warn"><span class="box-title">⚠ Pontosság kiegyensúlyozatlan osztályoknál</span><p>Ha az esetek 72%-a „sikeres”, a mindig „sikeres”-t mondó alapmodell is 72%-os pontosságú. Ezért kell mindig összevetni az alapmodellel, és nézni a precizitást, az érzékenységet és a balanced accuracy-t is.</p></div>
+<div class="box warn"><span class="box-title">⚠ Korreláció vs. regresszió</span><p>A <strong>korreláció</strong> szimmetrikus, egyetlen szám a lineáris kapcsolat erősségére. A <strong>regresszió</strong> irányított: $x$-ből becsüli $y$-t, és megmondja, mennyivel változik $y$. Egyik sem bizonyít ok-okozatot.</p></div>
+<div class="box warn"><span class="box-title">⚠ „Nem vetjük el” vs. „igaz”</span><p>Ha a t-próba p-értéke nagyobb a szignifikanciaszintnél, csak annyit mondhatunk, hogy az adat <strong>nem mond ellent</strong> a nullhipotézisnek. Ez nem bizonyítja, hogy a nullhipotézis igaz.</p></div>
 <div class="box warn"><span class="box-title">⚠ RANK vs. DENSE_RANK</span><p>Holtverseny után a <code>RANK()</code> kihagy sorszámot (1, 2, 2, 4), a <code>DENSE_RANK()</code> nem (1, 2, 2, 3). A <code>ROW_NUMBER()</code> mindig egyedi sorszámot ad.</p></div>
 </div>
 <div class="box warn"><span class="box-title">⚠ Adatszivárgás – két alakja</span>

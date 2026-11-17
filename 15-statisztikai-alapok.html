@@ -1,0 +1,879 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Statisztikai alapok</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script defer src="assets/quiz.js"></script>
+<script defer src="quiz/15.js"></script>          <!-- a lecke kvízei -->
+<script defer src="assets/common.js"></script>    <!-- MINDIG az utolsó -->
+</head>
+<body>
+<nav class="topnav"><div class="inner">
+  <a href="index.html">← Tartalom</a>
+  <span>15. lecke · Statisztikai alapok</span>
+  <span class="spacer"></span>
+  <button id="theme-toggle" type="button" title="Világos/sötét téma">◐</button>
+</div></nav>
+<main>
+<p class="kicker">15. lecke · előadás (GTK_03)</p>
+<h1>Statisztikai alapok: eloszlások, t-próba, konfidencia-intervallum</h1>
+<p class="lead">Az <a href="01-adattisztitas.html">1. leckében</a> leírtuk az adatot (átlag, szórás, IQR, hisztogram). Most egy lépéssel tovább megyünk: a mintából a teljes populációra következtetünk. Megnézzük, mennyire bízhatunk egy átlagban, és hogyan dönthetjük el, hogy egy eltérés valódi-e vagy csak a véletlen műve.</p>
+
+<section id="motivacio">
+<h2>Motiváció</h2>
+<p>Az <a href="05-dontesi-fa.html">5. gyakorlat</a> 114 hallgatója közül 81 sikeresen vizsgázott (<code>passed = yes</code>), 33 nem. A sikeresek átlagosan <strong>11,96</strong> órát tanultak hetente, a sikertelenek <strong>9,69</strong> órát.</p>
+<div class="box tip"><span class="box-title">🎯 A lecke kérdése</span>
+<p>Ez a 2,3 órás különbség „igazi”, vagy egy másik 114 fős csoportban akár el is tűnhetne? Másképp: ha a tanulási időnek valójában semmi köze a sikerhez, mennyire valószínű, hogy pusztán a véletlen ekkora különbséget produkál?</p>
+</div>
+<p>A választ az <a href="#alkalmazas">Alkalmazás</a> részben adjuk meg, kétmintás t-próbával. Odáig sorban felépítjük az eszközöket: minta és populáció, eloszlások, a centrális határeloszlás-tétel, a hipotézisvizsgálat logikája, az egymintás t-próba és a konfidencia-intervallum.</p>
+</section>
+
+<section id="utiterv">
+<h2>Útiterv</h2>
+<ol class="roadmap">
+  <li><a href="#lepes1">1. lépés – Populáció, minta, valószínűségi változó</a></li>
+  <li><a href="#lepes2">2. lépés – Hisztogram: tárolók és buktatóik</a></li>
+  <li><a href="#lepes3">3. lépés – Eloszlásfüggvény (CDF) és sűrűségfüggvény</a></li>
+  <li><a href="#lepes4">4. lépés – Binomiális eloszlás</a></li>
+  <li><a href="#lepes5">5. lépés – Normális eloszlás és standardizálás</a></li>
+  <li><a href="#lepes6">6. lépés – Centrális határeloszlás-tétel</a></li>
+  <li><a href="#lepes7">7. lépés – A hipotézisvizsgálat logikája</a></li>
+  <li><a href="#lepes8">8. lépés – Egymintás t-próba</a></li>
+  <li><a href="#lepes9">9. lépés – Konfidencia-intervallum</a></li>
+  <li><a href="#lepes10">10. lépés – F-próba és varianciaelemzés (ANOVA)</a></li>
+  <li><a href="#lepes11">11. lépés – Nem paraméteres próba: Kolmogorov–Szmirnov</a></li>
+  <li><a href="#lepes12">12. lépés – Kovariancia és korreláció: a dia feladatai</a></li>
+  <li><a href="#alkalmazas">Alkalmazás – Tanulási idő és vizsgasiker: kétmintás t-próba</a></li>
+  <li><a href="#osszefoglalas">Összefoglalás, döntési táblázat, ZH-mintaválasz</a></li>
+  <li><a href="#kviz">Ellenőrző kvíz</a></li>
+</ol>
+<p>Előismeret: átlag, medián, szórás (<a href="01-adattisztitas.html#lepes6">1. lecke, 6. lépés</a>), kvartilisek és IQR (<a href="01-adattisztitas.html#lepes7">7. lépés</a>), az eloszlás alakja és ferdesége (<a href="01-adattisztitas.html#lepes10">10. lépés</a>), z-pontszám (<a href="03-kmeans.html#lepes4">3. lecke, 4. lépés</a>).</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes1">
+<h2>1. lépés – Populáció, minta, valószínűségi változó</h2>
+<p>A boltnak egy év alatt több százezer kosara van. Mi a gyakorlaton ebből 1151-et láttunk. Amit kiszámoltunk (pl. az átlagos kosárértéket), az erre az 1151 kosárra igaz. De a vezetőt az <em>összes</em> kosár érdekli.</p>
+
+<h4>Kis eset</h4>
+<p>Egy dobozban 5 cédula van, rajtuk 2, 4, 6, 8, 10. A cédulák átlaga 6. Ha csak kettőt húzunk ki, az átlaguk lehet 3 (2 és 4), 9 (8 és 10), vagy épp 6 (4 és 8). <strong>A minta átlaga mintáról mintára ingadozik</strong>, a doboz átlaga viszont egyetlen rögzített szám. A statisztika arról szól, hogyan következtessünk az ingadozó mintaátlagból a rögzített, de ismeretlen „dobozátlagra”.</p>
+
+<div class="box def"><span class="box-title">Definíció – Alapfogalmak (az előadás szerint)</span>
+<ul>
+<li><strong>Populáció</strong> (alapsokaság): az összes számunkra érdekes esemény, kísérlet, egyed halmaza (a bolt összes kosara).</li>
+<li><strong>Mintavételi egység</strong>: egy kimenetel (érték), amely a populáció egy elemére vonatkozik (egy kosár értéke).</li>
+<li><strong>Minta</strong>: a populáció egy részhalmaza, $n$ elemszámmal (a 1151 kosár).</li>
+<li><strong>Mintavételezés</strong>: a minta kiválasztásának módszere (egyszerű véletlen, rétegzett – lásd <a href="01-adattisztitas.html#lepes11">1. lecke, 11. lépés</a>).</li>
+<li><strong>Valószínűségi változó</strong> ($X$): absztrakt numerikus változó, amely a véletlen kimenetelt számmal írja le („egy véletlenül kiválasztott kosár értéke”).</li>
+<li><strong>Átlag</strong> (középérték): $\bar x=\frac{1}{n}\sum x_i$. <strong>Medián</strong>: az elemek fele ez alatt van.</li>
+<li><strong>Variancia</strong>: az átlagtól vett eltérések átlagos négyzete, $s^2=\frac{1}{n-1}\sum(x_i-\bar x)^2$. <strong>Szórás</strong>: a variancia négyzetgyöke, $s=\sqrt{s^2}$.</li>
+</ul>
+<p><strong>Miért kell megkülönböztetni?</strong> A populáció jellemzőit görög betűvel jelöljük ($\mu$ várható érték, $\sigma$ szórás): ezek ismeretlenek. A mintából számolt $\bar x$ és $s$ ezek <em>becslései</em>. Minden következő lépés azt kérdezi: mennyire jó ez a becslés?</p>
+</div>
+
+<div class="box tip"><span class="box-title">🔤 Jelölés és terminológia</span>
+<p>population = populáció, alapsokaság · sample = minta · sampling = mintavétel · random variable = valószínűségi változó · mean / expected value = átlag / várható érték ($\mu$) · variance = variancia ($\sigma^2$, mintából $s^2$) · standard deviation = szórás ($\sigma$, mintából $s$). Az $n-1$-es osztó a <strong>korrigált</strong> (mintabeli) variancia; a pandas <code>std()</code> alapból ezt számolja, a NumPy <code>np.std()</code> nem (ott <code>ddof=1</code> kell).</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – Minta leíró statisztikái</span>
+<p>Nyolc kosár darabszáma: 2, 4, 4, 4, 5, 5, 7, 9. Mennyi az átlag, a medián, a korrigált variancia és a szórás?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Átlag: $40/8=5$. Medián: a 4. és 5. elem átlaga, $(4+5)/2=4{,}5$. Eltérésnégyzetek: $9,1,1,1,0,0,4,16$, összegük $32$. $s^2=32/7\approx4{,}571$, $s\approx2{,}138$. (Ha $n$-nel osztanánk: $32/8=4$, szórás $2$. Ez a populációs képlet; mintánál kisebb, „túl optimista” szórást adna.)</p></details>
+</div>
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Mi a populáció, mi a minta?</span>
+<p>Egy webáruház 2026 októberében 40 000 rendelést kapott. Ebből 500-at véletlenszerűen kiválasztanak, és megnézik, hány napig tartott a kiszállítás.</p>
+<details class="solution"><summary>Megoldás</summary><p>Populáció: az októberi 40 000 rendelés (vagy tágabban: a webáruház összes rendelése). Minta: az 500 kiválasztott rendelés, $n=500$. Mintavételi egység: egy rendelés kiszállítási ideje. Valószínűségi változó: $X$ = egy véletlenül választott rendelés kiszállítási ideje napokban. A mintaátlag $\bar x$ a populációs $\mu$ becslése.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+<li>A minta csak akkor mond valamit a populációról, ha <strong>reprezentatív</strong>. Ha csak a hétvégi rendeléseket nézed, az eredmény a hétvégéről szól, nem az egész hónapról.</li>
+<li>A mintaátlag sosem „pontosan” a populáció átlaga. A kérdés mindig az, <em>mekkora</em> az eltérés (ezt a <a href="#lepes9">9. lépés</a> számszerűsíti).</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Alapfogalmak (5 feladat)</summary>
+<ol>
+  <li><p>A gyakorlat 1151 kosaráról: populáció vagy minta? Mi lenne a populáció?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Minta. A populáció a bolt összes (múltbeli és jövőbeli) kosara, amelyről a vezető döntést akar hozni. Ha csak erről a 1151 kosárról akarnánk beszélni, az lenne a teljes populáció. Akkor viszont nem kellene következtetni, csak leírni.</p></details></li>
+  <li><p>Számold ki a 3, 5, 7 minta átlagát és korrigált szórását.</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\bar x=5$; eltérésnégyzetek $4,0,4$, összeg $8$; $s^2=8/2=4$, $s=2$.</p></details></li>
+  <li><p>Egy kosár értéke folytonos vagy diszkrét valószínűségi változó? És a kosárban lévő tételek száma?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A kosárérték (forint) gyakorlatilag folytonosnak tekinthető, mert nagyon sokféle értéket vehet fel. A tételek száma diszkrét: 1, 2, 3, … (lásd a változótípusokat: <a href="01-adattisztitas.html#lepes2">1. lecke, 2. lépés</a>).</p></details></li>
+  <li><p>Két hallgató ugyanabból a populációból 30 elemű mintát vesz, és más átlagot kap. Hibáztak?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Nem. A mintaátlag maga is valószínűségi változó: mintáról mintára ingadozik. Ez a <strong>mintavételi ingadozás</strong>. Hogy mennyire, azt a <a href="#lepes6">6. lépés</a> mondja meg ($\sigma/\sqrt n$).</p></details></li>
+  <li><p>Miért nem jó a 2, 4, 4, 4, 5, 5, 7, 9 mintára az $n$-es osztó, ha a populáció szórását akarjuk becsülni?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Az eltéréseket a <em>mintaátlagtól</em> mérjük, amely „a mintához igazodik”. Ezért az eltérések átlagosan kisebbek, mint a valódi $\mu$-től mért eltérések. Az $n$-es osztó így szisztematikusan alulbecsül (itt $2$ a $2{,}138$ helyett). Az $n-1$ ezt korrigálja.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes2">
+<h2>2. lépés – Hisztogram: tárolók és buktatóik</h2>
+<p>Az átlag és a szórás két számba sűríti az adatot. Az eloszlás <em>alakját</em> (egycsúcsú-e, ferde-e, van-e kiugró) viszont ábrán látjuk a legjobban. A legegyszerűbb ábra a hisztogram.</p>
+
+<h4>Kis eset – a dia feladata</h4>
+<p>Készíts hisztogramot ehhez a 22 elemű mintához: <code>[2, 4, 1, 17, 15, 8, 3, 6, 5, 9, 12, 8, 13, 15, 9, 3, 5, 4, 2, 5, 9, 13]</code>.</p>
+<p>Először rendezzük: 1, 2, 2, 3, 3, 4, 4, 5, 5, 5, 6, 8, 8, 9, 9, 9, 12, 13, 13, 15, 15, 17. A legkisebb 1, a legnagyobb 17. Osszuk az értéktartományt 5 széles tárolókra: $[0,5)$, $[5,10)$, $[10,15)$, $[15,20)$, és számoljuk meg, hány elem esik mindegyikbe:</p>
+<div class="table-wrap"><table>
+<tr><th>tároló</th><th>elemek</th><th class="num">darab</th><th>oszlop</th></tr>
+<tr><td>$[0,5)$</td><td>1, 2, 2, 3, 3, 4, 4</td><td class="num">7</td><td><code>███████</code></td></tr>
+<tr><td>$[5,10)$</td><td>5, 5, 5, 6, 8, 8, 9, 9, 9</td><td class="num">9</td><td><code>█████████</code></td></tr>
+<tr><td>$[10,15)$</td><td>12, 13, 13</td><td class="num">3</td><td><code>███</code></td></tr>
+<tr><td>$[15,20)$</td><td>15, 15, 17</td><td class="num">3</td><td><code>███</code></td></tr>
+</table></div>
+<p>Az ábra jobbra ferde eloszlást mutat: a legtöbb érték 10 alatt van, néhány nagy érték „húzza” a jobb szélt. Ezt erősíti, hogy az átlag ($7{,}64$) nagyobb a mediánnál ($7$), ahogy az <a href="01-adattisztitas.html#lepes10">1. lecke 10. lépésében</a> láttuk.</p>
+
+<div class="box def"><span class="box-title">Definíció – Hisztogram</span>
+<ol>
+<li>Az értéktartományt <strong>tárolókra</strong> (<em>bin</em>, rekesz) osztjuk.</li>
+<li>Megszámoljuk, hány mintaelem esik az egyes tárolókba.</li>
+<li>A darabszámokat oszlopként ábrázoljuk.</li>
+</ol>
+<p>Két szokásos felosztás:</p>
+<ul>
+<li><strong>egyenlő hosszúság</strong>: minden tároló ugyanolyan széles, $\text{szélesség}=(\max-\min)/k$;</li>
+<li><strong>egyenlő terhelés</strong>: minden tárolóba nagyjából ugyanannyi elem jut (a határok a kvantilisek).</li>
+</ul>
+<p><strong>Előnye:</strong> könnyen elkészíthető és könnyen érthető. <strong>Nehézsége:</strong> nehéz megtalálni a jó felosztást.</p>
+</div>
+
+<div class="two-col">
+  <div class="box example"><span class="box-title">Egyenlő hosszúság, $k=4$</span>
+  <p>$\min=1$, $\max=17$, szélesség $(17-1)/4=4$. Tárolók: $[1,5)$, $[5,9)$, $[9,13)$, $[13,17]$.</p>
+  <p>Darabszámok: <strong>7 · 6 · 4 · 5</strong>.</p></div>
+  <div class="box example"><span class="box-title">Egyenlő terhelés, $k=4$</span>
+  <p>Ideálisan $22/4=5{,}5$ elem tárolónként. A <code>pd.qcut(s, 4)</code> határai: 4; 7; 11,25.</p>
+  <p>Darabszámok: <strong>7 · 4 · 5 · 6</strong>. Az ismétlődő értékek (pl. a négy 4-es és 5-ös körül) miatt nem pontosan egyformák.</p></div>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktatók (az előadás négy pontja)</span>
+<ul>
+<li><strong>Egyenlő hosszúság</strong> ferde adatnál: a ritka nagy értékek tárolói szinte üresek, a sűrű részen minden egy oszlopba zsúfolódik.</li>
+<li><strong>Egyenlő terhelés</strong>: az oszlopok egyforma magasak, ezért a hisztogram „lapos”. Az alakot itt a tárolók <em>szélessége</em> hordozza, nem a magassága.</li>
+<li><strong>Durva granularitás</strong>: kevés tárolónál eltűnnek a részletek (két tárolóval csak annyit látunk, hogy „több a kicsi”). Túl sok tárolónál viszont minden oszlop 0 vagy 1, és csak zajt látunk.</li>
+<li><strong>Mintafüggőség</strong>: a tárolóhatárok a mintából jönnek ($\min$, $\max$, kvantilisek). Egy másik minta más határokat, és így más képet adhat.</li>
+</ul>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Kapcsolat a diszkretizálással</span>
+<p>Ugyanez a két felosztás a numerikus változók <strong>diszkretizálásánál</strong> is előkerül (<code>pd.cut</code> = egyenlő szélesség, <code>pd.qcut</code> = egyenlő gyakoriság). Valódi adaton lásd az <a href="01-adattisztitas.html#lepes11">1. lecke 11. lépését</a>.</p>
+</div>
+
+<pre><code class="language-python">import matplotlib.pyplot as plt
+import pandas as pd
+d = [2, 4, 1, 17, 15, 8, 3, 6, 5, 9, 12, 8, 13, 15, 9, 3, 5, 4, 2, 5, 9, 13]
+plt.hist(d, bins=[0, 5, 10, 15, 20], edgecolor="black")     # egyenlő hosszúság
+print(pd.qcut(pd.Series(d), 4).value_counts().sort_index())  # egyenlő terhelés
+plt.show()</code></pre>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Hisztogram (5 feladat)</summary>
+<ol>
+  <li><p>Készíts hisztogramot a dia mintájához a $[0,6)$, $[6,12)$, $[12,18)$ tárolókkal.</p>
+    <details class="solution"><summary>Megoldás</summary><p>$[0,6)$: 1, 2, 2, 3, 3, 4, 4, 5, 5, 5 → 10; $[6,12)$: 6, 8, 8, 9, 9, 9 → 6; $[12,18)$: 12, 13, 13, 15, 15, 17 → 6. Összesen 22.</p></details></li>
+  <li><p>Egyenlő hosszúságú felosztásnál mekkora a tárolók szélessége, ha $\min=800$, $\max=22\,800$ és $k=4$?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$(22\,800-800)/4=5500$. Határok: 800; 6300; 11 800; 17 300; 22 800.</p></details></li>
+  <li><p>Egyenlő terhelésű felosztásnál 22 elemet 4 tárolóba osztunk. Miért nem lehet mindegyikben pontosan $5{,}5$, és miért jött ki 7 · 4 · 5 · 6?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Fél elem nincs, és az azonos értékeket nem lehet szétválasztani. A 4-es mindkét példánya ugyanabba a tárolóba kerül, ezért az első tárolóba 7 elem jut ($\le4$), a másodikba csak 4 (5, 5, 5, 6).</p></details></li>
+  <li><p>A tételértékek (<code>line_total</code>) erősen jobbra ferdék. Melyik felosztás ad informatívabb hisztogramot, és miért?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Ábrázolásra általában az egyenlő hosszúságú (esetleg logaritmikus tengellyel), mert a magasságok mutatják az alakot. Az egyenlő terhelésű felosztás minden oszlopot egyformára állít, ezért a ferdeség csak a szélességekben látszik. Sávokba soroláshoz (diszkretizáláshoz) viszont ferde adatnál az egyenlő gyakoriságú a jobb, mert nem maradnak üres sávok.</p></details></li>
+  <li><p>Mi a gond, ha a 22 elemű mintához 22 tárolót választunk?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Túl finom a felosztás: a legtöbb tárolóban 0 vagy 1 elem lesz, az ábra csak a véletlen „fogazottságot” mutatja, az eloszlás alakját nem. Hüvelykujjszabály kis mintára: kb. $\sqrt n$ tároló ($\sqrt{22}\approx5$).</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes3">
+<h2>3. lépés – Eloszlásfüggvény (CDF) és sűrűségfüggvény</h2>
+<p>A hisztogram a tárolóválasztástól függ. Van-e olyan ábrázolás, amelyhez nem kell tárolót választani? Igen: ha minden $x$-re megszámoljuk, hány elem van <em>legfeljebb</em> $x$.</p>
+
+<h4>Kis eset</h4>
+<p>A dia 22 elemű mintájában hány elem $\le 5$? A rendezett listából: 1, 2, 2, 3, 3, 4, 4, 5, 5, 5, vagyis 10 darab. Az arányuk $10/22\approx0{,}455$. Ugyanígy:</p>
+<div class="table-wrap"><table>
+<tr><th>$x$</th><th class="num">3</th><th class="num">5</th><th class="num">7</th><th class="num">9</th><th class="num">13</th><th class="num">17</th></tr>
+<tr><td>hány elem $\le x$</td><td class="num">5</td><td class="num">10</td><td class="num">11</td><td class="num">16</td><td class="num">19</td><td class="num">22</td></tr>
+<tr><td>$F(x)$</td><td class="num">0,227</td><td class="num">0,455</td><td class="num">0,500</td><td class="num">0,727</td><td class="num">0,864</td><td class="num">1</td></tr>
+</table></div>
+<p>A függvény lépcsőzetesen nő 0-tól 1-ig. Ahol $F(x)=0{,}5$, ott van a <strong>medián</strong> (itt 7). Ahol $0{,}25$ és $0{,}75$, ott a kvartilisek.</p>
+
+<div class="box def"><span class="box-title">Definíció – Eloszlásfüggvény és sűrűségfüggvény</span>
+<p><strong>Eloszlásfüggvény</strong> (CDF, kumulatív eloszlás): $$F(x)=P(X\le x),$$ annak a valószínűsége, hogy a változó legfeljebb $x$. Tulajdonságai:</p>
+<ul><li>monoton növekvő;</li><li>$F(-\infty)=0$, $F(+\infty)=1$.</li></ul>
+<p><strong>Sűrűségfüggvény</strong> (az előadás jelölésével DDF; angolul PDF / PMF):</p>
+<ul>
+<li>diszkrét értékkészletnél: $f(x)=P(X=x)$, az egyes értékek valószínűsége;</li>
+<li>folytonos értékkészletnél: $f(x)=\dfrac{dF}{dx}$, az eloszlásfüggvény meredeksége. Itt egy konkrét érték valószínűsége 0, csak intervallumé értelmes: $P(a&lt;X\le b)=F(b)-F(a)$.</li>
+</ul>
+<p><strong>Miért hasznos?</strong> Bármely intervallum valószínűsége két kivonással megkapható, és nem kell tárolót választani. A mintából számolt lépcsős $F$ az <strong>empirikus eloszlásfüggvény</strong>; a <a href="#lepes11">11. lépés</a> Kolmogorov–Szmirnov próbája két ilyet hasonlít össze.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa – Intervallum valószínűsége a CDF-ből</span>
+<p>A dia mintájában mekkora az $5&lt;X\le 9$ értékek aránya?</p>
+<details class="solution"><summary>Megoldás</summary><p>$F(9)-F(5)=16/22-10/22=6/22\approx0{,}273$. Ellenőrzés: 6, 8, 8, 9, 9, 9, valóban 6 elem.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<p>A „$\le$” és a „$&lt;$” diszkrét adatnál nem ugyanaz: $P(X\le5)=10/22$, de $P(X&lt;5)=7/22$, mert az 5-ös háromszor szerepel. Folytonos változónál a különbség elhanyagolható.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – CDF és sűrűség (5 feladat)</summary>
+<ol>
+  <li><p>Mennyi $F(9)$ a dia mintájában?</p>
+    <details class="solution"><summary>Megoldás</summary><p>16 elem $\le 9$, így $F(9)=16/22\approx0{,}727$.</p></details></li>
+  <li><p>Mekkora a $13$-nál nagyobb értékek aránya?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$1-F(13)=1-19/22=3/22\approx0{,}136$ (15, 15, 17).</p></details></li>
+  <li><p>Mennyi a diszkrét sűrűség, $f(9)=P(X=9)$?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A 9 háromszor szerepel: $3/22\approx0{,}136$. Ez épp az $F$ ugrása a 9-nél: $F(9)-F(8{,}99)=16/22-13/22$.</p></details></li>
+  <li><p>Lehet-e egy eloszlásfüggvényre $F(2)=0{,}3$ és $F(3)=0{,}2$?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Nem. Az $F$ monoton növekvő: ami $\le2$, az $\le3$ is, ezért $F(3)\ge F(2)$.</p></details></li>
+  <li><p>Hol olvasható le a CDF-ről a felső kvartilis?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Ott, ahol $F(x)$ eléri a $0{,}75$-öt. A dia mintájában $F(9)=0{,}727$ és $F(12)=17/22\approx0{,}773$, így a felső kvartilis 9 és 12 közé esik. A <code>np.quantile</code> interpolációval 11,25-öt ad, ez a <code>qcut</code> egyik határa a <a href="#lepes2">2. lépésben</a>.</p></details></li>
+</ol>
+</details>
+
+<h4>Mini-kvíz</h4>
+<div class="quiz" data-quiz="l15-lepes3"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes4">
+<h2>4. lépés – Binomiális eloszlás</h2>
+<p>Eddig a mintából számoltunk eloszlást. Sok valós jelenséget azonban egy szabályos, képlettel leírható eloszlás jól közelít. Az első ilyen a „siker vagy kudarc” típusú kísérletek eloszlása.</p>
+
+<h4>Kis eset</h4>
+<p>Feldobunk egy érmét háromszor. Hányféleképpen jöhet ki pontosan egy fej? FII, IFI, IIF: 3 módon, a 8 egyformán valószínű kimenetelből. Így $P(1\text{ fej})=3/8=0{,}375$. A 3 a „3-ból 1” kiválasztások száma: $\binom31=3$.</p>
+
+<div class="box def"><span class="box-title">Definíció – Binomiális eloszlás</span>
+<ul>
+<li>bináris kimenet: 1 (siker) vagy 0 (kudarc);</li>
+<li>$P(1)=p$, $P(0)=q=1-p$;</li>
+<li>$n$ független kísérlet esetén annak valószínűsége, hogy pontosan $k$ sikeres:</li>
+</ul>
+<p>$$P(X=k)=\binom{n}{k}\,p^{k}\,q^{\,n-k},\qquad \binom nk=\frac{n!}{k!\,(n-k)!}\ \text{(binomiális együttható)}$$</p>
+<p>Várható érték: $E(X)=np$, variancia: $D^2(X)=npq$.</p>
+<p><strong>Miért ez a képlet?</strong> Egy adott sorrend (pl. $k$ siker elöl) valószínűsége $p^kq^{n-k}$. Ilyen sorrendből $\binom nk$ darab van, és ezek kizárják egymást, ezért összeadódnak.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa – Vásárló látogatók</span>
+<p>Egy webshop látogatóinak 20%-a vásárol ($p=0{,}2$). 10 független látogatóból mennyi a valószínűsége, hogy pontosan 2 vásárol? És hogy legalább egy?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>$P(X=2)=\binom{10}{2}0{,}2^2\,0{,}8^8=45\cdot0{,}04\cdot0{,}1678\approx0{,}302$.</p>
+<p>Legalább egy: az ellentett esemény „senki sem vásárol”, $P(X=0)=0{,}8^{10}\approx0{,}107$. Így $P(X\ge1)=1-0{,}107=0{,}893$. Várhatóan $np=2$ vásárló lesz, szórás $\sqrt{npq}=\sqrt{1{,}6}\approx1{,}26$.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktató</span>
+<ul>
+<li>Elfelejtett $\binom nk$: a $0{,}2^2\cdot0{,}8^8\approx0{,}0067$ csak <em>egy</em> konkrét sorrend valószínűsége.</li>
+<li>Binomiális csak akkor, ha $n$ rögzített, a kísérletek függetlenek és $p$ állandó. „Hány látogató kell az első vásárlásig?” nem binomiális, mert ott nincs rögzített $n$.</li>
+</ul>
+</div>
+
+<pre><code class="language-python">from scipy import stats
+stats.binom.pmf(2, n=10, p=0.2)    # 0.302  – P(X = 2)
+1 - stats.binom.pmf(0, 10, 0.2)    # 0.893  – P(X >= 1)
+stats.binom.cdf(2, 10, 0.2)        # P(X <= 2), az eloszlásfüggvény</code></pre>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Binomiális eloszlás (5 feladat)</summary>
+<ol>
+  <li><p>Négy érmedobásból mennyi a valószínűsége pontosan 2 fejnek?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\binom42\cdot0{,}5^4=6/16=0{,}375$.</p></details></li>
+  <li><p>$n=10$, $p=0{,}3$. Mennyi $P(X=3)$?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\binom{10}{3}0{,}3^3\,0{,}7^7=120\cdot0{,}027\cdot0{,}0824\approx0{,}267$.</p></details></li>
+  <li><p>Egy termék 10%-a hibás. 5 darabból mennyi a valószínűsége, hogy egyik sem hibás, illetve hogy legalább egy hibás?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$0{,}9^5\approx0{,}590$; legalább egy: $1-0{,}590=0{,}410$.</p></details></li>
+  <li><p>Mennyi a várható érték és a szórás $n=10$, $p=0{,}2$ esetén?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$E=np=2$, $D^2=npq=1{,}6$, $D\approx1{,}26$.</p></details></li>
+  <li><p>Binomiális-e: (a) 20 kosárból hányban van kenyér; (b) a következő kosár értéke forintban?</p>
+    <details class="solution"><summary>Megoldás</summary><p>(a) Igen, ha a kosarak függetlenek és a „van kenyér” valószínűsége mindegyiknél ugyanaz: $n=20$, siker = van kenyér. (A kosárelemzés támogatottsága pont ennek a $p$-nek a becslése, lásd a <a href="02-kosarelemzes.html">2. leckét</a>.) (b) Nem: ez nem sikerek száma, hanem folytonos mennyiség.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes5">
+<h2>5. lépés – Normális eloszlás és standardizálás</h2>
+<p>A binomiális eloszlás diszkrét. Sok mért mennyiség (testmagasság, mérési hiba, töltőtömeg) viszont folytonos, és harang alakú hisztogramot ad. Ezt írja le a normális eloszlás.</p>
+
+<h4>Kis eset</h4>
+<p>Egy kávétöltő gép átlagosan 250 g-ot tölt, és a töltések szórása 2 g. Ha a töltés sok apró, független hatás (szemcseméret, rezgés, időzítés) összege, akkor a legtöbb csomag 248 és 252 g között lesz, 244 g alatti vagy 256 g feletti csomag pedig szinte soha. Ez a „harang”: középen sűrű, a szélek felé gyorsan ritkul.</p>
+
+<div class="box def"><span class="box-title">Definíció – Normális eloszlás $N(\mu,\sigma)$</span>
+<ul>
+<li>folytonos eloszlás (folytonos értéktartomány);</li>
+<li>sok független komponens összesített hatását írja le;</li>
+<li>két paraméter: $\mu$ (átlag) és $\sigma$ (szórás).</li>
+</ul>
+<p>Sűrűségfüggvénye: $$f(x)=\frac{1}{\sigma\sqrt{2\pi}}\,e^{-\frac{(x-\mu)^2}{2\sigma^2}}$$</p>
+<p><strong>Standard normális eloszlás:</strong> $\mu=0$, $\sigma=1$, jele $N(0,1)$.</p>
+<p><strong>Standardizálás:</strong> ha $X\in N(\mu,\sigma)$, akkor $$Z=\frac{X-\mu}{\sigma}\in N(0,1).$$ Ez ugyanaz a z-pontszám, amellyel a <a href="03-kmeans.html#lepes4">3. leckében</a> a változókat közös skálára hoztuk.</p>
+<p><strong>Szokásos elfogadási tartomány:</strong> $(\mu-3\sigma,\ \mu+3\sigma)$. Ebbe esik az értékek 99,7%-a.</p>
+</div>
+
+<div class="table-wrap"><table>
+<tr><th>intervallum</th><th class="num">az értékek aránya</th><th>a kávés példában</th></tr>
+<tr><td>$\mu\pm1\sigma$</td><td class="num">68,3%</td><td>248–252 g</td></tr>
+<tr><td>$\mu\pm2\sigma$</td><td class="num">95,4%</td><td>246–254 g</td></tr>
+<tr><td>$\mu\pm3\sigma$</td><td class="num">99,7%</td><td>244–256 g</td></tr>
+</table></div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – z-érték</span>
+<p>Egy IQ-teszt pontszáma $N(100,15)$. Hány szórásnyira van az átlagtól a 130 pont, és az értékek hány százaléka nagyobb ennél?</p>
+<details class="solution"><summary>Megoldás</summary><p>$z=(130-100)/15=2$. A $\mu\pm2\sigma$ tartományon belül van 95,4%, kívül 4,6%, ennek fele a felső szélen: $\approx2{,}3\%$ (pontosan $1-\Phi(2)=0{,}0228$).</p></details>
+</div>
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – Visszaskálázás</span>
+<p>Ugyanebben az eloszlásban melyik pontszámhoz tartozik $z=-1{,}5$?</p>
+<details class="solution"><summary>Megoldás</summary><p>$x=\mu+z\sigma=100-1{,}5\cdot15=77{,}5$.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktatók</span>
+<ul>
+<li>Nem minden adat normális. A tételértékek (<code>line_total</code>) erősen jobbra ferdék (ferdeség $2{,}25$), a kosárértékek enyhébben ($0{,}44$; <a href="01-adattisztitas.html#lepes10">1. lecke, 10. lépés</a>). Erősen ferde adatra a 68–95–99,7 szabály nem érvényes.</li>
+<li>A $|z|&gt;3$ kiugró-szabály normalitást feltételez, és kis mintán maga a kiugró felfújja a szórást. Ezért van külön próba (Grubbs, <a href="14-suruseg-validalas-kiugrok.html#lepes8">14. lecke, 8. lépés</a>).</li>
+<li>A standardizálás nem teszi normálissá az eloszlást: csak eltolja és átskálázza, az alak (pl. a ferdeség) megmarad.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Normális eloszlás (5 feladat)</summary>
+<ol>
+  <li><p>$N(100,15)$ eloszlásban mennyi a 115 és a 70 z-értéke?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$z(115)=1$, $z(70)=-2$.</p></details></li>
+  <li><p>Ugyanitt az értékek hány százaléka esik 70 és 130 közé?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\mu\pm2\sigma$, kb. 95,4%.</p></details></li>
+  <li><p>A kosárérték $N(8000\text{ Ft},\ 2000\text{ Ft})$ lenne. Mi a szokásos elfogadási tartomány?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$8000\pm3\cdot2000$: 2000–14 000 Ft. Az ezen kívüli kosarak kiugró-jelöltek, ha az eloszlás tényleg normális.</p></details></li>
+  <li><p>Melyik eredmény jobb: 75 pont egy $N(60,10)$ teszten, vagy 85 pont egy $N(70,12)$ teszten?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$z_1=1{,}5$, $z_2=1{,}25$. Az első a jobb, relatíve. A standardizálás pont az ilyen összevetésre való.</p></details></li>
+  <li><p>Igaz-e: „a standardizált kosárértékek $N(0,1)$ eloszlásúak”?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Nem. Az átlaguk 0, a szórásuk 1 lesz, de az enyhén jobbra ferde alak (ferdeség $0{,}44$) megmarad. $N(0,1)$ csak akkor lesz, ha az eredeti adat normális volt.</p></details></li>
+</ol>
+</details>
+
+<h4>Mini-kvíz</h4>
+<div class="quiz" data-quiz="l15-lepes5"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes6">
+<h2>6. lépés – Centrális határeloszlás-tétel</h2>
+<p>Ha az adat (pl. a tételérték) nem normális, használhatjuk-e mégis a normális eloszlást? Igen, de nem az egyes értékekre, hanem az <em>átlagukra</em>. Ezt mondja ki a statisztika egyik legfontosabb tétele.</p>
+
+<h4>Kis eset – a dia programja</h4>
+<p>Dobjunk egy „tízoldalú kockával” (egyenletes eloszlás 1 és 10 között, minden érték egyformán valószínű). Egyetlen dobás eloszlása lapos, egyáltalán nem harang alakú. Most vegyük $N$ dobás átlagát, és ismételjük ezt $M$-szer:</p>
+<pre><code class="language-python">import random
+import matplotlib.pyplot as plt
+N = 1000      # ennyi dobás átlaga egy minta
+M = 1000      # ennyi mintát veszünk
+avals = []
+for m in range(M):
+    avals.append(sum([random.randint(1, 10) for _ in range(N)]) / N)
+plt.hist(avals)
+plt.title("N=" + str(N) + " M=" + str(M))
+plt.show()</code></pre>
+<p>Az előadás három ábrája: $N=100, M=100$; $N=100, M=1000$; $N=1000, M=1000$. Mindhárom <strong>harang alakú</strong>, és 5,5 körül csúcsosodik. A harmadik (nagyobb $N$) láthatóan <strong>keskenyebb</strong>: kb. 5,2 és 5,8 között van, míg $N=100$-nál kb. 4,7 és 6,3 között. A nagyobb $M$ csak simábbá teszi a hisztogramot, a szélességét nem változtatja.</p>
+
+<div class="box thm"><span class="box-title">Tétel – Centrális határeloszlás-tétel (CHT)</span>
+<p>Ha egy tetszőleges eloszlásból (véges szórással) azonos, $n$ méretű mintákat veszünk, és a mintaátlagokat tekintjük populációnak, akkor $n\to\infty$ esetén ezek az átlagok <strong>normális eloszláshoz</strong> tartanak:</p>
+<ul>
+<li>az átlagok eloszlásának várható értéke megegyezik az alapeloszlás átlagával, $\mu$-vel;</li>
+<li>a szórása $\dfrac{\sigma}{\sqrt n}$ (ez a <strong>standard hiba</strong>), amely $n$ növelésével 0-hoz tart.</li>
+</ul>
+<p>Így <strong>bármely</strong> eloszlás átlagértékei közelíthetők normális eloszlással, ha $n$ elég nagy.</p>
+<p><strong>Miért?</strong> Az átlagban a véletlen eltérések egy része kiejti egymást: egy nagy és egy kicsi dobás együtt közepes átlagot ad. Minél több tagot átlagolunk, annál ritkább, hogy mind ugyanabba az irányba térjen el.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa – Számoljuk ki a dia ábráinak szélességét</span>
+<p>Az 1–10 egyenletes eloszlás szórása $\sigma=\sqrt{(10^2-1)/12}\approx2{,}872$. Milyen tartományba esnek a mintaátlagok $N=100$ és $N=1000$ esetén?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>$N=100$: $\sigma/\sqrt{100}\approx0{,}287$, így $5{,}5\pm3\cdot0{,}287\approx4{,}64\ldots6{,}36$.</p>
+<p>$N=1000$: $\sigma/\sqrt{1000}\approx0{,}091$, így $5{,}5\pm3\cdot0{,}091\approx5{,}23\ldots5{,}77$.</p>
+<p>Pont ezt látjuk az ábrákon. Tízszer nagyobb mintánál a szórás $\sqrt{10}\approx3{,}16$-szor kisebb.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktatók</span>
+<ul>
+<li>A CHT az <strong>átlagokról</strong> szól, nem az egyes értékekről. Ha sok tételt gyűjtesz, a tételértékek hisztogramja ugyanolyan ferde marad, csak az <em>átlagos</em> tételérték eloszlása lesz normális.</li>
+<li>A standard hiba $\sqrt n$-nel csökken, nem $n$-nel. Feleakkora hibához négyszer akkora minta kell.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – CHT (5 feladat)</summary>
+<ol>
+  <li><p>$\sigma=20$, $n=100$. Mennyi a mintaátlag szórása? És $n=400$-nál?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$20/10=2$; $20/20=1$.</p></details></li>
+  <li><p>Hányszorosára kell növelni a mintát, hogy a standard hiba harmadára csökkenjen?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$\sqrt{k}=3$, $k=9$-szeresére.</p></details></li>
+  <li><p>Mennyi a dia programjában az átlagok átlaga, és miért?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Kb. $5{,}5=(1+10)/2$, mert a mintaátlagok várható értéke az alapeloszlás átlaga.</p></details></li>
+  <li><p>A dia programjában $M$-et 100-ról 1000-re növeljük, $N=100$ marad. Mi változik?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Több átlagunk lesz, ezért a hisztogram simább, „szabályosabb” harang. A szélessége viszont marad ($\approx\sigma/\sqrt{N}=0{,}287$), mert az csak $N$-től függ.</p></details></li>
+  <li><p>A gyakorlat 1151 kosarának értéke átlagosan 8594 Ft, szórása kb. 4405 Ft. Mekkora az átlagos kosárérték standard hibája 1151 kosárból?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$4405/\sqrt{1151}\approx4405/33{,}9\approx130$ Ft. Az átlag tehát kb. $\pm2\cdot130$ Ft pontossággal ismert, pedig az egyes kosarak nagyon szórnak.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes7">
+<h2>7. lépés – A hipotézisvizsgálat logikája</h2>
+<p>Most már tudjuk, mennyit ingadozik a mintaátlag. Ebből jön a döntés: ha a mintaátlag messze van attól, amit egy állítás alapján várnánk, akkor kételkedünk az állításban.</p>
+
+<h4>Kis eset</h4>
+<p>A kávétöltő gép gyártója szerint a gép átlagosan 250 g-ot tölt. Lemérsz 6 csomagot, az átlaguk 247,2 g. Két magyarázat lehetséges:</p>
+<ol>
+<li>a gép rendben van, a 2,8 g eltérés véletlen ingadozás;</li>
+<li>a gép valóban kevesebbet tölt.</li>
+</ol>
+<p>A hipotézisvizsgálat úgy dönt köztük, hogy az 1. magyarázatot feltételezi, és megkérdezi: <em>ha ez igaz, mennyire valószínű ekkora (vagy nagyobb) eltérés?</em> Ha nagyon valószínűtlen, elvetjük az 1. magyarázatot.</p>
+
+<div class="box def"><span class="box-title">Definíció – A hipotézisvizsgálat fogalmai</span>
+<ul>
+<li><strong>Nullhipotézis</strong> ($H_0$): a „nincs hatás, nincs eltérés” állítás, pl. $\mu=\mu_0=250$.</li>
+<li><strong>Ellenhipotézis</strong> ($H_1$): pl. $\mu\ne250$ (kétoldali), vagy $\mu&lt;250$ (egyoldali).</li>
+<li><strong>Próbastatisztika</strong> (tesztváltozó): a mintából számolt szám, amelynek $H_0$ esetén ismert az eloszlása.</li>
+<li><strong>Szignifikanciaszint</strong> ($\alpha$, általában 0,05): ennyi valószínűséggel engedjük meg, hogy egy igaz $H_0$-t tévesen elvessünk.</li>
+<li><strong>Konfidenciaszint</strong> ($1-\alpha$, pl. 95%): ennyi valószínűséggel fogadunk el egy igaz $H_0$-t.</li>
+<li><strong>p-érték</strong>: annak valószínűsége, hogy $H_0$ mellett legalább ekkora eltérést kapunk. Döntés: ha $p&lt;\alpha$, elvetjük $H_0$-t.</li>
+</ul>
+<div class="table-wrap"><table>
+<tr><th></th><th>$H_0$ igaz</th><th>$H_0$ hamis</th></tr>
+<tr><td><strong>elvetjük $H_0$-t</strong></td><td>I. fajú hiba (valószínűsége $\alpha$)</td><td>helyes döntés</td></tr>
+<tr><td><strong>nem vetjük el</strong></td><td>helyes döntés</td><td>II. fajú hiba</td></tr>
+</table></div>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Az előadás mondata, lefordítva</span>
+<p>„A nagy konfidenciaszint azt jelenti, hogy nem utasítunk el mintákat a hipotézis várható értékével rendelkező eloszlásokból. Alacsony konfidenciaszint esetén megengedjük az ilyen típusú hibákat.”</p>
+<p>Magyarul: 99%-os konfidenciaszintnél ($\alpha=0{,}01$) ritkán vetünk el egy igaz $H_0$-t (kevés I. fajú hiba), de nehezebben vesszük észre a valódi eltérést (több II. fajú hiba). 90%-nál ($\alpha=0{,}1$) fordítva.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa – Döntés p-értékből</span>
+<p>Egy próba p-értéke 0,03. Mi a döntés $\alpha=0{,}05$, illetve $\alpha=0{,}01$ szinten?</p>
+<details class="solution"><summary>Megoldás</summary><p>$0{,}03&lt;0{,}05$: 5%-os szinten elvetjük $H_0$-t (szignifikáns eltérés). $0{,}03&gt;0{,}01$: 1%-os szinten nem vetjük el. Ugyanaz az adat, szigorúbb mércével már nem elég meggyőző.</p></details>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Buktatók</span>
+<ul>
+<li><strong>„Nem vetjük el” ≠ „bebizonyítottuk”.</strong> Ha $p=0{,}23$, az csak annyit jelent, hogy az adat nem mond ellent $H_0$-nak. Kis mintán a valódi eltérést sem vesszük észre.</li>
+<li><strong>A p-érték nem „$H_0$ valószínűsége”.</strong> A p-érték azt mondja meg, mennyire meglepő az adat, <em>ha</em> $H_0$ igaz.</li>
+<li><strong>Szignifikáns ≠ fontos.</strong> Óriási mintán egy 0,1 g-os, üzletileg mellékes eltérés is szignifikáns lehet.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Hipotézisvizsgálat (5 feladat)</summary>
+<ol>
+  <li><p>Írd fel $H_0$-t és $H_1$-et: „A gyártó szerint egy akkumulátor átlagos élettartama 500 ciklus. A vevő gyanítja, hogy kevesebb.”</p>
+    <details class="solution"><summary>Megoldás</summary><p>$H_0:\mu=500$, $H_1:\mu&lt;500$ (egyoldali, mert csak a kevesebb érdekel).</p></details></li>
+  <li><p>$p=0{,}08$. Mi a döntés $\alpha=0{,}05$ és $\alpha=0{,}10$ mellett?</p>
+    <details class="solution"><summary>Megoldás</summary><p>5%-on nem vetjük el ($0{,}08&gt;0{,}05$), 10%-on elvetjük ($0{,}08&lt;0{,}10$).</p></details></li>
+  <li><p>Csalásfelderítés: $H_0$ = „a tranzakció rendben van”. Mi az I. és a II. fajú hiba?</p>
+    <details class="solution"><summary>Megoldás</summary><p>I. fajú: egy rendes tranzakciót csalásnak jelölünk (téves riasztás, fals pozitív). II. fajú: egy csalást nem veszünk észre (fals negatív). Lásd a konfúziós mátrixot: <a href="05-dontesi-fa.html#lepes6">5. lecke, 6. lépés</a>.</p></details></li>
+  <li><p>Mi történik az I. és a II. fajú hibával, ha $\alpha$-t 0,05-ről 0,01-re csökkentjük?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Az I. fajú hiba valószínűsége csökken (0,01), a II. fajúé nő, mert nehezebb elvetni $H_0$-t.</p></details></li>
+  <li><p>Egy kutató azt írja: „$p=0{,}40$, tehát bizonyítottuk, hogy a két csoport átlaga egyenlő.” Mi a hiba?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Nem elvetni $H_0$-t nem ugyanaz, mint igazolni. Csak annyi derült ki, hogy az adat összefér az egyenlőséggel. Kis minta vagy nagy szórás mellett valódi különbség is rejtve maradhat.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes8">
+<h2>8. lépés – Egymintás t-próba</h2>
+<p>A <a href="#lepes7">7. lépés</a> logikájához egy konkrét próbastatisztika kell. Az átlagra vonatkozó kérdéseknél ez a t-statisztika.</p>
+
+<h4>Kis eset – két kávésorozat egymás mellett</h4>
+<div class="two-col">
+  <div class="box example"><span class="box-title">A) 5 csomag: 248, 251, 247, 249, 250</span>
+  <p>$\bar x=249$, $s\approx1{,}581$, $n=5$.</p>
+  <p>Az átlag 1 g-mal kevesebb, mint 250. A standard hiba $s/\sqrt n=1{,}581/2{,}236\approx0{,}707$. Az eltérés kb. <strong>1,41 standard hiba</strong>.</p></div>
+  <div class="box example"><span class="box-title">B) 6 csomag: 246, 248, 247, 249, 245, 248</span>
+  <p>$\bar x\approx247{,}17$, $s\approx1{,}472$, $n=6$.</p>
+  <p>Az eltérés 2,83 g, a standard hiba $1{,}472/\sqrt6\approx0{,}601$. Az eltérés kb. <strong>4,71 standard hiba</strong>.</p></div>
+</div>
+<p>Az A) esetben az eltérés a szokásos ingadozáson belül van, a B) esetben nagyon messze kívül. A mérőszám mindkét esetben ugyanaz volt: <em>hány standard hibányira van a mintaátlag a feltételezett értéktől</em>.</p>
+
+<div class="box def"><span class="box-title">Definíció – Egymintás t-próba</span>
+<p><strong>Szerepe:</strong> egy csoport átlagát hasonlítja össze egy előre megadott, hipotetikus $\mu_0$ átlaggal. Azt vizsgálja, hogy a populáció átlaga lehet-e a nullhipotézisben megadott $\mu_0$.</p>
+<p><strong>Tesztváltozó</strong> $n$ elemű mintára, $\bar x$ átlaggal és $s$ szórással:</p>
+<p>$$t=\frac{\bar x-\mu_0}{s/\sqrt n}$$</p>
+<p><strong>Döntés:</strong> $H_0$ mellett $t$ Student-féle $t$-eloszlású, $n-1$ <strong>szabadságfokkal</strong> ($df$). Kétoldali próbánál elvetjük $H_0$-t, ha $|t|&gt;t_{\text{krit}}$, ahol $t_{\text{krit}}$ a t-táblázat $df$ sorából és az $\alpha$ oszlopából jön (vagy ha $p&lt;\alpha$).</p>
+<p><strong>Miért Student-eloszlás, és miért nem normális?</strong> A CHT szerint (független megfigyelések, véges szórás) $t$ nagy mintán közelítőleg normális. Kis mintán viszont $\sigma$ helyett a mintából becsült $s$-sel osztunk, és ez maga is ingadozik. A Student-eloszlás ezt a többletbizonytalanságot kezeli: vastagabb a széle, ezért nagyobb a kritikus érték. $df\to\infty$ esetén a normálishoz tart.</p>
+</div>
+
+<div class="table-wrap"><table>
+<tr><th>szabadságfok ($df$)</th><th class="num">1</th><th class="num">4</th><th class="num">5</th><th class="num">9</th><th class="num">15</th><th class="num">29</th><th class="num">$\infty$ (normális)</th></tr>
+<tr><td>$t_{\text{krit}}$, kétoldali, $\alpha=0{,}05$</td><td class="num">12,71</td><td class="num">2,776</td><td class="num">2,571</td><td class="num">2,262</td><td class="num">2,131</td><td class="num">2,045</td><td class="num">1,960</td></tr>
+<tr><td>$t_{\text{krit}}$, kétoldali, $\alpha=0{,}02$</td><td class="num">31,82</td><td class="num">3,747</td><td class="num">3,365</td><td class="num">2,821</td><td class="num">2,602</td><td class="num">2,462</td><td class="num">2,326</td></tr>
+</table></div>
+<p>A dia t-táblázatának felső sorai a konfidenciaszintek (60%…99,9%), alattuk a kétoldali (2 Tailed) és az egyoldali (1 Tailed) szignifikanciaszint. Például a 98%-os oszlop kétoldali $\alpha=0{,}02$-nek, egyoldali $0{,}01$-nek felel meg.</p>
+
+<div class="box example" id="pelda-kave"><span class="box-title">Kidolgozott példa – A két kávésorozat döntése ($\alpha=0{,}05$, kétoldali)</span>
+<details class="solution"><summary>Megoldás</summary>
+<p><strong>A)</strong> $t=(249-250)/0{,}707\approx-1{,}414$, $df=4$, $t_{\text{krit}}=2{,}776$. $|t|&lt;2{,}776$: <strong>nem vetjük el</strong> $H_0$-t ($p\approx0{,}23$).</p>
+<p><strong>B)</strong> $t=(247{,}17-250)/0{,}601\approx-4{,}71$, $df=5$, $t_{\text{krit}}=2{,}571$. $|t|&gt;2{,}571$: <strong>elvetjük</strong> $H_0$-t ($p\approx0{,}005$). A gép valószínűleg kevesebbet tölt.</p></details>
+</div>
+
+<pre><code class="language-python">from scipy import stats
+b = [246, 248, 247, 249, 245, 248]
+stats.ttest_1samp(b, popmean=250)   # statistic=-4.71, pvalue=0.0053
+stats.t.ppf(0.975, df=5)            # 2.571 – kritikus érték, kétoldali 5%</code></pre>
+
+<div class="box warn"><span class="box-title">⚠ Buktatók</span>
+<ul>
+<li><strong>$s$ helyett $s/\sqrt n$.</strong> A nevezőben a <em>standard hiba</em> áll, nem a szórás. A $(249-250)/1{,}581$ hibás.</li>
+<li><strong>Rossz szabadságfok.</strong> $df=n-1$, nem $n$.</li>
+<li><strong>Egy- és kétoldali összekeverése.</strong> Ha csak a „kevesebbet tölt” érdekel, egyoldali próba kell (kritikus érték $df=4$-nél $2{,}132$, nem $2{,}776$). A kétoldali p-érték fele az egyoldali (ha az eltérés a vizsgált irányba mutat).</li>
+<li><strong>Feltételek.</strong> Független megfigyelések, és kis mintán közelítőleg normális adat. Erősen ferde, kiugrós kis mintán a t-próba félrevezethet.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Egymintás t-próba (5 feladat)</summary>
+<ol>
+  <li><p>$n=16$, $\bar x=52$, $s=4$, $H_0:\mu=50$. Mennyi $t$, és mi a döntés 5%-on (kétoldali)?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$t=2/(4/4)=2$; $df=15$, $t_{\text{krit}}=2{,}131$. $2&lt;2{,}131$: nem vetjük el ($p\approx0{,}064$). Éppen csak nem.</p></details></li>
+  <li><p>$n=9$, $\bar x=103$, $s=6$, $H_0:\mu=100$.</p>
+    <details class="solution"><summary>Megoldás</summary><p>$t=3/(6/3)=1{,}5$; $df=8$, $t_{\text{krit}}=2{,}306$: nem vetjük el ($p\approx0{,}17$).</p></details></li>
+  <li><p>$n=36$, $\bar x=12$, $s=3$, $H_0:\mu=10$.</p>
+    <details class="solution"><summary>Megoldás</summary><p>$t=2/(3/6)=4$; $df=35$, $t_{\text{krit}}\approx2{,}030$: elvetjük ($p\approx0{,}0003$). Figyeld meg: az átlagos eltérés (2) ugyanakkora, mint az 1. feladatban, de a nagyobb minta miatt kisebb a standard hiba.</p></details></li>
+  <li><p>Az A) kávésorozatnál ($df=4$) miért nem a normális eloszlás 1,96-os kritikus értékét használjuk?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Mert 5 elemből becsültük a szórást, és ez bizonytalan. A Student-eloszlás ezt figyelembe veszi: $t_{\text{krit}}=2{,}776$. Az 1,96-tal túl gyakran vetnénk el igaz $H_0$-t, vagyis a valódi $\alpha$ 5%-nál nagyobb lenne.</p></details></li>
+  <li><p>A vevő csak azt akarja tudni, kevesebbet tölt-e a gép (egyoldali próba, $\alpha=0{,}05$). Mi a döntés az A) sorozatra ($t=-1{,}414$, $df=4$)?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Egyoldali kritikus érték: $-2{,}132$. $-1{,}414&gt;-2{,}132$: nem vetjük el. Egyoldali $p\approx0{,}115$ (a kétoldali fele).</p></details></li>
+</ol>
+</details>
+
+<h4>Mini-kvíz</h4>
+<div class="quiz" data-quiz="l15-lepes8"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes9">
+<h2>9. lépés – Konfidencia-intervallum</h2>
+<p>A t-próba igen/nem választ ad egy <em>konkrét</em> $\mu_0$-ra. Gyakran inkább az a kérdés: <em>milyen $\mu$ értékek férnek össze az adattal?</em> Ezt adja meg a konfidencia-intervallum.</p>
+
+<h4>Kis eset</h4>
+<p>A <a href="#lepes8">8. lépés</a> szerint 5%-on nem vetjük el $H_0$-t, ha $|t|\le t_{\text{krit}}$. Rendezzük át $\mu_0$-ra:</p>
+<p>$$-t_{\text{krit}}\le\frac{\bar x-\mu_0}{s/\sqrt n}\le t_{\text{krit}}\quad\Longleftrightarrow\quad \bar x-t_{\text{krit}}\frac{s}{\sqrt n}\le\mu_0\le\bar x+t_{\text{krit}}\frac{s}{\sqrt n}.$$</p>
+<p>A konfidencia-intervallum tehát pontosan azoknak a $\mu_0$ értékeknek a halmaza, amelyeket a t-próba <em>nem</em> vetne el.</p>
+
+<div class="box def"><span class="box-title">Definíció – Konfidencia-intervallum az átlagra</span>
+<p>$$\bar x\pm t_{\text{krit}}\cdot\frac{s}{\sqrt n},\qquad t_{\text{krit}}=t_{1-\alpha/2}(n-1)$$</p>
+<p>Jelentése: ha sok mintát vennénk, és mindegyikből így szerkesztenénk intervallumot, akkor ezek $(1-\alpha)$ része (pl. 98%-a) tartalmazná a valódi $\mu$-t.</p>
+<p><strong>Miért szélesebb nagyobb konfidenciánál?</strong> Hogy ritkábban tévedjünk, nagyobb „hálót” kell kivetni. A 99%-os intervallum mindig szélesebb, mint a 95%-os.</p>
+</div>
+
+<div class="box example" id="pelda-dia-ki"><span class="box-title">Kidolgozott példa – A dia feladata: 98%-os konfidencia-intervallum</span>
+<p>Mérési adatok: 45, 55, 67, 45, 68, 79, 98, 87, 84, 82. Készíts 98%-os konfidencia-intervallumot az átlagra!</p>
+<details class="solution"><summary>Megoldás (a dia lépései)</summary>
+<ol>
+<li>Átlag és szórás: $\bar x=710/10=71$, $s\approx18{,}17$, $n=10$, $df=9$.</li>
+<li>Kétoldali eloszlás, $\alpha=2\%$: a t-táblázat $df=9$ sorában a 98%-os oszlop: $t_{\text{krit}}=2{,}821$.</li>
+<li>$-2{,}821&lt;\dfrac{\bar x-\mu}{s/\sqrt n}&lt;2{,}821$.</li>
+<li>A standard hiba $18{,}17/\sqrt{10}\approx5{,}746$, a hibahatár $2{,}821\cdot5{,}746\approx16{,}21$. Így $$54{,}79&lt;\mu&lt;87{,}21.$$ (A dián 54,78 áll, ez kerekítési eltérés.)</li>
+</ol></details>
+</div>
+
+<div class="two-col">
+  <div class="box example"><span class="box-title">Ugyanez 95%-kal</span>
+  <p>$t_{\text{krit}}=2{,}262$, hibahatár $2{,}262\cdot5{,}746\approx13{,}0$: <strong>$58{,}00&lt;\mu&lt;84{,}00$</strong>. Keskenyebb.</p></div>
+  <div class="box example"><span class="box-title">Kapcsolat a t-próbával</span>
+  <p>$H_0:\mu=60$: $t=(71-60)/5{,}746\approx1{,}91&lt;2{,}821$, nem vetjük el (a 60 benne van az intervallumban). $H_0:\mu=50$: $t\approx3{,}65&gt;2{,}821$, elvetjük (az 50 kívül esik).</p></div>
+</div>
+
+<pre><code class="language-python">import numpy as np
+from scipy import stats
+x = np.array([45, 55, 67, 45, 68, 79, 98, 87, 84, 82])
+m, s, n = x.mean(), x.std(ddof=1), len(x)
+t = stats.t.ppf(1 - 0.02 / 2, df=n - 1)          # 2.821
+print(m - t * s / np.sqrt(n), m + t * s / np.sqrt(n))   # 54.79  87.21
+# ugyanez egy sorban:
+stats.t.interval(0.98, df=n - 1, loc=m, scale=s / np.sqrt(n))</code></pre>
+
+<div class="box warn"><span class="box-title">⚠ Buktatók</span>
+<ul>
+<li><strong>A konfidencia-intervallum nem az adatok 98%-át fogja közre</strong>, hanem a populáció <em>átlagát</em>. Az adatok (45…98) jóval szélesebben szórnak, mint az intervallum.</li>
+<li><strong>Rossz oszlop a táblázatban:</strong> 98%-os kétoldali intervallumhoz az $\alpha=0{,}02$ kétoldali (= 0,01 egyoldali) oszlop kell, nem a 0,02 egyoldali (az 2,398 lenne).</li>
+<li>$\sqrt n$-nel osztani: a hibahatár $t\cdot s/\sqrt n$, nem $t\cdot s$.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – Konfidencia-intervallum (5 feladat)</summary>
+<ol>
+  <li><p>$n=16$, $\bar x=50$, $s=4$. Készíts 95%-os konfidencia-intervallumot.</p>
+    <details class="solution"><summary>Megoldás</summary><p>$t_{\text{krit}}(15)=2{,}131$, standard hiba $4/4=1$. $50\pm2{,}131$: $47{,}87\ldots52{,}13$.</p></details></li>
+  <li><p>$n=25$, $\bar x=120$, $s=10$. 95%-os és 99%-os intervallum?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Standard hiba $10/5=2$. 95%: $t=2{,}064$, $120\pm4{,}13$: $115{,}87\ldots124{,}13$. 99%: $t=2{,}797$, $120\pm5{,}59$: $114{,}41\ldots125{,}59$. A 99%-os szélesebb.</p></details></li>
+  <li><p>A dia adataira ($\bar x=71$, $s=18{,}17$, $n=10$) 2%-os szinten elvetnéd-e a $H_0:\mu=85$ hipotézist? Számolás nélkül is válaszolhatsz.</p>
+    <details class="solution"><summary>Megoldás</summary><p>A 85 benne van a 98%-os intervallumban (54,79…87,21), ezért nem vetjük el. Ellenőrzés: $t=(71-85)/5{,}746\approx-2{,}44$, $|t|&lt;2{,}821$.</p></details></li>
+  <li><p>Hogyan változik az intervallum szélessége, ha a mintaelemszámot négyszeresére növeljük (és $s$ nem változik)?</p>
+    <details class="solution"><summary>Megoldás</summary><p>A standard hiba felére csökken ($\sqrt4=2$), és a $t_{\text{krit}}$ is kicsit kisebb lesz a nagyobb $df$ miatt. Így az intervallum valamivel több mint felére szűkül.</p></details></li>
+  <li><p>Valaki így értelmezi a 95%-os intervallumot: „a mérések 95%-a 58 és 84 közé esik”. Mi a hiba?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Az intervallum a populáció <em>átlagára</em> vonatkozik. A 10 mérésből csak 5 esik 58 és 84 közé (67, 68, 79, 82, 84).</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes10">
+<h2>10. lépés – F-próba és varianciaelemzés (ANOVA)</h2>
+<p>A t-próba átlagokat hasonlít össze. Mi van, ha a <em>szórásokat</em> akarjuk összevetni, vagy egyszerre több csoportot? Ilyenkor varianciák <strong>arányát</strong> nézzük.</p>
+
+<h4>Kis eset – azonos átlag, eltérő szórás</h4>
+<p>Két töltőgép 5–5 mérése: G1 = 4, 6, 5, 7, 8 és G2 = 2, 9, 5, 11, 3 (eltérés grammban egy alapértéktől). Mindkettő átlaga 6, tehát a t-próba nem lát különbséget. A G2 mégis láthatóan „szeszélyesebb”: $s_1^2=2{,}5$, $s_2^2=15$. A kérdés: ez a hatszoros arány lehet-e véletlen?</p>
+
+<div class="box def"><span class="box-title">Definíció – F-próba</span>
+<p>Az <strong>F-statisztika</strong> két variancia aránya: $$F=\frac{s_1^2}{s_2^2}.$$ Olyan két mennyiség aránya, amelyek a nullhipotézis mellett nagyjából egyenlők, ezért $H_0$ esetén $F\approx1$. Ha $F$ sokkal nagyobb 1-nél, a $H_0$-t elvetjük. Eloszlása $F(n_1-1,\ n_2-1)$ szabadságfokú F-eloszlás.</p>
+<p><strong>Több csoport (ANOVA, varianciaelemzés):</strong> azt vizsgálja, hogy a csoportok <em>átlagai</em> egyenlők-e. Két varianciát vet össze: $$F=\frac{\text{csoportok közötti variancia}}{\text{csoporton belüli variancia}}=\frac{SS_B/(k-1)}{SS_W/(N-k)}.$$ Ha az átlagok egyenlők, a csoportok közötti szóródás is csak véletlen ingadozás, és $F\approx1$.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa 1 – A két gép varianciája</span>
+<details class="solution"><summary>Megoldás</summary><p>$F=15/2{,}5=6$; $df=(4,4)$. Kétoldali 5%-os próbánál a kritikus érték $F_{0{,}975}(4,4)\approx9{,}60$. $6&lt;9{,}60$: nem vetjük el, $p\approx0{,}11$. Öt-öt mérés kevés: ennyi adatból még a hatszoros varianciaarány is lehet véletlen.</p></details>
+</div>
+<div class="box example"><span class="box-title">Kidolgozott példa 2 – ANOVA három csoportra</span>
+<p>A = 3, 4, 5; B = 6, 7, 8; C = 5, 6, 7. Különböznek-e az átlagok?</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>Csoportátlagok 4, 7, 6; főátlag $51/9\approx5{,}667$.</p>
+<p>Közötti: $SS_B=3\big[(4-5{,}667)^2+(7-5{,}667)^2+(6-5{,}667)^2\big]=14$, $df=k-1=2$.</p>
+<p>Belüli: minden csoportban $(-1)^2+0+1^2=2$, összesen $SS_W=6$, $df=N-k=6$.</p>
+<p>$F=(14/2)/(6/6)=7$. Kritikus érték $F_{0{,}95}(2,6)\approx5{,}14$, $p\approx0{,}027$: elvetjük, az átlagok nem mind egyenlők.</p></details>
+</div>
+
+<pre><code class="language-python">from scipy import stats
+stats.f_oneway([3, 4, 5], [6, 7, 8], [5, 6, 7])   # F=7.0, p=0.027
+stats.f.ppf(0.95, 2, 6)                            # 5.14 – kritikus érték</code></pre>
+
+<div class="box warn"><span class="box-title">⚠ Buktatók</span>
+<ul>
+<li><strong>Miért nem három t-próba?</strong> Ha három párt külön-külön 5%-on tesztelünk, legalább egy téves riasztás esélye kb. $1-0{,}95^3\approx14\%$. Az ANOVA egyetlen próbával, 5%-on dönt.</li>
+<li>Az ANOVA csak azt mondja meg, hogy <em>van</em> eltérés, azt nem, hogy melyik csoport tér el. Ahhoz utólagos páros összehasonlítás kell.</li>
+</ul>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – F-próba, ANOVA (4 feladat)</summary>
+<ol>
+  <li><p>$s_1^2=12$, $s_2^2=4$. Mennyi az F-statisztika? Mit sugallna $F\approx1$?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$F=12/4=3$. Az $F\approx1$ azt jelentené, hogy a két variancia hasonló, ez $H_0$-val összhangban van.</p></details></li>
+  <li><p>Három üzlet napi forgalmát hasonlítod össze. Melyik próba kell, és mi a $H_0$?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Egyszempontos ANOVA (<code>f_oneway</code>), $H_0:\mu_1=\mu_2=\mu_3$.</p></details></li>
+  <li><p>Négy csoport, mindegyikben 10 megfigyelés. Mennyi a számláló és a nevező szabadságfoka?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$k-1=3$ és $N-k=40-4=36$.</p></details></li>
+  <li><p>Négy csoportot páronként t-próbával hasonlítanál össze (6 pár), mindegyiket 5%-on. Kb. mekkora az esélye legalább egy téves riasztásnak, ha minden átlag egyenlő?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Függetlenséget feltételezve $1-0{,}95^6\approx0{,}26$, vagyis kb. 26%. Ezért kell az ANOVA.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes11">
+<h2>11. lépés – Nem paraméteres próba: Kolmogorov–Szmirnov</h2>
+<p>A t- és az F-próba egy-egy <em>paramétert</em> (átlagot, varianciát) hasonlít össze, és kis mintán normalitást feltételez. Mi van, ha azt kérdezzük, hogy két minta <strong>ugyanabból az eloszlásból</strong> származik-e, bármilyen alakú is az?</p>
+
+<h4>Kis eset</h4>
+<p>Két minta: S1 = 1, 2, 3, 4, 5 és S2 = 3, 4, 5, 6, 7. Rajzoljuk fel mindkettő empirikus eloszlásfüggvényét (<a href="#lepes3">3. lépés</a>):</p>
+<div class="table-wrap"><table>
+<tr><th>$x$</th><th class="num">1</th><th class="num">2</th><th class="num">3</th><th class="num">4</th><th class="num">5</th><th class="num">6</th><th class="num">7</th></tr>
+<tr><td>$F_1(x)$</td><td class="num">0,2</td><td class="num">0,4</td><td class="num">0,6</td><td class="num">0,8</td><td class="num">1,0</td><td class="num">1,0</td><td class="num">1,0</td></tr>
+<tr><td>$F_2(x)$</td><td class="num">0</td><td class="num">0</td><td class="num">0,2</td><td class="num">0,4</td><td class="num">0,6</td><td class="num">0,8</td><td class="num">1,0</td></tr>
+<tr><td>$|F_1-F_2|$</td><td class="num">0,2</td><td class="num">0,4</td><td class="num"><strong>0,4</strong></td><td class="num"><strong>0,4</strong></td><td class="num"><strong>0,4</strong></td><td class="num">0,2</td><td class="num">0</td></tr>
+</table></div>
+<p>A legnagyobb függőleges távolság $D=0{,}4$.</p>
+
+<div class="box def"><span class="box-title">Definíció – Kolmogorov–Szmirnov (K–S) próba</span>
+<p>Nem paraméteres próba: a <strong>teljes eloszlást</strong> hasonlítja össze, nem csak egy paramétert. $H_0$: a két minta ugyanabból az eloszlásból származik.</p>
+<p>A két minta empirikus eloszlásfüggvényének maximális függőleges távolsága a próbastatisztika: $$D=\max_x|F_1(x)-F_2(x)|.$$</p>
+<p>A $D$-t a K–S eloszlástáblázat kritikus értékével vetjük össze, vagy (gyakrabban) p-értéket számolunk. Ha $p&lt;\alpha$ (általában 0,05), elvetjük $H_0$-t: a két eloszlás különbözik. Kis $D$ arra utal, hogy a minták ugyanabból az eloszlásból jönnek.</p>
+<p>Egymintás változata egy minta eloszlását egy elméleti eloszláshoz (pl. normálishoz) hasonlítja: <code>stats.kstest(x, "norm")</code>.</p>
+</div>
+
+<div class="box example"><span class="box-title">Kidolgozott példa – A kis eset döntése</span>
+<details class="solution"><summary>Megoldás</summary><p><code>stats.ks_2samp([1,2,3,4,5], [3,4,5,6,7])</code>: $D=0{,}4$, $p\approx0{,}87$. Nem vetjük el $H_0$-t. Öt-öt elemnél a 0,4-es eltérés még bőven belefér a véletlenbe. Ugyanez a $D$ 100-100 elemnél már szignifikáns lenne.</p></details>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Melyik próba mire érzékeny?</span>
+<p>Két minta azonos átlaggal, de eltérő alakkal (pl. az egyik szimmetrikus, a másik kétcsúcsú): a t-próba nem lát különbséget, a K–S igen. Ha viszont csak az átlag kérdéses, és az adat közel normális, a t-próba erősebb (kisebb mintán is észreveszi az eltérést).</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – K–S próba (4 feladat)</summary>
+<ol>
+  <li><p>A = 2, 3, 5, 7, 8 és B = 1, 4, 6, 9, 10. Mennyi $D$?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Rendezett pontokon: $x=8$-nál $F_A=1{,}0$, $F_B=0{,}6$, eltérés $0{,}4$. Máshol legfeljebb 0,2. $D=0{,}4$.</p></details></li>
+  <li><p>Egy K–S próba p-értéke 0,003. Mi a döntés, és mit jelent?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$0{,}003&lt;0{,}05$: elvetjük $H_0$-t, a két minta eloszlása szignifikánsan eltér.</p></details></li>
+  <li><p>Miért „nem paraméteres” a K–S próba?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Nem tételez fel konkrét eloszláscsaládot (pl. normálist), és nem egy paramétert (átlagot, varianciát) vizsgál, hanem a teljes eloszlásfüggvényt.</p></details></li>
+  <li><p>Hogyan ellenőriznéd K–S próbával, hogy a kosárértékek normálisak-e?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Egymintás K–S próbával: a standardizált kosárértékeket a $N(0,1)$ eloszláshoz hasonlítod (<code>stats.kstest(z, "norm")</code>). A valódi adaton $D\approx0{,}071$, $p\approx0{,}00002$: a normalitást elvetjük. Az enyhe ferdeség 1151 elemnél már bőven kimutatható.</p></details></li>
+</ol>
+</details>
+
+<h4>Mini-kvíz</h4>
+<div class="quiz" data-quiz="l15-lepes11"></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lepes12">
+<h2>12. lépés – Kovariancia és korreláció: a dia feladatai</h2>
+<p>Az előadás a próbák után a két változó kapcsolatát leíró mutatókkal zárul. Ezeket részletesen, kidolgozott példákkal az <a href="01-adattisztitas.html#lepes9">1. lecke 9. lépésében</a> már tárgyaltuk. Itt csak röviden ismételjük, aztán megoldjuk a dia két feladatát.</p>
+
+<div class="box def"><span class="box-title">Összefoglaló – Variancia, kovariancia, korreláció (az előadás szerint)</span>
+<ul>
+<li><strong>Variancia:</strong> az adathalmaz átlagtól való eltérését írja le.</li>
+<li><strong>Kovariancia:</strong> azt méri, hogyan változik két valószínűségi változó egymáshoz képest. Ha $X$ és $Y$ független, a kovariancia közel 0. Bármilyen nagy értékű lehet (függ a mértékegységtől).</li>
+<li><strong>Korreláció:</strong> a kovariancia normalizált változata. A <strong>Pearson-féle korrelációs együttható</strong> $$r_{xy}=\frac{\sum_{i}(x_i-\bar x)(y_i-\bar y)}{\sqrt{\sum_i(x_i-\bar x)^2}\,\sqrt{\sum_i(y_i-\bar y)^2}}$$ a <em>lineáris</em> kapcsolatot méri, értéke $[-1,1]$-ben van. Független $X$, $Y$ esetén közel 0.</li>
+</ul>
+</div>
+
+<div class="box example" id="pelda-x1x2"><span class="box-title">Kidolgozott példa 1 – A dia feladata: X1 és X2 korrelációja</span>
+<p>X1 = [0,45, 0,73, 0,2, 0,24, 0,48, 0,12, 0,59, 0,84, 0,12, 0,92, 0,91, 0,54, 0,22, 0,48, 0,26, 0,14, 0,93, 0,3, 0,54, 0,88]<br>
+X2 = [0,04, 0,86, 0,15, 0,35, 0,53, 0,27, 0,28, 0,07, 0,46, 0,28, 0,77, 0,05, 0,42, 0,99, 0,17, 0,63, 0,5, 0,08, 0,84, 0,96]</p>
+<details class="solution"><summary>Megoldás</summary>
+<p>$n=20$, $\bar x_1\approx0{,}495$, $\bar x_2=0{,}435$, $s_1\approx0{,}291$, $s_2\approx0{,}315$, $\operatorname{cov}\approx0{,}0261$.</p>
+<p>$r=\dfrac{0{,}0261}{0{,}291\cdot0{,}315}\approx0{,}285$: gyenge pozitív lineáris kapcsolat.</p>
+<p>➕ Szignifikáns-e? A $H_0:\rho=0$ próba statisztikája $t=r\sqrt{n-2}/\sqrt{1-r^2}\approx1{,}26$, $df=18$, $t_{\text{krit}}=2{,}101$, $p\approx0{,}22$. Nem vetjük el: a 0,285 húsz pontból könnyen lehet véletlen. (Ezek a számok egyenletes eloszlású véletlenszámoknak látszanak, valódi kapcsolat nélkül.)</p></details>
+</div>
+
+<div class="box example" id="pelda-x1x3"><span class="box-title">Kidolgozott példa 2 – A dia feladata: X1 és X3 = round(3·x, 2)</span>
+<details class="solution"><summary>Megoldás</summary>
+<p>X3 = [1,35, 2,19, 0,6, 0,72, 1,44, …]. Mivel X1 két tizedesjegyű, $3x$ is az, így a kerekítés semmit sem változtat: $X3=3\cdot X1$ pontosan. A korreláció $r=1$.</p>
+<p><strong>Miért?</strong> A Pearson-korreláció nem változik, ha egy változót pozitív számmal szorzunk vagy eltolunk ($aX+b$, $a&gt;0$): a standardizálás mindkettőt kiejti. A kovariancia viszont háromszorosára nő: $\operatorname{cov}(\text{X1},\text{X1})=s_1^2\approx0{,}0846$, de $\operatorname{cov}(\text{X1},\text{X3})\approx0{,}254$, ezért nem mérőszáma a kapcsolat erősségének.</p></details>
+</div>
+
+<pre><code class="language-python">import numpy as np, pandas as pd
+X3 = [round(3 * x, 2) for x in X1]
+np.corrcoef(X1, X2)[0, 1]          # 0.285
+np.corrcoef(X1, X3)[0, 1]          # 1.0
+# az előadás Colab-kódja: korrelációs mátrix DataFrame-ből
+df = pd.DataFrame({"X1": X1, "X2": X2, "X3": X3})
+df.corr(method="pearson")          # 'spearman', 'kendall' is választható</code></pre>
+
+<div class="box tip"><span class="box-title">💡 A korreláció az adatbányászatban (az előadás Colab-anyagából)</span>
+<p>Az erősen korrelált bemeneti változók (<strong>multikollinearitás</strong>) redundánsak, és instabillá teszik a regressziós modelleket. A változókiválasztó módszerek (pl. <strong>mRMR</strong>: <em>Maximum Relevance, Minimum Redundancy</em>) ezért olyan változókat keresnek, amelyek a célváltozóval erősen, egymással viszont gyengén korrelálnak. Az eredmény gyorsabb, kevésbé túltanuló és jobban értelmezhető modell. A regresszióról bővebben: <a href="16-linearis-regresszio.html">16. lecke</a>.</p>
+</div>
+
+<details class="box practice"><summary>✏️ Gyakorlás – A dia feladataihoz (4 feladat)</summary>
+<ol>
+  <li><p>X4 = 1 − X1. Mennyi $r(\text{X4}, \text{X2})$?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$-0{,}285$. A negatív szorzó előjelet vált, a nagyság marad.</p></details></li>
+  <li><p>X5 = X1 + 10. Mennyi $r(\text{X5}, \text{X2})$?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$0{,}285$, változatlan. Az eltolás az átlagot változtatja, az eltéréseket nem.</p></details></li>
+  <li><p>Mennyi $r(\text{X1}, \text{X1}^2)$, és miért nem pontosan 1?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Kb. $0{,}979$. A kapcsolat determinisztikus, de nem lineáris (parabola), a Pearson pedig csak a lineáris részt méri. A $[0,1]$ intervallumon a parabola majdnem egyenes, ezért ilyen magas.</p></details></li>
+  <li><p>Ugyanez az $r=0{,}285$ $n=200$ pontból jönne ki. Szignifikáns lenne?</p>
+    <details class="solution"><summary>Megoldás</summary><p>$t=0{,}285\sqrt{198}/\sqrt{1-0{,}081}\approx4{,}18$, ez jóval 1,97 fölött van: igen, szignifikáns. A szignifikancia nemcsak $r$-től, hanem $n$-től is függ.</p></details></li>
+</ol>
+</details>
+</section>
+
+<!-- ============================================================ -->
+<section id="alkalmazas">
+<h2>Alkalmazás – Tanulási idő és vizsgasiker: kétmintás t-próba</h2>
+<div class="box extra"><span class="box-title">➕ Kiegészítés (az előadáson az egymintás t-próba szerepelt; a kétmintás változat és az adat az 5. gyakorlatból való)</span>
+<p>Vissza a <a href="#motivacio">motiváló kérdéshez</a>. Két <em>csoport</em> átlagát hasonlítjuk össze, ezért a t-próba <strong>kétmintás</strong> változata kell.</p>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Kétmintás t-próba (Welch-féle)</span>
+<p>$H_0:\mu_1=\mu_2$. Próbastatisztika: $$t=\frac{\bar x_1-\bar x_2}{\sqrt{\dfrac{s_1^2}{n_1}+\dfrac{s_2^2}{n_2}}}.$$ Ugyanaz a gondolat, mint az egymintásnál: az eltérés osztva a standard hibájával. A Welch-változat nem tételez fel egyenlő szórásokat (<code>equal_var=False</code>), ezért ez a biztonságosabb alapbeállítás.</p>
+</div>
+
+<h4>1. Az adatok</h4>
+<pre><code class="language-python">import pandas as pd
+from scipy import stats
+df = pd.read_csv("student_performance.csv", sep=";", encoding="utf-8-sig")
+yes = df.loc[df["passed"] == "yes", "study_hours"]
+no  = df.loc[df["passed"] == "no",  "study_hours"]
+print(len(yes), yes.mean(), yes.std())    # 81  11.96  4.56
+print(len(no),  no.mean(),  no.std())     # 33   9.69  4.10</code></pre>
+
+<h4>2. A próba</h4>
+<p>Kézzel: standard hiba $\sqrt{4{,}563^2/81+4{,}104^2/33}\approx\sqrt{0{,}257+0{,}510}\approx0{,}876$, $t=(11{,}96-9{,}69)/0{,}876\approx2{,}59$.</p>
+<pre><code class="language-python">stats.ttest_ind(yes, no, equal_var=False)   # statistic=2.59, pvalue=0.0117, df≈65.7
+stats.ks_2samp(yes, no)                     # D=0.33, pvalue=0.0089</code></pre>
+<p><strong>Döntés:</strong> $p\approx0{,}012&lt;0{,}05$, ezért elvetjük $H_0$-t. A sikeres hallgatók szignifikánsan többet tanultak. A K–S próba is eltérést jelez ($p\approx0{,}009$): nemcsak az átlag, a teljes eloszlás is más.</p>
+
+<h4>3. A többi változó</h4>
+<div class="table-wrap"><table>
+<tr><th>változó</th><th class="num">átlag (yes)</th><th class="num">átlag (no)</th><th class="num">Welch $t$</th><th class="num">p</th><th class="num">K–S p</th></tr>
+<tr><td>study_hours</td><td class="num">11,96</td><td class="num">9,69</td><td class="num">2,59</td><td class="num">0,012</td><td class="num">0,009</td></tr>
+<tr><td>attendance</td><td class="num">80,56</td><td class="num">75,07</td><td class="num">2,12</td><td class="num">0,038</td><td class="num">0,014</td></tr>
+<tr><td>previous_gpa</td><td class="num">3,48</td><td class="num">2,85</td><td class="num">4,56</td><td class="num">0,00002</td><td class="num">0,0001</td></tr>
+<tr><td>assignments_completed</td><td class="num">7,27</td><td class="num">6,42</td><td class="num">2,24</td><td class="num">0,029</td><td class="num">0,23</td></tr>
+</table></div>
+<p>Mind a négy változó átlaga szignifikánsan eltér, a legerősebben az előző tanulmányi átlagé. A beadott feladatok számánál a K–S nem jelez: ez egy kis egész szám (sok azonos érték), és a két eloszlás alakja hasonló, csak kissé el van tolva. Ilyenkor a t-próba érzékenyebb.</p>
+<p>Ugyanezen az adaton a szakok (programme) között egyszempontos ANOVA-val nincs szignifikáns eltérés a tanulási időben: <code>stats.f_oneway(...)</code> → $F=0{,}65$, $p=0{,}52$.</p>
+
+<div class="box tip"><span class="box-title">💡 Válasz a motiváló kérdésre</span>
+<p>A 2,3 órás különbség nem valószínű, hogy véletlen. Ha a tanulási idő független lenne a sikertől, ekkora vagy nagyobb különbség csak kb. 1,2% eséllyel jönne ki. Az ok-okozatot viszont a próba nem bizonyítja: lehet, hogy a jobb előképzettségűek többet is tanulnak, és sikeresebbek is.</p>
+</div>
+
+<div class="box warn"><span class="box-title">⚠ Kapcsolat a modellértékeléssel</span>
+<p>A döntési fa és a többségi alapmodell ugyanazt a 0,724-es accuracy-t érte el a 29 elemű teszthalmazon (<a href="05-dontesi-fa.html#lepes7">5. lecke, 7. lépés</a>). Egy hallgató eltérése már 3,4 százalékpont. Ekkora teszthalmazon néhány százalékpontos különbség két modell között gyakran a véletlen műve. Ugyanaz a kérdés, mint ebben a leckében: <em>elég nagy-e az eltérés a mintavételi ingadozáshoz képest?</em></p>
+</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="osszefoglalas">
+<h2>Összefoglalás</h2>
+<ul>
+<li>A <strong>minta</strong> statisztikái ($\bar x$, $s$) a <strong>populáció</strong> ismeretlen paramétereinek ($\mu$, $\sigma$) becslései, és mintáról mintára ingadoznak.</li>
+<li>Az eloszlás ábrázolható <strong>hisztogrammal</strong> (tárolóválasztás kell: egyenlő hosszúság vagy egyenlő terhelés) és <strong>eloszlásfüggvénnyel</strong> ($F(x)=P(X\le x)$, monoton, 0-tól 1-ig).</li>
+<li>Nevezetes eloszlások: <strong>binomiális</strong> ($\binom nk p^kq^{n-k}$, sikerek száma) és <strong>normális</strong> ($N(\mu,\sigma)$; $Z=(X-\mu)/\sigma$; $\mu\pm3\sigma$).</li>
+<li><strong>CHT:</strong> az átlagok eloszlása bármilyen alapeloszlásnál közel normális, $\mu$ közepű, $\sigma/\sqrt n$ szórású.</li>
+<li><strong>Hipotézisvizsgálat:</strong> $H_0$, próbastatisztika, $\alpha$, p-érték; ha $p&lt;\alpha$, elvetjük $H_0$-t.</li>
+<li><strong>t-próba</strong>: $t=(\bar x-\mu_0)/(s/\sqrt n)$, Student-eloszlás $n-1$ szabadságfokkal. <strong>Konfidencia-intervallum</strong>: $\bar x\pm t_{\text{krit}}\,s/\sqrt n$.</li>
+<li><strong>F-próba</strong>: varianciaarány, $H_0$ mellett $\approx1$. Több csoport átlagára: ANOVA. <strong>K–S próba</strong>: két teljes eloszlás, $D=\max|F_1-F_2|$.</li>
+</ul>
+
+<h3>Döntési táblázat</h3>
+<div class="table-wrap"><table>
+<tr><th>Ha a feladatban ez áll…</th><th>…ezt használd</th></tr>
+<tr><td>„Ábrázold a minta eloszlását”</td><td>hisztogram (tárolók: egyenlő hossz / egyenlő terhelés) vagy empirikus CDF</td></tr>
+<tr><td>„$n$ kísérletből pontosan $k$ siker”</td><td>binomiális eloszlás, $\binom nk p^kq^{n-k}$</td></tr>
+<tr><td>„Hány szórásnyira van az átlagtól?”, eltérő skálák összevetése</td><td>standardizálás, $z=(x-\mu)/\sigma$</td></tr>
+<tr><td>„Mennyire pontos a mintaátlag?”</td><td>standard hiba $s/\sqrt n$ (CHT)</td></tr>
+<tr><td>„Lehet-e a populáció átlaga $\mu_0$?” (egy csoport)</td><td>egymintás t-próba (<code>ttest_1samp</code>)</td></tr>
+<tr><td>„Milyen tartományban van a valódi átlag 95%/98%-os biztonsággal?”</td><td>konfidencia-intervallum, $\bar x\pm t_{\text{krit}}\,s/\sqrt n$</td></tr>
+<tr><td>„Különbözik-e két csoport átlaga?”</td><td>kétmintás (Welch-) t-próba (<code>ttest_ind</code>)</td></tr>
+<tr><td>„Egyforma-e két csoport szóródása?”</td><td>F-próba, $F=s_1^2/s_2^2$</td></tr>
+<tr><td>„Különbözik-e három vagy több csoport átlaga?”</td><td>ANOVA (<code>f_oneway</code>)</td></tr>
+<tr><td>„Ugyanabból az eloszlásból jön-e a két minta?”, „normális-e?”</td><td>Kolmogorov–Szmirnov (<code>ks_2samp</code>, <code>kstest</code>)</td></tr>
+<tr><td>„Milyen erős a lineáris kapcsolat két numerikus változó között?”</td><td>Pearson-korreláció (<a href="01-adattisztitas.html#lepes9">1. lecke, 9. lépés</a>)</td></tr>
+</table></div>
+
+<div class="box tip" id="zh-tproba"><span class="box-title">📝 ZH-mintaválasz – „T-próba szerepe, működése”</span>
+<p><strong>Szerepe.</strong> A t-próba egy statisztikai hipotézisvizsgálat, amely átlagokra vonatkozó állításokat ellenőriz. Egymintás változatban egy csoport átlagát hasonlítja össze egy előre megadott, hipotetikus $\mu_0$ értékkel: azt vizsgálja, hogy a populáció átlaga lehet-e a nullhipotézisben megadott $\mu_0$ ($H_0:\mu=\mu_0$). Kétmintás változatban két csoport átlagát veti össze. Adatbányászatban arra használjuk, hogy eldöntsük, egy megfigyelt eltérés (pl. két szegmens vagy két modell között) valódi-e, vagy a mintavételi ingadozás következménye.</p>
+<p><strong>Működése.</strong></p>
+<ol>
+<li>Felírjuk a nullhipotézist ($H_0:\mu=\mu_0$) és az ellenhipotézist ($\mu\ne\mu_0$), és megválasztjuk a szignifikanciaszintet (pl. $\alpha=0{,}05$, azaz 95%-os konfidenciaszint).</li>
+<li>A mintából ($n$ elem, $\bar x$ átlag, $s$ szórás) kiszámítjuk a tesztváltozót: $t=\dfrac{\bar x-\mu_0}{s/\sqrt n}$. Ez azt méri, hány standard hibányira van a mintaátlag a feltételezett értéktől.</li>
+<li>$H_0$ esetén $t$ Student-féle $t$-eloszlást követ $n-1$ szabadságfokkal. A Student-eloszlás a normális helyett a kis mintaelemszámból (a becsült szórásból) eredő bizonytalanságot kezeli. Nagy mintán a CHT miatt közelítőleg normális.</li>
+<li>A t-táblázatból kikeressük a kritikus értéket ($df$ és $\alpha$ alapján). Ha $|t|&gt;t_{\text{krit}}$ (vagy $p&lt;\alpha$), elvetjük $H_0$-t, egyébként megtartjuk.</li>
+<li>Ugyanebből konfidencia-intervallum is szerkeszthető: $\bar x\pm t_{\text{krit}}\,s/\sqrt n$.</li>
+</ol>
+<p><strong>Példa:</strong> 45, 55, 67, 45, 68, 79, 98, 87, 84, 82 → $\bar x=71$, $s=18{,}17$, $df=9$, 98%-on $t_{\text{krit}}=2{,}821$, intervallum $54{,}79&lt;\mu&lt;87{,}21$.</p>
+<p><strong>Feltételek:</strong> független megfigyelések, kis mintánál közel normális eloszlás. A konfidenciaszint a hibák közti egyensúlyt állítja: magas szintnél ritkán vetünk el igaz $H_0$-t (I. fajú hiba), de nehezebben vesszük észre a valódi eltérést.</p>
+</div>
+</section>
+
+<section id="kviz">
+<h2>Ellenőrző kvíz</h2>
+<div class="quiz" data-quiz="l15-vegso"></div>
+</section>
+
+<nav class="pager">
+  <a href="01-adattisztitas.html">← 1. Adattisztítás</a>
+  <a href="16-linearis-regresszio.html">16. Lineáris regresszió →</a>
+</nav>
+</main>
+</body>
+</html>

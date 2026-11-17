@@ -13,6 +13,8 @@ window.R = String.raw;
   const TOPICS = {
     "10": { name: "BI és adatbányászat alapfogalmai", file: "10-bi-adatbanyaszat-alapok.html" },
     "01": { name: "Adattisztítás és feltáró elemzés", file: "01-adattisztitas.html" },
+    "15": { name: "Statisztikai alapok és próbák", file: "15-statisztikai-alapok.html" },
+    "16": { name: "Lineáris regresszió", file: "16-linearis-regresszio.html" },
     "02": { name: "Kosárelemzés (Apriori)", file: "02-kosarelemzes.html" },
     "11": { name: "Python adatkezelés", file: "11-python-adatkezeles.html" },
     "12": { name: "Adattárolás, adattárház, ETL", file: "12-adattarolas-adattarhaz.html" },
@@ -26,7 +28,7 @@ window.R = String.raw;
     "mix": { name: "Vegyes: módszerválasztás", file: "08-osszefoglalas.html" }
   };
   // A számszerű kulcsokat ("10"…) a JS objektum előre sorolná, ezért a sorrendet (ütemterv) külön tartjuk.
-  const ORDER = ["10", "01", "02", "11", "12", "13", "07", "03", "04", "14", "05", "06", "mix"];
+  const ORDER = ["10", "01", "15", "16", "02", "11", "12", "13", "07", "03", "04", "14", "05", "06", "mix"];
   const LEVELS = { 1: "fogalom", 2: "alkalmazás", 3: "értelmezés", 0: "lecke-kvíz" };
   const K_STATS = "adatb-bank-stats", K_HIST = "adatb-bank-history", K_SET = "adatb-bank-settings";
 

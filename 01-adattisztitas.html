@@ -55,7 +55,7 @@
   <li><a href="#lepes8">8. lépés – Új változó és csoportosítás: tételérték, termékenkénti árbevétel</a></li>
   <li><a href="#lepes9">9. lépés – Kétváltozós elemzés alapjai: kovariancia, korreláció, csoportos összehasonlítás</a></li>
   <li><a href="#lepes10">10. lépés – Az eloszlás alakja és robusztus mutatók; melyik ábra mire való?</a> <em>(kiegészítés)</em></li>
-  <li><a href="#lepes11">11. lépés – Előfeldolgozás a tisztításon túl: aggregálás, mintavétel, transzformáció, kódolás</a> <em>(kiegészítés)</em></li>
+  <li><a href="#lepes11">11. lépés – Előfeldolgozás a tisztításon túl: aggregálás, mintavétel, transzformáció, kódolás</a> <em>(kiegészítés)</em><br>&nbsp;&nbsp;↳ <a href="#diszkretizalas">Diszkretizálás közelebbről: <code>KBinsDiscretizer</code>, Pipeline</a></li>
   <li><a href="#alkalmazas">Alkalmazás – a gyakorlat teljes munkafolyamata</a></li>
   <li><a href="#osszefoglalas">Összefoglalás és döntési táblázat</a></li>
   <li><a href="#kviz">Ellenőrző kvíz</a></li>
@@ -1086,7 +1086,7 @@ product_revenue.head(5)                                            # top 5</code
 <p>Az egyenlő szélességű sávoknál a felső sáv kicsi, mert kevés a nagy értékű kosár. Ez a sáv viszont pont a „legértékesebb” vásárlásokat jelöli. Az egyenlő gyakoriságú sávok egyforma méretűek, de a határaik nem kerek számok. Melyik a jó? A céltól függ. Kerek, kommunikálható határokhoz szakmai határokat érdemes választani (pl. „5000 Ft alatt”).</p></details>
 </div>
 
-<div class="box example"><span class="box-title">Kidolgozott példa 4 – A régió kódolása</span>
+<div class="box example" id="regio-kodolas"><span class="box-title">Kidolgozott példa 4 – A régió kódolása</span>
 <p>A K-means-hez számmá kell alakítani a <code>region</code> változót. Miért rossz az East = 1, North = 2, South = 3, West = 4 kódolás, és mi a jó?</p>
 <details class="solution"><summary>Megoldás</summary>
 <p>Az 1–4 kód olyan sorrendet és távolságot visz be, ami nincs: az East és a West távolsága 3 lenne, az East és a North távolsága 1. A régió nominális, ezért dummy-kódolás kell:</p>
@@ -1104,11 +1104,105 @@ product_revenue.head(5)                                            # top 5</code
 <p><strong>Dimenziócsökkentés:</strong> a változók számának csökkentése. A <strong>dimenzióprobléma</strong> miatt kell: sok változónál az algoritmusok lelassulnak, a pontok ritkán töltik ki a teret, és a távolság- és sűrűségmértékek elveszítik a jelentésüket. Módszerei: lineáris algebrai eljárások (főkomponens-elemzés – PCA, szinguláris felbontás – SVD), illetve <strong>jellemzőszelekció</strong>, azaz a felesleges, lényegtelen változók elhagyása (pl. azonosítók, konstans oszlopok, egymást ismétlő változók).</p>
 </div>
 
+<h3 id="diszkretizalas">Diszkretizálás közelebbről: miért, hogyan, mivel?</h3>
+
+<div class="box extra"><span class="box-title">➕ Kiegészítés (előadásanyag: <em>Adatok binnelése és diszkretizálása</em>)</span>
+<p>Az előbb két sávolási módot láttál a pandasban. Az előadás három kérdéssel megy tovább: <em>miért</em> érdemes egyáltalán sávokba sorolni, <em>ki</em> jelöli ki a határokat (csak az adat, vagy a célváltozó is), és hogyan csináld ezt <em>scikit-learnben</em>, modellépítés közben.</p>
+</div>
+
+<h4>Kis eset</h4>
+<p>Hat érték: $1, 2, 5, 10, 20, 50$. Három sávot kérünk. Az <em>egyenlő szélességű</em> sávolás a terjedelmet ($50-1=49$) osztja háromfelé: a sávszélesség $49/3\approx 16{,}33$, a határok $17{,}33$ és $33{,}67$. Az első sávba négy érték kerül ($1, 2, 5, 10$), a másodikba egy ($20$), a harmadikba egy ($50$). Az <em>egyenlő gyakoriságú</em> sávolás sávonként kettőt tesz: $\{1,2\}$, $\{5,10\}$, $\{20,50\}$. Egyetlen kiugró (az 50) az első módszernél „elhúzza” a határokat, a másodiknál nem.</p>
+
+<div class="box def"><span class="box-title">Definíció – Diszkretizálás, és miért van rá szükség</span>
+<p><strong>Diszkretizálás</strong> (sávolás, <em>binning</em>): egy folytonos változó értéktartományát diszjunkt intervallumokra (sávokra, <em>bin</em>) bontjuk, és minden értéket a sávja címkéjével vagy sorszámával helyettesítünk.</p>
+<ul>
+  <li><strong>Az algoritmus megköveteli.</strong> Egyes módszerek csak kategorikus bemenettel dolgoznak: az ID3 döntési fa (<a class="xref" href="05-dontesi-fa.html#lepes5">5. lecke, az ID3-táblázat</a>), a kategorikus naiv Bayes, és a kosárelemzés is csak tételeket ismer (<a class="xref" href="02-kosarelemzes.html">2. lecke</a>).</li>
+  <li><strong>Zaj és kiugró értékek tompítása.</strong> Az 50 és az 5000 ugyanabba a felső sávba kerül, a mérési zaj pedig ritkán viszi át az értéket a szomszéd sávba.</li>
+  <li><strong>Értelmezhetőség.</strong> A „fiatal / középkorú / idős” szabály emberi döntéshez könnyebben használható, mint „életkor ≤ 37,4”.</li>
+  <li><strong>Számítási hatékonyság.</strong> Kevés különböző érték gyorsabb feldolgozást ad.</li>
+</ul>
+<p>Az ár: <strong>információt veszítünk</strong> (a sávon belüli különbségek eltűnnek), és a határok megválasztása befolyásolja az eredményt.</p>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – Nem felügyelt és felügyelt diszkretizálás; a három stratégia</span>
+<p><strong>Nem felügyelt</strong> (<em>unsupervised</em>): a határokat csak a változó saját értékeiből számoljuk, a célváltozó nélkül. <strong>Felügyelt</strong> (<em>supervised</em>): a határokat úgy választjuk, hogy a sávok minél jobban elválasszák a célváltozó osztályait. Ilyen a döntési fa: a numerikus változó legjobb vágási küszöbét a kevertség csökkenése alapján keresi (<a class="xref" href="05-dontesi-fa.html#lepes4">5. lecke, 4. lépés</a>).</p>
+<div class="table-wrap"><table>
+<tr><th>Stratégia (<code>strategy=</code>)</th><th>Működési elv</th><th>Előny</th><th>Korlát</th></tr>
+<tr><td><strong>egyenlő szélességű</strong> (<code>"uniform"</code>; pandasban <code>pd.cut</code>)</td><td>a $[\min,\max]$ tartományt $k$ egyforma széles részre bontja: szélesség $=(\max-\min)/k$</td><td>egyszerű, a határok könnyen értelmezhetők</td><td>érzékeny a kiugróra; ferde eloszlásnál üres és túltelt sávok</td></tr>
+<tr><td><strong>egyenlő gyakoriságú</strong> (<code>"quantile"</code>; pandasban <code>pd.qcut</code>)</td><td>a határok a kvantilisek: minden sávba nagyjából ugyanannyi érték jut</td><td>robusztus a kiugróra, nincs üres sáv; ferde eloszlást kiegyenlít</td><td>sok azonos értéknél nem pontos; a sávszélességek nagyon eltérhetnek</td></tr>
+<tr><td><strong>klaszter alapú</strong> (<code>"kmeans"</code>)</td><td>egydimenziós K-means a változón (<a class="xref" href="03-kmeans.html#lepes5">3. lecke, 5. lépés</a>); a határ két szomszédos középpont felezőpontja</td><td>a „természetes csomókhoz” igazodik</td><td>véletlen kezdéstől és $k$-tól függ, a határok nem kerekek</td></tr>
+</table></div>
+<p>Mindhárom <em>nem felügyelt</em>: egyik sem nézi a célváltozót.</p>
+</div>
+
+<div class="box example" id="kbins-pelda"><span class="box-title">Kidolgozott példa 5 – <code>KBinsDiscretizer</code> három stratégiával</span>
+<p>A kis eset hat értékét ($1, 2, 5, 10, 20, 50$) sávoljuk három sávba scikit-learnnel, sorszám-kódolással. Milyen határokat és kódokat kapunk az egyes stratégiákkal?</p>
+<pre><code class="language-python">import numpy as np
+from sklearn.preprocessing import KBinsDiscretizer
+
+X = np.array([[1.0], [2.0], [5.0], [10.0], [20.0], [50.0]])   # 2D: egy oszlop
+
+est = KBinsDiscretizer(n_bins=3, encode="ordinal", strategy="quantile")
+X_binned = est.fit_transform(X)          # fit: határok; transform: kódolás
+print("Binek határai:", est.bin_edges_[0])
+print("Transzformált adatok:", X_binned.ravel())</code></pre>
+<details class="solution"><summary>Megoldás (scikit-learn 1.9-cel futtatva)</summary>
+<div class="table-wrap"><table>
+<tr><th><code>strategy</code></th><th><code>bin_edges_[0]</code></th><th>kódok ($1, 2, 5, 10, 20, 50$)</th></tr>
+<tr><td><code>"quantile"</code></td><td>$1;\ 3{,}5;\ 15;\ 50$</td><td>0, 0, 1, 1, 2, 2</td></tr>
+<tr><td><code>"uniform"</code></td><td>$1;\ 17{,}33;\ 33{,}67;\ 50$</td><td>0, 0, 0, 0, 1, 2</td></tr>
+<tr><td><code>"kmeans"</code></td><td>$1;\ 12{,}25;\ 35;\ 50$</td><td>0, 0, 0, 0, 1, 2</td></tr>
+</table></div>
+<p><strong>quantile:</strong> sávonként két érték; a határ a két szomszédos érték közepe ($\frac{2+5}{2}=3{,}5$, $\frac{10+20}{2}=15$). <strong>uniform:</strong> $1+16{,}33=17{,}33$ és $1+2\cdot16{,}33=33{,}67$. <strong>kmeans:</strong> a középpontok $4{,}5$ (az $1,2,5,10$ átlaga), $20$ és $50$; a határok a felezőpontok: $\frac{4{,}5+20}{2}=12{,}25$, $\frac{20+50}{2}=35$.</p>
+<p>A <code>bin_edges_</code> a külső határokat (min és max) is tartalmazza, ezért $k$ sávhoz $k+1$ szám tartozik. Régebbi scikit-learn (1.7 előtt) és a <code>pd.qcut</code> a kvantiliseket lineáris interpolációval számolja: ott a határok $4$ és $13{,}33$, a kódok ugyanazok.</p></details>
+</div>
+
+<div class="box def"><span class="box-title">Definíció – A <code>KBinsDiscretizer</code> paraméterei</span>
+<ul>
+  <li><code>n_bins</code>: a sávok száma (oszloponként külön is megadható).</li>
+  <li><code>strategy</code>: <code>"uniform"</code>, <code>"quantile"</code> vagy <code>"kmeans"</code> (lásd a táblázatot fent).</li>
+  <li><code>encode</code>: <code>"ordinal"</code> – egy oszlop, egész kódokkal $0,\dots,k-1$; <code>"onehot"</code> – sávonként egy 0/1 oszlop (ritka mátrixként); <code>"onehot-dense"</code> – ugyanez sűrű (közönséges) tömbként.</li>
+  <li>Metódusok: <code>fit()</code> (határok kiszámítása), <code>transform()</code> (sávolás a már kiszámolt határokkal), <code>fit_transform()</code>; attribútum: <code>bin_edges_</code>.</li>
+</ul>
+<p>Mikor melyik kódolás? Ha az algoritmus a sávok sorrendjét értelmesen használja (fa, sorrendtartó modell), elég az <code>ordinal</code>. Ha távolságot vagy lineáris kombinációt számol, és a sávok közötti különbség nem egyenletes, a <code>onehot</code> a biztonságosabb (ugyanazért, amiért a régiót is dummy-kódoljuk – <a href="#regio-kodolas">4. kidolgozott példa</a>).</p>
+</div>
+
+<div class="box tip"><span class="box-title">💡 Hüvelykujjszabály – melyik stratégiát?</span>
+<div class="table-wrap"><table>
+<tr><th>Ha az adat…</th><th>…ezt válaszd</th></tr>
+<tr><td>nagyjából egyenletes, és fontos, hogy a határok értelmezhetők legyenek</td><td><code>"uniform"</code> / <code>pd.cut</code></td></tr>
+<tr><td>ferde, kiugrók vannak, és kiegyensúlyozott sávok kellenek</td><td><code>"quantile"</code> / <code>pd.qcut</code></td></tr>
+<tr><td>„csomós”, látható természetes csoportokkal</td><td><code>"kmeans"</code></td></tr>
+<tr><td>a sávoknak a célváltozót kell jól elválasztaniuk</td><td>felügyelt: a döntési fa vágópontjai</td></tr>
+<tr><td>kommunikálni kell (riport, szabály)</td><td>szakmai, kerek határok: <code>pd.cut(s, bins=[...])</code></td></tr>
+<tr><td>gyors feltáró elemzés (EDA)</td><td><code>pd.cut</code> / <code>pd.qcut</code>; modellbe a <code>KBinsDiscretizer</code> Pipeline-ban</td></tr>
+</table></div>
+</div>
+
+<div class="box example" id="kbins-pipeline"><span class="box-title">Kidolgozott példa 6 – Sávolás Pipeline-ban, adatszivárgás nélkül</span>
+<p>Az 5. gyakorlat hallgatói adatán (85 tanító, 29 teszt hallgató) a négy numerikus változót tercilisekre sávoljuk, és kategorikus naiv Bayes-szel jósoljuk a <code>passed</code> változót. Hol számolódnak a sávhatárok?</p>
+<pre><code class="language-python">from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import KBinsDiscretizer
+from sklearn.naive_bayes import CategoricalNB
+
+cols = ["study_hours", "attendance", "previous_gpa", "assignments_completed"]
+model = make_pipeline(
+    KBinsDiscretizer(n_bins=3, encode="ordinal", strategy="quantile"),
+    CategoricalNB())
+model.fit(train[cols], train["passed"])          # a határok CSAK a tanítóadatból
+print(model.score(test[cols], test["passed"]))   # a teszten csak transform fut</code></pre>
+<details class="solution"><summary>Megoldás (valódi adat)</summary>
+<p>A <code>fit</code> a tanítóadatból számolja a határokat (pl. <code>study_hours</code>: $8{,}9$ és $13{,}6$ óra), a <code>score</code> a teszthallgatókat ugyanezekkel a határokkal sávolja. A teszt accuracy $0{,}759$ (22/29), a többségi alapmodellé $0{,}724$ (<a class="xref" href="05-dontesi-fa.html#lepes7">5. lecke, 7. lépés</a>).</p>
+<p>Ha a sávolást a felosztás <em>előtt</em>, a teljes adaton végeznéd, a tesztadat is beleszólna a határokba. Ez ugyanaz az adatszivárgás, mint a felosztás előtti standardizálás (<a class="xref" href="06-neuralis-halo.html#lepes7">6. lecke, 7. lépés</a>). A Pipeline ezt automatikusan megakadályozza, keresztvalidációban is.</p></details>
+</div>
+
 <div class="box warn"><span class="box-title">⚠ Buktatók</span>
 <ul>
   <li><strong>A min–max érzékeny a kiugróra.</strong> Ha egy elírás miatt a maximális ár 24&nbsp;000 Ft lenne, a kenyér normalizált ára 0,013, a kávéé 0,082 lenne: minden érték a 0 közelébe zsúfolódik. Normalizálás előtt kezeld a kiugrókat (7. lépés), vagy standardizálj.</li>
   <li><strong>Nominális változót ne kódolj sorszámmal</strong>, ha az algoritmus távolságot vagy átlagot számol (K-means, neurális háló). A sorszám hamis sorrendet visz be.</li>
   <li><strong>Diszkretizálásnál a határ hova esik?</strong> A <code>pd.cut</code> alapból jobbról zárt sávokat használ: <code>bins=[0, 14, 21, 60, 120]</code> esetén a 14 éves a $(0, 14]$ sávba, a „gyermek” kategóriába kerül. A niu példájában („gyermekkor 0–14, fiatalkor 14–21”) a 14 két helyen is szerepel – ezt mindig egyértelművé kell tenni.</li>
+  <li><strong>A sávhatárokat csak a tanítóadatból számold.</strong> A <code>KBinsDiscretizer</code> (vagy a <code>pd.qcut</code>) a teljes adaton futtatva a tesztadatból is tanul – ez adatszivárgás. Modellben Pipeline-t használj (<a href="#kbins-pipeline">6. kidolgozott példa</a>).</li>
+  <li><strong>Sok azonos érték mellett a <code>quantile</code> nem ad egyforma sávokat.</strong> Ha az értékek fele 0, a határok egybeesnek; a scikit-learn ilyenkor összevonja a sávokat (figyelmeztetést ad), a <code>pd.qcut</code> hibát dob (<code>duplicates="drop"</code> kell).</li>
   <li><strong>Aggregálás után megváltozik a megfigyelési egység</strong> (tétel → kosár → vásárló), és vele a statisztikák jelentése is (lásd a 10. lépés ferdeségtáblázatát).</li>
   <li><strong>Mintavételnél add meg a <code>random_state</code>-et</strong>, különben minden futás más mintát és más eredményt ad, és nem lehet reprodukálni.</li>
 </ul>
@@ -1118,7 +1212,7 @@ product_revenue.head(5)                                            # top 5</code
 <p><em>aggregation</em> = aggregálás · <em>sampling (with / without replacement, stratified)</em> = mintavétel (visszatevéses / visszatevés nélküli, rétegzett) · <em>normalization (min–max scaling)</em> = normalizálás · <em>standardization (z-score)</em> = standardizálás · <em>discretization, binning</em> = diszkretizálás, sávokba sorolás · <em>one-hot / dummy encoding</em> = binarizálás, dummy-kódolás · <em>feature engineering / extraction / selection</em> = jellemzőszerkesztés / -kinyerés / -szelekció · <em>dimensionality reduction</em> = dimenziócsökkentés · <em>curse of dimensionality</em> = dimenzióprobléma.</p>
 </div>
 
-<details class="box practice"><summary>✏️ Gyakorlás – Előfeldolgozási eszközök (5 feladat)</summary>
+<details class="box practice"><summary>✏️ Gyakorlás – Előfeldolgozási eszközök (7 feladat)</summary>
 <ol>
   <li><p>Mi a tea (1400 Ft) min–max normalizált ára, ha az árak 250 és 2400 Ft között vannak?</p>
     <details class="solution"><summary>Megoldás</summary><p>$\frac{1400-250}{2150} = \frac{1150}{2150} \approx 0{,}535$.</p></details></li>
@@ -1130,6 +1224,10 @@ product_revenue.head(5)                                            # top 5</code
     <details class="solution"><summary>Megoldás</summary><p>Az elvárt lemorzsolódók száma a mintában $500\cdot 0{,}02 = 10$. Egyszerű véletlen mintánál ez véletlenül lehet sokkal kevesebb vagy több (akár 5 vagy 15), és ilyen kis számnál ez a minta szerkezetét erősen torzítja. A rétegzett minta pontosan 490 maradót és 10 lemorzsolódót tartalmaz.</p></details></li>
   <li><p>A kosárértékeket három kategóriába akarod sorolni úgy, hogy mindegyikben nagyjából ugyanannyi kosár legyen. <code>pd.cut</code> vagy <code>pd.qcut</code>? Mi történne a másikkal?</p>
     <details class="solution"><summary>Megoldás</summary><p><code>pd.qcut(s, 3)</code>: tercilisek, 386 / 382 / 383 kosár. A <code>pd.cut(s, 3)</code> egyenlő <em>szélességű</em> sávokat ad, a jobbra ferde eloszlás miatt erősen eltérő létszámmal (584 / 485 / 82).</p></details></li>
+  <li><p>Értékek: $0, 4, 6, 8, 10, 60$; három sáv. Add meg a határokat egyenlő szélességű sávolással, és azt, hány érték jut az egyes sávokba. Mit tapasztalsz?</p>
+    <details class="solution"><summary>Megoldás</summary><p>Szélesség $(60-0)/3 = 20$, határok $20$ és $40$. Sávok: $\{0,4,6,8,10\}$ – 5 érték, a középső üres, a felsőben egyedül a $60$. Egyetlen kiugró miatt az egyenlő szélességű sávolás szinte mindent egy sávba tesz; itt <code>"quantile"</code> kellene (sávonként 2 érték).</p></details></li>
+  <li><p>Melyik diszkretizálás felügyelt? (a) <code>KBinsDiscretizer(strategy="kmeans")</code>; (b) az 5. lecke 8 hallgatós példájában a tanulási óraszámot a döntési fa vágási küszöbeinél ($5{,}5$ és $3{,}5$ óra) bontjuk sávokra; (c) <code>pd.qcut(s, 4)</code>.</p>
+    <details class="solution"><summary>Megoldás</summary><p>Csak a (b): a fa a küszöböket a célváltozó (<code>passed</code>) osztályainak szétválasztása alapján választotta (<a class="xref" href="05-dontesi-fa.html#lepes4">5. lecke, 4. lépés</a>). Az (a) és a (c) csak a változó saját eloszlását nézi – a K-means sem „felügyelt” attól, hogy algoritmus.</p></details></li>
 </ol>
 </details>
 
@@ -1289,6 +1387,7 @@ print(f"{data['line_total'].sum():,} HUF")   # 9,891,340 HUF</code></pre>
 <tr><td>Középérték / szóródás kiugrók mellett, a szélső értékek eldobásával</td><td>csonkolt átlag (<code>scipy.stats.trim_mean</code>), MAD, IQR</td></tr>
 <tr><td>Változók $[0,1]$ közé hozása</td><td>min–max normalizálás; átlag 0, szórás 1: standardizálás (3. lecke)</td></tr>
 <tr><td>Numerikus változóból kategóriák</td><td><code>pd.cut</code> (egyenlő szélesség vagy saját határok), <code>pd.qcut</code> (egyenlő gyakoriság)</td></tr>
+<tr><td>Sávolás modellépítés közben (ferde adat, kiugrók, „természetes csomók”)</td><td><code>KBinsDiscretizer</code> (<code>strategy="quantile"</code> / <code>"uniform"</code> / <code>"kmeans"</code>) Pipeline-ban, hogy a határok csak a tanítóadatból jöjjenek</td></tr>
 <tr><td>Nominális változó számmá alakítása</td><td><code>pd.get_dummies(...)</code>; ordinálisnál sorrendtartó egész kód</td></tr>
 <tr><td>Erősen jobbra ferde, pozitív változó</td><td><code>np.log(...)</code></td></tr>
 <tr><td>Kisebb, de arányos minta csoportonként</td><td>rétegzett mintavétel: <code>df.groupby(csoport).sample(frac=..., random_state=...)</code></td></tr>
@@ -1304,7 +1403,7 @@ print(f"{data['line_total'].sum():,} HUF")   # 9,891,340 HUF</code></pre>
 
 <nav class="pager">
   <a href="10-bi-adatbanyaszat-alapok.html">← 10. BI és adatbányászat alapjai</a>
-  <a href="02-kosarelemzes.html">2. Kosárelemzés →</a>
+  <a href="15-statisztikai-alapok.html">15. Statisztikai alapok →</a>
 </nav>
 </main>
 </body>

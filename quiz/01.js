@@ -226,6 +226,28 @@ QUIZZES["l01-lepes11"] = {
       answer: 0,
       hint: "Van-e a régióknak sorrendje? Mit számol a K-means a számokkal?",
       explain: "A K-means távolságot számol, így a sorszámkód egy nem létező sorrendet tanul meg. A standardizálás vagy a 0-tól induló kód ezen nem segít, mert a sorrend megmarad. A <code>pd.get_dummies</code> után bármely két különböző régió egyforma távolságra van."
+    },
+    {
+      type: "single",
+      q: R`A $1, 2, 5, 10, 20, 50$ értékeket <code>KBinsDiscretizer(n_bins=3, strategy="uniform", encode="ordinal")</code> sávolja. Milyen kódokat kapnak (ebben a sorrendben)?`,
+      options: ["0, 0, 0, 0, 1, 2", "0, 0, 1, 1, 2, 2", "0, 1, 1, 1, 2, 2", "1, 1, 1, 1, 2, 3"],
+      answer: 0,
+      hint: R`Egyenlő szélesség: $(\max-\min)/3$. Hol vannak a határok?`,
+      explain: R`Szélesség $49/3\approx16{,}33$, határok $17{,}33$ és $33{,}67$: négy érték az első sávba, a 20 a másodikba, az 50 a harmadikba. A „0, 0, 1, 1, 2, 2” a <code>quantile</code> stratégia eredménye (sávonként két érték). Az „1, 1, 1, 1, 2, 3” elfelejti, hogy az <code>ordinal</code> kódolás 0-tól számoz.`
+    },
+    {
+      type: "multi",
+      q: "Mely állítások igazak a diszkretizálásra?",
+      options: [
+        "A döntési fa küszöbei felügyelt diszkretizálást adnak, mert a célváltozó alapján választódnak.",
+        "A <code>quantile</code> stratégia robusztusabb a kiugró értékekre, mint az <code>uniform</code>.",
+        "Modellépítésnél a sávhatárokat csak a tanítóadatból szabad kiszámolni (pl. Pipeline-nal).",
+        "A <code>kmeans</code> stratégia felügyelt, mert egy tanuló algoritmus jelöli ki a határokat.",
+        "A diszkretizálás nem jár információvesztéssel."
+      ],
+      answer: [0, 1, 2],
+      hint: "Felügyelt az, ami a célváltozót is nézi. És mi tűnik el a sávon belül?",
+      explain: "A K-means csak a változó saját értékeit nézi, ezért nem felügyelt. A sávon belüli különbségek elvesznek – ez a diszkretizálás ára. A tesztadatból számolt határ adatszivárgás."
     }
   ]
 };
