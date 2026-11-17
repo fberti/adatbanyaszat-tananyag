@@ -1,0 +1,738 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vizsgatételek röviden</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .tetel { border-top: 1px solid var(--border, #ddd); padding-top: .4rem; margin-top: 1.1rem; }
+  .tetel h3 { margin: .3rem 0 .4rem; }
+  .tetel ul { margin: .2rem 0 .3rem; }
+  .tetel .ref { font-size: .88rem; color: var(--muted); margin: .2rem 0 0; }
+  .toc-groups { columns: 2 260px; column-gap: 2rem; }
+  .toc-groups li { break-inside: avoid; }
+</style>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script defer src="assets/common.js"></script>
+</head>
+<body>
+<nav class="topnav"><div class="inner">
+  <a href="index.html">← Tartalom</a>
+  <span>17. · Vizsgatételek</span>
+  <span class="spacer"></span>
+  <button id="theme-toggle" type="button" title="Világos/sötét téma">◐</button>
+</div></nav>
+<main>
+<p class="kicker">17. · ismétlés · a „Fogalmi témakörök” listája alapján</p>
+<h1>Vizsgatételek röviden</h1>
+<p class="lead">A vizsgatémakörök tömör kidolgozása: tételenként a definíció és a lényeg néhány pontban. A részletek, a levezetések és a gyakorló feladatok a 📖 linkkel elérhető leckékben vannak. A 12–15. tétel (Python SQL API, grafikonrajzolás) nincs benne.</p>
+
+<div class="box tip"><span class="box-title">💡 Hogyan felelj?</span>
+<p>Egy jó felelet szerkezete: <strong>definíció → szerep (mire való) → működés (lépések, képlet) → kis példa → korlát / buktató</strong>. Az alábbi pontok ezt a sorrendet követik.</p></div>
+
+<section id="tartalom">
+<h2>Tételek</h2>
+<ul class="toc-groups">
+<li><a href="#bi">BI és adatbányászat, tárolás</a> (1–6.)</li>
+<li><a href="#python">Python</a> (7–11., 16.)</li>
+<li><a href="#stat">Statisztika</a> (17–23.)</li>
+<li><a href="#dw">Adattárház, MD modell</a> (24–34.)</li>
+<li><a href="#mdx">MDX</a> (35–39.)</li>
+<li><a href="#klaszter">Adatbányászat, klaszterezés</a> (40–45.)</li>
+<li><a href="#osztalyozas">Osztályozás</a> (46–52.)</li>
+<li><a href="#nn">Neurális háló, tanítás</a> (53–59.)</li>
+<li><a href="#rapidminer">RapidMiner / Altair AI Studio</a> (60.)</li>
+</ul>
+</section>
+
+<!-- ============================================================ -->
+<section id="bi">
+<h2>BI és adatbányászat, tárolás (1–6.)</h2>
+
+<div class="tetel" id="t1"><h3>1. A BI definíciója és funkciói</h3>
+<ul>
+<li><strong>BI</strong> (üzleti intelligencia): azoknak a technikáknak és eszközöknek az összessége, amelyek a nyers adatból döntést támogató információt állítanak elő.</li>
+<li><strong>Funkciói</strong> az alapkérdéssel együtt:
+  <ul>
+  <li><em>riportkészítés</em>: mi történt?</li>
+  <li><em>elemzés</em>: miért történt?</li>
+  <li><em>monitorozás</em>: mi történik most?</li>
+  <li><em>predikció</em>: mi fog történni?</li>
+  <li><em>előíró analitika</em> (tervezés): mit tegyünk?</li>
+  </ul></li>
+<li><strong>Előnyei:</strong> adatvezérelt döntés, hatékonyság, jobb ügyfélismeret, versenyelőny, költségcsökkentés.</li>
+</ul>
+<p class="ref">📖 <a href="10-bi-adatbanyaszat-alapok.html#lepes1">10. lecke, 1–2. lépés</a></p></div>
+
+<div class="tetel" id="t2"><h3>2. A KPI szerepe és definíciója</h3>
+<ul>
+<li><strong>KPI</strong> (kulcsfontosságú teljesítménymutató): egy üzleti folyamathoz kötött, számszerűsíthető mutató, amely egy stratégiai cél elérését méri.</li>
+<li><strong>Szerepe:</strong> a teljesítményt célértékhez méri, így a monitorozás és a dashboardok alapja.</li>
+<li><strong>A jó KPI</strong> mérhető, célhoz kötött, időszakhoz kötött, és lehet rá hatni.</li>
+<li><strong>Példák:</strong> bevétel; átlagos rendelési érték ($\text{bevétel}/\text{rendelésszám}$); bruttó árrés; ügyfélmegtartási arány $\text{CRR}=(E-N)/S$.</li>
+</ul>
+<p class="ref">📖 <a href="10-bi-adatbanyaszat-alapok.html#lepes3">10. lecke, 3. lépés</a></p></div>
+
+<div class="tetel" id="t3"><h3>3. A BI adatforrás-szintjei</h3>
+<ul>
+<li><strong>Állomány:</strong> lokális, izolált, egyfelhasználós, kis adatmennyiség (Excel, CSV).</li>
+<li><strong>Adatbázis:</strong> központosított, többfelhasználós, szabványos adatmodell, tranzakcióorientált (OLTP).</li>
+<li><strong>Adattárház:</strong> integrált, tisztított, historikus adat elemzésre optimalizálva (ETL, schema-on-write).</li>
+<li><strong>Adattó:</strong> nyers, strukturálatlan adat is, rugalmas, jól skálázható (schema-on-read).</li>
+<li>Felfelé haladva nő az adatmennyiség, az integráltság és az elemzési képesség.</li>
+</ul>
+<p class="ref">📖 <a href="10-bi-adatbanyaszat-alapok.html#lepes4">10. lecke, 4. lépés</a> · <a href="12-adattarolas-adattarhaz.html#lepes1">12. lecke, 1. lépés</a></p></div>
+
+<div class="tetel" id="t4"><h3>4. Az adatbányászat fogalma és fázisai</h3>
+<ul>
+<li><strong>Adatbányászat (DM):</strong> rejtett, üzletileg hasznos mintázatok (kapcsolatok, trendek, csoportok) (félig) automatikus feltárása nagy tömegű adatból. A BI üzleti analitikai rétegének algoritmusait adja.</li>
+<li><strong>A 6 fázis</strong> (CRISP-DM):
+  <ol>
+  <li>megértés (üzleti cél, siker mérése);</li>
+  <li>adatfeltárás;</li>
+  <li>adatelőkészítés (tisztítás, átalakítás);</li>
+  <li>modellezés (tanító/teszt felosztás, illesztés);</li>
+  <li>kiértékelés (mérőszámok);</li>
+  <li>alkalmazás (éles üzem, monitorozás).</li>
+  </ol></li>
+<li>A folyamat <strong>ciklikus</strong>: rossz eredménynél vissza kell lépni egy korábbi fázisra.</li>
+</ul>
+<p class="ref">📖 <a href="10-bi-adatbanyaszat-alapok.html#lepes5">10. lecke, 5–7. lépés</a></p></div>
+
+<div class="tetel" id="t5"><h3>5. A felhőalapú tárolás jellemzése</h3>
+<ul>
+<li><strong>Definíció:</strong> az adatok transzparens tárolása távoli, elosztott adatközpontokban, interneten keresztüli eléréssel. A felhasználónak nem kell ismernie a tárolás részleteit.</li>
+<li><strong>Szolgáltatásként</strong> veszed igénybe, használat szerinti díjért (pl. objektumtár: S3, Azure Blob; felhős adattárház: BigQuery, Redshift, Snowflake).</li>
+<li>Gyakran <strong>NoSQL</strong>: rugalmas séma, vízszintes skálázás, „végül konzisztens” működés.</li>
+<li><strong>Az architektúrák fejlődése:</strong> kliens–szerver → többrétegű (multi-tier) szerver → felhő.</li>
+</ul>
+<p class="ref">📖 <a href="12-adattarolas-adattarhaz.html#lepes8">12. lecke, 8. lépés</a></p></div>
+
+<div class="tetel" id="t6"><h3>6. A felhőalapú tárolás előnyei</h3>
+<ul>
+<li><strong>Méretezhetőség:</strong> a kapacitás igény szerint bővíthető.</li>
+<li><strong>Költséghatékonyság:</strong> nem kell saját infrastruktúra, csak a használatot fizeted.</li>
+<li><strong>Biztonság és megfelelőség:</strong> titkosítás, szabályozási megfelelés.</li>
+<li><strong>Globális hozzáférés:</strong> bárhonnan elérhető, távmunkára is alkalmas.</li>
+<li><strong>Katasztrófa-helyreállítás:</strong> automatikus mentések, redundancia.</li>
+<li><em>Hátrányok:</em> internetfüggés, kiszolgáltatottság a szolgáltatónak, adatvédelmi kérdések (GDPR: hol tárolják az adatot?).</li>
+</ul>
+<p class="ref">📖 <a href="12-adattarolas-adattarhaz.html#lepes8">12. lecke, 8–9. lépés</a></p></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="python">
+<h2>Python (7–11., 16.)</h2>
+
+<div class="tetel" id="t7"><h3>7. Python list</h3>
+<ul>
+<li><strong>Rendezett, módosítható</strong> sorozat, ismétlődés megengedett, az elemek típusa vegyes lehet: <code>a = [3, 1, 2]</code>.</li>
+<li><strong>Indexelés:</strong> <code>a[0]</code>, <code>a[-1]</code>; <strong>szeletelés:</strong> <code>a[1:3]</code>.</li>
+<li><strong>Műveletek:</strong> <code>append</code>, <code>insert</code>, <code>remove</code>, <code>pop</code>, <code>sort</code> (helyben), <code>sorted(a)</code> (új lista), <code>len</code>, <code>in</code>.</li>
+<li><strong>Listaértelmezés:</strong> <code>[x*x for x in a if x &gt; 1]</code>.</li>
+</ul>
+<p class="ref">📖 <a href="11-python-adatkezeles.html#lepes1">11. lecke, 1. lépés</a></p></div>
+
+<div class="tetel" id="t8"><h3>8. Python function</h3>
+<ul>
+<li><strong>Definiálás:</strong> <code>def nev(param, alap=1): ... return ertek</code>. Ha nincs <code>return</code>, a függvény <code>None</code>-t ad vissza.</li>
+<li><strong>Paraméterek:</strong> pozíció szerinti és név szerinti (<code>f(x=2)</code>), alapértelmezett érték, tetszőleges számú argumentum: <code>*args</code>, <code>**kwargs</code>.</li>
+<li><strong>Lambda:</strong> névtelen, egykifejezéses függvény, pl. <code>sorted(t, key=lambda r: r[1])</code>.</li>
+<li>A függvény is objektum: átadható paraméterként.</li>
+</ul>
+<p class="ref">📖 <a href="11-python-adatkezeles.html#lepes4">11. lecke, 4–5. lépés</a></p></div>
+
+<div class="tetel" id="t9"><h3>9. Python class</h3>
+<ul>
+<li>Az <strong>osztály</strong> az adat (attribútumok) és a rajta dolgozó függvények (metódusok) egysége, az objektumok mintája.</li>
+<li><code>class Termek:</code>, benne a konstruktor: <code>def __init__(self, nev, ar): self.nev = nev; self.ar = ar</code>.</li>
+<li><strong>Metódus:</strong> az első paramétere a <code>self</code>, vagyis maga a példány. <strong>Példányosítás:</strong> <code>t = Termek("kenyér", 550)</code>, használat: <code>t.ar</code>.</li>
+<li><strong>Öröklés:</strong> <code>class Akcios(Termek):</code>. A gyerekosztály átveszi a szülő metódusait, és felül is írhatja őket.</li>
+</ul>
+<p class="ref">📖 <a href="11-python-adatkezeles.html#lepes5">11. lecke, 5. lépés</a></p></div>
+
+<div class="tetel" id="t10"><h3>10. Szövegfájl olvasása</h3>
+<ul>
+<li><code>with open("adat.txt", "r", encoding="utf-8") as f:</code> – a <code>with</code> blokk végén a fájl automatikusan bezáródik.</li>
+<li><code>f.read()</code>: a teljes tartalom egy sztringben; <code>f.readline()</code>: egy sor; <code>f.readlines()</code>: a sorok listája; <code>for sor in f:</code> soronként, memóriatakarékosan.</li>
+<li>A sorvégi <code>\n</code>-t a <code>sor.strip()</code> vágja le, a mezőkre bontást a <code>sor.split(";")</code> végzi.</li>
+<li>Hibás kódolás (pl. UTF-8 helyett cp1250) esetén az ékezetek elromlanak, vagy <code>UnicodeDecodeError</code> jön.</li>
+</ul>
+<p class="ref">📖 <a href="11-python-adatkezeles.html#lepes7">11. lecke, 7. lépés</a></p></div>
+
+<div class="tetel" id="t11"><h3>11. Szövegfájl írása</h3>
+<ul>
+<li><strong>Megnyitási módok:</strong> <code>"w"</code> felülír (vagy létrehoz), <code>"a"</code> a végére fűz, <code>"x"</code> csak új fájlt hoz létre.</li>
+<li><code>f.write(szoveg)</code> nem tesz sortörést, a <code>"\n"</code>-t neked kell kiírnod. <code>f.writelines(lista)</code> egy lista elemeit írja ki.</li>
+<li><code>print(..., file=f)</code> is használható.</li>
+<li>A <code>with</code> és az <code>encoding</code> itt is kötelező jó szokás. A <code>"w"</code> mód figyelmeztetés nélkül törli a régi tartalmat.</li>
+</ul>
+<p class="ref">📖 <a href="11-python-adatkezeles.html#lepes7">11. lecke, 7. lépés</a></p></div>
+
+<div class="tetel" id="t16"><h3>16. Python hisztogram</h3>
+<ul>
+<li><strong>Hisztogram:</strong> az értéktartományt tárolókra (bin) osztjuk, és megszámoljuk, hány mintaelem esik egy-egy tárolóba. Az eloszlás alakját mutatja (ferdeség, csúcsok, kiugrók).</li>
+<li><strong>Python:</strong> <code>plt.hist(adat, bins=10)</code> (matplotlib), illetve <code>df["oszlop"].hist(bins=10)</code> (pandas). Számolás ábra nélkül: <code>np.histogram</code>.</li>
+<li><strong>A tárolók kiosztása:</strong> egyenlő hosszúságú vagy egyenlő terhelésű tárolók. A jó tárolószám megtalálása nehéz: kevés tárolónál az ábra durva, soknál zajos és mintafüggő.</li>
+</ul>
+<p class="ref">📖 <a href="15-statisztikai-alapok.html#lepes2">15. lecke, 2. lépés</a> · <a href="11-python-adatkezeles.html#lepes6">11. lecke, 6. lépés</a></p></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="stat">
+<h2>Statisztika (17–23.)</h2>
+
+<div class="tetel" id="t17"><h3>17. Valószínűségi változó</h3>
+<ul>
+<li>Olyan <strong>numerikus változó</strong>, amely egy véletlen kísérlet kimenetelét reprezentálja, vagyis minden kimenetelhez egy számot rendel. Példa: a kockadobás eredménye, egy vásárlás értéke.</li>
+<li><strong>Diszkrét</strong> (megszámlálható értékek, pl. a vevők száma) vagy <strong>folytonos</strong> (intervallum, pl. testmagasság).</li>
+<li><strong>Jellemzői:</strong> várható érték (átlag), medián, variancia (az átlagtól vett átlagos négyzetes eltérés), szórás ($\sqrt{\text{variancia}}$).</li>
+<li><strong>Kapcsolódó fogalmak:</strong> populáció (az összes eset), minta (a populáció egy részhalmaza), mintavétel.</li>
+</ul>
+<p class="ref">📖 <a href="15-statisztikai-alapok.html#lepes1">15. lecke, 1. lépés</a></p></div>
+
+<div class="tetel" id="t18"><h3>18. Eloszlás- és sűrűségfüggvény</h3>
+<ul>
+<li><strong>Eloszlásfüggvény (CDF):</strong> $F(x)=P(X\le x)$. Monoton nő, $F(-\infty)=0$, $F(+\infty)=1$.</li>
+<li><strong>Sűrűségfüggvény:</strong> diszkrét esetben valószínűségfüggvény, $f(x)=P(X=x)$; folytonos esetben $f(x)=F'(x)$.</li>
+<li>Folytonos változónál egyetlen pont valószínűsége 0. Az intervallum valószínűsége a sűrűség alatti terület: $P(a&lt;X\le b)=F(b)-F(a)$.</li>
+</ul>
+<p class="ref">📖 <a href="15-statisztikai-alapok.html#lepes3">15. lecke, 3. lépés</a></p></div>
+
+<div class="tetel" id="t19"><h3>19. Binomiális eloszlás</h3>
+<ul>
+<li><strong>Feltételek:</strong> $n$ független kísérlet, mindegyiknek két kimenete van (1 vagy 0), és az 1-es kimenet valószínűsége mindig ugyanaz a $p$ ($q=1-p$).</li>
+<li>Annak valószínűsége, hogy pontosan $k$-szor lesz 1-es: $P(X=k)=\binom{n}{k}p^k q^{\,n-k}$.</li>
+<li><strong>Várható érték:</strong> $np$, <strong>variancia:</strong> $npq$.</li>
+<li><strong>Példa:</strong> 3 pénzfeldobásból pontosan 2 fej: $\binom32\cdot0{,}5^3=0{,}375$.</li>
+</ul>
+<p class="ref">📖 <a href="15-statisztikai-alapok.html#lepes4">15. lecke, 4. lépés</a></p></div>
+
+<div class="tetel" id="t20"><h3>20. Normális eloszlás</h3>
+<ul>
+<li>Folytonos, harang alakú, szimmetrikus eloszlás, két paramétere a $\mu$ (átlag) és a $\sigma$ (szórás). Sok független hatás összegét modellezi.</li>
+<li>Sűrűségfüggvénye: $f(x)=\dfrac{1}{\sigma\sqrt{2\pi}}\,e^{-\frac{(x-\mu)^2}{2\sigma^2}}$.</li>
+<li><strong>Standardizálás:</strong> $Z=(X-\mu)/\sigma$ eloszlása $N(0,1)$.</li>
+<li><strong>Szabály:</strong> $\mu\pm\sigma$: kb. 68%, $\mu\pm2\sigma$: kb. 95%, $\mu\pm3\sigma$: kb. 99,7% (a szokásos elfogadási tartomány).</li>
+</ul>
+<p class="ref">📖 <a href="15-statisztikai-alapok.html#lepes5">15. lecke, 5. lépés</a></p></div>
+
+<div class="tetel" id="t21"><h3>21. Centrális határeloszlás-tétel</h3>
+<ul>
+<li>Ha <strong>tetszőleges eloszlásból</strong> $n$ elemű mintákat veszünk, a mintaátlagok eloszlása $n\to\infty$ esetén <strong>normálishoz</strong> tart.</li>
+<li>A határeloszlás átlaga megegyezik az alapeloszlás átlagával ($\mu$), szórása $\sigma/\sqrt n$, vagyis $n$ növelésével 0-hoz tart.</li>
+<li><strong>Jelentősége:</strong> az átlagra vonatkozó becslések és próbák (például a t-próba) akkor is működnek, ha maga az adat nem normális eloszlású.</li>
+<li><strong>A dia kísérlete:</strong> egyenletes eloszlású (1–10) minták átlagainak hisztogramja $n$ növelésével egyre keskenyebb harang lesz.</li>
+</ul>
+<p class="ref">📖 <a href="15-statisztikai-alapok.html#lepes6">15. lecke, 6. lépés</a></p></div>
+
+<div class="tetel" id="t22"><h3>22. A t-próba szerepe és működése</h3>
+<ul>
+<li><strong>Szerepe:</strong> átlagra vonatkozó hipotézist ellenőriz. Az egymintás változat azt nézi, lehet-e a populáció átlaga a feltételezett $\mu_0$.</li>
+<li><strong>Működése:</strong>
+  <ol>
+  <li>Felírjuk a hipotéziseket: $H_0:\mu=\mu_0$, ellenhipotézis $\mu\ne\mu_0$. Megválasztjuk a szignifikanciaszintet, pl. $\alpha=0{,}05$.</li>
+  <li>Kiszámítjuk a próbastatisztikát: $t=\dfrac{\bar x-\mu_0}{s/\sqrt n}$.</li>
+  <li>Kikeressük a kritikus értéket a Student-eloszlásból (szabadságfok $n-1$). A Student-eloszlás a kis mintából becsült szórás bizonytalanságát kezeli.</li>
+  <li>Döntünk: ha $|t|&gt;t_{\text{krit}}$ (vagy $p&lt;\alpha$), elvetjük $H_0$-t.</li>
+  </ol></li>
+<li>Ugyanebből <strong>konfidencia-intervallum</strong> is szerkeszthető: $\bar x\pm t_{\text{krit}}\,s/\sqrt n$.</li>
+<li><strong>Példa:</strong> a 45, 55, …, 82 adatsorra 98%-os szinten $54{,}79&lt;\mu&lt;87{,}21$.</li>
+<li><strong>Rokon próbák:</strong> kétmintás t-próba (két csoport átlaga), F-próba (varianciák, több csoport), Kolmogorov–Szmirnov-próba (a teljes eloszlás).</li>
+</ul>
+<p class="ref">📖 <a href="15-statisztikai-alapok.html#zh-tproba">15. lecke, ZH-mintaválasz</a> · <a href="15-statisztikai-alapok.html#lepes7">7–11. lépés</a></p></div>
+
+<div class="tetel" id="t23"><h3>23. Korreláció</h3>
+<ul>
+<li><strong>Kovariancia:</strong> $\operatorname{cov}(x,y)=\frac{1}{n-1}\sum(x_i-\bar x)(y_i-\bar y)$. Az előjele mutatja az irányt, a nagysága viszont mértékegységfüggő.</li>
+<li><strong>Pearson-féle korreláció:</strong> a normalizált kovariancia, $r=\dfrac{\operatorname{cov}(x,y)}{s_x s_y}\in[-1;1]$. A <em>lineáris</em> kapcsolat erősségét és irányát méri. Független változóknál $r\approx0$.</li>
+<li><strong>Buktatók:</strong> $r\approx0$ esetén is lehet nemlineáris kapcsolat; a korreláció nem jelent ok-okozatot.</li>
+<li><strong>Adatbányászatban:</strong> egymással erősen korreláló bemenetek esetén multikollinearitás lép fel, ilyenkor jellemzőkiválasztás kell (pl. mRMR). Pandasban: <code>df.corr()</code>.</li>
+</ul>
+<p class="ref">📖 <a href="01-adattisztitas.html#lepes9">1. lecke, 9. lépés</a> · <a href="16-linearis-regresszio.html#lepes2">16. lecke, 2. lépés</a></p></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="dw">
+<h2>Adattárház, MD modell (24–34.)</h2>
+
+<div class="tetel" id="t24"><h3>24. OLTP és OLAP</h3>
+<ul>
+<li><strong>OLTP</strong> (tranzakciófeldolgozás): változásorientált, elemi, rövid műveletek (<code>INSERT</code>/<code>UPDATE</code>/<code>DELETE</code>, egy-két sor), nagy konkurencia, homogén, normalizált adatmodell, aktuális állapot. Például a pénztárrendszer.</li>
+<li><strong>OLAP</strong> (elemzőfeldolgozás): olvasás- és számolásorientált, összetett és hosszú lekérdezések (milliók sor összesítése), minimális konkurencia, heterogén és historikus adat, többdimenziós modell. Például az adattárház.</li>
+<li>Az elemzés lassítaná az üzemi rendszert, ezért a kettőt szétválasztjuk, az adat ETL-lel kerül át.</li>
+</ul>
+<p class="ref">📖 <a href="12-adattarolas-adattarhaz.html#lepes2">12. lecke, 2. lépés</a></p></div>
+
+<div class="tetel" id="t25"><h3>25. Az adattárház fogalma</h3>
+<ul>
+<li>Inmon definíciója szerint a <strong>DW</strong> (data warehouse) a döntéstámogatást szolgáló adatgyűjtemény, amely:
+  <ul>
+  <li><strong>témaorientált:</strong> üzleti témák, pl. értékesítés, köré szerveződik;</li>
+  <li><strong>integrált:</strong> több forrás egységes formában;</li>
+  <li><strong>időfüggő:</strong> historikus, az időbélyeg a kulcs része;</li>
+  <li><strong>nem illékony:</strong> betöltés után nem írjuk felül, csak bővítjük.</li>
+  </ul></li>
+<li><strong>Schema-on-write:</strong> az adat a betöltéskor kap szerkezetet. Elemzésre optimalizált, többdimenziós modell, lekérdezőnyelve az MDX.</li>
+</ul>
+<p class="ref">📖 <a href="12-adattarolas-adattarhaz.html#lepes3">12. lecke, 3. lépés</a></p></div>
+
+<div class="tetel" id="t26"><h3>26. Az adattárház architektúrája</h3>
+<ul>
+<li><strong>Az adat útja:</strong> adatforrások (OLTP, ERP, fájlok) → <strong>ETL</strong> → <strong>átmeneti terület</strong> (staging) → <strong>EDW</strong> (vállalati adattárház) → <strong>adatpiacok</strong> (data mart, részlegszintű) → elemző és megjelenítő eszközök.</li>
+<li><strong>A DW moduljai:</strong>
+  <ul>
+  <li>tároló modul;</li>
+  <li>metaadat modul (honnan jött az adat, mit jelent, mikor töltődött);</li>
+  <li>ütemező (betöltés, előaggregálás);</li>
+  <li>adathozzáférési interfész (MD modell);</li>
+  <li>megjelenítő réteg.</li>
+  </ul></li>
+<li><strong>ODS</strong> (operatív adattár): integrált, de aktuális adat. <strong>Inmon</strong>: felülről lefelé építkezik (EDW → adatpiacok), <strong>Kimball</strong>: alulról felfelé (adatpiacok közös dimenziókkal).</li>
+</ul>
+<p class="ref">📖 <a href="12-adattarolas-adattarhaz.html#lepes4">12. lecke, 4. lépés</a></p></div>
+
+<div class="tetel" id="t27"><h3>27. Az ETL jellemzése</h3>
+<ul>
+<li><strong>Extract</strong> (kinyerés): adatkiolvasás a forrásrendszerekből (adatbázis, CSV, API) az átmeneti területre.</li>
+<li><strong>Transform</strong> (átalakítás): tisztítás, egységesítés (formátumok, kódok, mértékegységek), duplikátumszűrés, kulcskiosztás, összesítés.</li>
+<li><strong>Load</strong> (betöltés): beírás a DW-be, teljes vagy inkrementális (csak a változások) módon, jellemzően időzítve, például éjszaka.</li>
+<li><strong>ELT:</strong> előbb tölt, utána alakít a célrendszerben. Adattóra és felhőre jellemző.</li>
+</ul>
+<p class="ref">📖 <a href="12-adattarolas-adattarhaz.html#lepes5">12. lecke, 5–6. lépés</a></p></div>
+
+<div class="tetel" id="t28"><h3>28. Az MD kocka modell</h3>
+<ul>
+<li><strong>Kocka:</strong> az adatok többdimenziós tömbje. Elemei:
+  <ul>
+  <li><strong>dimenzió:</strong> elemzési szempont, pl. Termék, Bolt, Idő;</li>
+  <li><strong>tag:</strong> a dimenzió egy értéke;</li>
+  <li><strong>cella:</strong> a dimenziótagok egy kombinációja;</li>
+  <li><strong>tény:</strong> a cellában tárolt érték;</li>
+  <li><strong>mérték:</strong> a cellaértékek változója, pl. Darab, Bevétel.</li>
+  </ul></li>
+<li>A dimenziók a „hol / mi szerint?” kérdésre felelnek, a mértékek a „mennyi?” kérdésre.</li>
+<li><strong>Tárolási módok:</strong> MOLAP (saját kockatár), ROLAP (relációs táblákon), HOLAP (vegyes).</li>
+</ul>
+<p class="ref">📖 <a href="13-md-modell-mdx.html#lepes1">13. lecke, 1–2. lépés</a></p></div>
+
+<div class="tetel" id="t29"><h3>29. Csillagmodell (star)</h3>
+<ul>
+<li>Középen a <strong>ténytábla</strong>: a mértékek és a dimenziókra mutató idegen kulcsok. Körülötte a <strong>dimenziótáblák</strong>, amelyek közvetlenül a ténytáblához kapcsolódnak, egy-egy szinten.</li>
+<li>A dimenziótáblák <strong>denormalizáltak</strong>, így a lekérdezés egyszerű és gyors (kevés join).</li>
+<li>Hierarchiát (szinteket) nem ábrázol külön, emiatt redundáns lehet.</li>
+</ul>
+<p class="ref">📖 <a href="13-md-modell-mdx.html#lepes2">13. lecke, 2. lépés</a></p></div>
+
+<div class="tetel" id="t30"><h3>30. Hópehelymodell (snowflake)</h3>
+<ul>
+<li>A csillagmodell kiterjesztése: a dimenziók <strong>szintekre</strong> (hierarchiára) bomlanak, pl. Nap → Hónap → Év, Bolt → Város → Régió.</li>
+<li>A szintek között 1:N kapcsolat van: minden alsó tag pontosan egy felső taghoz tartozik, a felső tag az alsók aggregátuma.</li>
+<li>Normalizáltabb, kevesebb a redundancia, viszont több join kell. A felgöngyölítéshez és a lefúráshoz kell ez a modell.</li>
+</ul>
+<p class="ref">📖 <a href="13-md-modell-mdx.html#lepes3">13. lecke, 3–4. lépés</a></p></div>
+
+<div class="tetel" id="t31"><h3>31. Az MD algebra műveletei</h3>
+<ul>
+<li>Kockán értelmezett műveletek, az eredményük is kocka:
+  <ul>
+  <li><strong>szeletelés</strong> (slice);</li>
+  <li><strong>kockázás</strong> (dice);</li>
+  <li><strong>felgöngyölítés</strong> (roll-up);</li>
+  <li><strong>lefúrás</strong> (drill-down);</li>
+  <li><strong>hajtogatás</strong> (fold).</li>
+  </ul>
+  Kiegészítés: a forgatás (pivot) csak a megjelenítés tengelyeit cseréli.</li>
+<li><strong>Csoportosításuk:</strong> szűrés (slice, dice), a szint megváltoztatása (roll-up, drill-down), a dimenziókészlet megváltoztatása (fold).</li>
+<li>Egy elemzési kérdés ezek láncolata, pl. a „havi italforgalom régiónként”: göngyölítés hónapra és régióra, majd szeletelés a kategóriára.</li>
+</ul>
+<p class="ref">📖 <a href="13-md-modell-mdx.html#lepes5">13. lecke, 5–6. lépés</a></p></div>
+
+<div class="tetel" id="t32"><h3>32. Slice és dice</h3>
+<ul>
+<li><strong>Szeletelés (slice):</strong> szűrés egy dimenzió feltételére, pl. Hónap = Január.</li>
+<li><strong>Kockázás (dice):</strong> szűrés több dimenzió feltételére, pl. Város = Miskolc és Kategória = Tejtermék.</li>
+<li>Az eredmény egy <strong>részkocka</strong>: a dimenziók száma és a cellaértékek nem változnak, csak kevesebb tag marad.</li>
+</ul>
+<p class="ref">📖 <a href="13-md-modell-mdx.html#lepes5">13. lecke, 5. lépés</a></p></div>
+
+<div class="tetel" id="t33"><h3>33. Drill-down és roll-up</h3>
+<ul>
+<li><strong>Felgöngyölítés (roll-up):</strong> egy aggregáltabb szintre lép (Bolt → Város, Hónap → Negyedév), a gyerekek értéke a szülőben összegződik.</li>
+<li><strong>Lefúrás (drill-down):</strong> az ellenkező irány, részletesebb szintre lép (Év → Hónap), legfeljebb az alapszintig.</li>
+<li>A dimenziók száma egyik esetben sem változik, csak a szint. Mindkettőhöz hierarchia, vagyis hópehelymodell kell.</li>
+</ul>
+<p class="ref">📖 <a href="13-md-modell-mdx.html#lepes6">13. lecke, 6. lépés</a></p></div>
+
+<div class="tetel" id="t34"><h3>34. Hajtogatás (fold)</h3>
+<ul>
+<li>A <strong>dimenziókészletet</strong> változtatja meg: paraméterként a megmaradó dimenziókat adjuk meg.</li>
+<li>Azok a cellák, amelyek csak az elhagyott dimenziókban különböznek, egyetlen cellába aggregálódnak (alapból összegzéssel).</li>
+<li>A dimenziók száma csökken. Ha egy sem marad, egyetlen összesítő cella marad.</li>
+<li><strong>Példa:</strong> Termék × Bolt × Idő hajtogatása a Termékre: termékenkénti összes darabszám.</li>
+</ul>
+<p class="ref">📖 <a href="13-md-modell-mdx.html#lepes6">13. lecke, 6. lépés</a></p></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="mdx">
+<h2>MDX (35–39.)</h2>
+
+<div class="tetel" id="t35"><h3>35. Az MDX adatmodellje</h3>
+<ul>
+<li><strong>Cella:</strong> egy mérték egy értéke, egy tuple azonosítja.</li>
+<li><strong>Tag</strong> (member): egy dimenzióérték; a <strong>tulajdonság</strong> (property) a tag attribútuma.</li>
+<li><strong>Szint</strong> (level): a dimenzióhierarchia egy fokozata.</li>
+<li><strong>Measures:</strong> virtuális dimenzió, amely a mértékek neveit tartalmazza.</li>
+<li><strong>Hivatkozás:</strong> <code>[Dimenzió].[Szint].[Tag]</code>, pl. <code>[Bolt].[Város].[Miskolc]</code>.</li>
+</ul>
+<p class="ref">📖 <a href="13-md-modell-mdx.html#lepes7">13. lecke, 7. lépés</a></p></div>
+
+<div class="tetel" id="t36"><h3>36. Az MDX SELECT alakja és elemei</h3>
+<pre><code class="language-sql">[WITH számított tagok]
+SELECT {set} ON COLUMNS, {set} ON ROWS
+FROM [kocka]
+[WHERE (szeletelő tuple)]</code></pre>
+<ul>
+<li>A <strong>tengelyek</strong> (<code>ON COLUMNS</code> = <code>AXIS(0)</code>, <code>ON ROWS</code> = <code>AXIS(1)</code>) azt adják meg, mi szerint bontunk.</li>
+<li>A <strong>FROM</strong> a kocka, join nincs.</li>
+<li>A <strong>WHERE</strong> szeletelő: gyakran itt választjuk ki a mértéket. Ami a tengelyen van, az nem lehet a WHERE-ben.</li>
+<li><strong>Tagfüggvények:</strong> <code>.Members</code> (egy szint összes tagja), <code>.Children</code> (egy tag gyerekei).</li>
+</ul>
+<p class="ref">📖 <a href="13-md-modell-mdx.html#lepes8">13. lecke, 8. lépés</a></p></div>
+
+<div class="tetel" id="t37"><h3>37. MDX set és tuple</h3>
+<ul>
+<li><strong>Tuple:</strong> különböző dimenziókból vett tagok rendezett listája, kerek zárójelben: <code>([Termék].[Kifli], [Idő].[Január])</code>. Egy cellát vagy egy részkockát jelöl ki, olyan, mint egy koordinátavektor.</li>
+<li><strong>Set:</strong> azonos szerkezetű tuple-ök gyűjteménye, kapcsos zárójelben: <code>{[Bolt].[Avas], [Bolt].[Dobó]}</code>. Ebből áll egy tengely sorainak vagy oszlopainak listája.</li>
+<li><strong>Szabály:</strong> egy tuple-ben egy dimenzió csak egyszer szerepelhet, egy set elemeinek ugyanolyan dimenziósorrendűnek kell lenniük.</li>
+</ul>
+<p class="ref">📖 <a href="13-md-modell-mdx.html#lepes7">13. lecke, 7. lépés</a></p></div>
+
+<div class="tetel" id="t38"><h3>38. MDX szűrési lehetőségek</h3>
+<ul>
+<li><strong>WHERE</strong> szeletelő: rögzít egy tagot vagy tuple-t, pl. <code>WHERE ([Idő].[2025], [Measures].[Bevétel])</code>.</li>
+<li><strong>Explicit set</strong> a tengelyen: csak a felsorolt tagok jelennek meg.</li>
+<li><strong>FILTER(set, feltétel)</strong>: a halmaz azon tagjai, amelyekre a cellaértéken alapuló feltétel igaz, pl. <code>FILTER([Bolt].[Bolt].Members, [Measures].[Darab] &gt; 135)</code>.</li>
+<li><strong>NON EMPTY</strong>: elhagyja az üres sorokat és oszlopokat. Rokon eszközök: <code>ORDER</code> (rendezés), <code>TOPCOUNT</code>.</li>
+</ul>
+<p class="ref">📖 <a href="13-md-modell-mdx.html#lepes9">13. lecke, 9. lépés</a></p></div>
+
+<div class="tetel" id="t39"><h3>39. Az MD műveletek megvalósítása MDX-ben</h3>
+<ul>
+<li><strong>Szeletelés:</strong> <code>WHERE ([Idő].[Január])</code>.</li>
+<li><strong>Kockázás:</strong> set a tengelyen, több dimenzió feltételével, vagy WHERE-tuple és <code>FILTER</code>.</li>
+<li><strong>Felgöngyölítés / lefúrás:</strong> a tengelyen megjelenő szint választása (<code>[Bolt].[Város].Members</code> vagy <code>[Bolt].[Bolt].Members</code>), illetve a <code>.Children</code> függvény.</li>
+<li><strong>Hajtogatás:</strong> a kihagyott dimenzió nem szerepel sem a tengelyen, sem a WHERE-ben, így automatikusan az „összes” tagra aggregálódik.</li>
+<li><strong>Két dimenzió egy tengelyen:</strong> <code>CROSSJOIN(set1, set2)</code>. <strong>Számított mérték:</strong> <code>WITH MEMBER</code>.</li>
+</ul>
+<p class="ref">📖 <a href="13-md-modell-mdx.html#alkalmazas">13. lecke, Alkalmazás</a></p></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="klaszter">
+<h2>Adatbányászat, klaszterezés (40–45.)</h2>
+
+<div class="tetel" id="t40"><h3>40. Az adatbányászat szerepe és módszercsoportjai</h3>
+<ul>
+<li><strong>Szerepe:</strong> rejtett, nem triviális, hasznos mintázatok feltárása a BI elemző rétegében. Előtte előfeldolgozás, utána utófeldolgozás és értelmezés kell.</li>
+<li><strong>Felügyelt módszerek</strong> (van célváltozó): osztályozás, regresszió, idősor-előrejelzés.</li>
+<li><strong>Nem felügyelt módszerek:</strong> klaszterezés, asszociációs szabályok (kosárelemzés), összegzés, szekvenciális minták.</li>
+<li><strong>Kiugró rekordok keresése:</strong> felügyelt és nem felügyelt is lehet.</li>
+</ul>
+<p class="ref">📖 <a href="10-bi-adatbanyaszat-alapok.html#lepes8">10. lecke, 8. lépés</a></p></div>
+
+<div class="tetel" id="t41"><h3>41. A klaszterezés célja és jellemzése</h3>
+<ul>
+<li><strong>Cél:</strong> az elemek csoportosítása úgy, hogy a klaszteren belül nagy legyen a hasonlóság, a klaszterek között kicsi. Nem felügyelt módszer, nincs címke.</li>
+<li><strong>Alapja</strong> a távolság vagy hasonlóság (euklideszi, Manhattan, Jaccard…). Ezért a változókat előtte <strong>standardizálni</strong> kell.</li>
+<li><strong>Típusai:</strong> particionáló (K-means), hierarchikus (HAC), sűrűség alapú (DBSCAN).</li>
+<li><strong>Felhasználás:</strong> vevőszegmentáció, mintázatok, kiugrók keresése.</li>
+</ul>
+<p class="ref">📖 <a href="03-kmeans.html#lepes1">3. lecke, 1–4. lépés</a> · <a href="14-suruseg-validalas-kiugrok.html#lepes5">14. lecke, 5. lépés</a></p></div>
+
+<div class="tetel" id="t42"><h3>42. A HAC algoritmusa</h3>
+<ol>
+<li>Kezdetben minden pont egy egyelemű klaszter. Kiszámítjuk a távolságmátrixot.</li>
+<li>Megkeressük a <strong>két legközelebbi klasztert</strong>, és összevonjuk őket.</li>
+<li>Frissítjük a távolságokat a <strong>kapcsolási mód</strong> szerint:
+  <ul>
+  <li>single: a legközelebbi pontpár távolsága;</li>
+  <li>complete: a legtávolabbi pontpár távolsága;</li>
+  <li>average: az átlagos távolság;</li>
+  <li>Ward: a négyzetösszeg növekménye.</li>
+  </ul></li>
+<li>Addig ismételjük, amíg egy klaszter nem marad, vagy el nem érjük a kívánt klaszterszámot, illetve távolságkorlátot.</li>
+</ol>
+<p>Determinisztikus, és nem kell előre megadni $k$-t, de a korábbi összevonást nem bontja vissza, és nagy adaton lassú (legalább $O(n^2)$).</p>
+<p class="ref">📖 <a href="04-hierarchikus-klaszterezes.html#lepes1">4. lecke, 1–3. lépés</a></p></div>
+
+<div class="tetel" id="t43"><h3>43. A dendrogram szerepe és értelmezése</h3>
+<ul>
+<li>Fa alakú ábra, amely a HAC teljes összevonási sorrendjét mutatja. A <strong>függőleges magasság</strong> az összevonás távolsága.</li>
+<li>Egy vízszintes vágás adott szinten adja a klaszterezést: ahány függőleges vonalat metsz, annyi a klaszter.</li>
+<li>A klaszterszámot ott érdemes megválasztani, ahol a <strong>legnagyobb az ugrás</strong>: ott távoli csoportok olvadnának össze.</li>
+<li>Az ábráról leolvasható a pontok szerkezete, a csoportok közti távolságok és a kiugrók (későn csatlakozó ágak) is.</li>
+</ul>
+<p class="ref">📖 <a href="04-hierarchikus-klaszterezes.html#lepes4">4. lecke, 4. lépés</a></p></div>
+
+<div class="tetel" id="t44"><h3>44. A K-means algoritmusa</h3>
+<ol>
+<li>Megadjuk a $k$ értékét, és $k$ kezdő középpontot választunk (véletlenszerűen vagy k-means++ módszerrel).</li>
+<li><strong>Hozzárendelés:</strong> minden pont a legközelebbi középpont klaszterébe kerül.</li>
+<li><strong>Frissítés:</strong> minden klaszter középpontja a tagjainak átlaga (súlypontja) lesz.</li>
+<li>A 2–3. lépést addig ismételjük, amíg a tagság nem változik.</li>
+</ol>
+<p><strong>Cél:</strong> a klaszteren belüli négyzetösszeg (inertia) minimalizálása. Az eredmény lokális optimum, és függ a kezdőpontoktól, ezért több indítással futtatjuk (<code>n_init</code>). Előtte standardizálni kell. Gömb alakú, hasonló méretű klaszterekre jó.</p>
+<p class="ref">📖 <a href="03-kmeans.html#lepes5">3. lecke, 5–7. lépés</a></p></div>
+
+<div class="tetel" id="t45"><h3>45. Az optimális klaszterszám meghatározása</h3>
+<ul>
+<li><strong>Könyökmódszer:</strong> ábrázoljuk az inertiát $k$ függvényében. Az inertia mindig csökken, ezért azt a $k$-t választjuk, ahol a csökkenés hirtelen lelassul (a „könyöknél”).</li>
+<li><strong>Sziluett:</strong> $s=\dfrac{b-a}{\max(a,b)}$, ahol $a$ az átlagos távolság a saját klaszterben, $b$ a legközelebbi másik klaszterben. Értéke $-1$ és $1$ közé esik, a legnagyobb átlagos $s$-hez tartozó $k$ a legjobb.</li>
+<li><strong>HAC esetén</strong> a dendrogram legnagyobb ugrása, ezen kívül a Davies–Bouldin-index (kisebb a jobb).</li>
+<li>Végül mindig az <strong>üzleti értelmezhetőség</strong> dönt.</li>
+</ul>
+<p class="ref">📖 <a href="03-kmeans.html#lepes8">3. lecke, 8–9. lépés</a> · <a href="14-suruseg-validalas-kiugrok.html#lepes7">14. lecke, 7. lépés</a></p></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="osztalyozas">
+<h2>Osztályozás (46–52.)</h2>
+
+<div class="tetel" id="t46"><h3>46. Az osztályozás célja és jellemzése</h3>
+<ul>
+<li><strong>Cél:</strong> egy új eset <strong>kategóriájának</strong> megjóslása a tulajdonságai alapján. Felügyelt módszer.</li>
+<li><strong>Bemenet:</strong> címkézett tanítóhalmaz $T=\{(x,y)\}$. <strong>Kimenet:</strong> modell, vagyis egy $x\mapsto y$ hozzárendelés.</li>
+<li><strong>Menete:</strong> tanítás a tanítóhalmazon → értékelés a teszthalmazon → predikció.</li>
+<li><strong>Eszközei:</strong> döntési fa, naiv Bayes, kNN, logisztikus regresszió, SVM, neurális háló, véletlen erdő.</li>
+<li><strong>BI-példák:</strong> lemorzsolódás, hitelkockázat, spamszűrés.</li>
+</ul>
+<p class="ref">📖 <a href="05-dontesi-fa.html#lepes1">5. lecke, 1. lépés</a> · <a href="05-dontesi-fa.html#lepes10">10. lépés</a></p></div>
+
+<div class="tetel" id="t47"><h3>47. Az osztályozás jóságának mérése</h3>
+<ul>
+<li><strong>Konfúziós mátrix:</strong> TP, FP, FN, TN.</li>
+<li><strong>Mérőszámok:</strong>
+  <ul>
+  <li>pontosság (accuracy): $\frac{TP+TN}{\text{összes}}$;</li>
+  <li>precizitás: $\frac{TP}{TP+FP}$;</li>
+  <li>érzékenység (recall): $\frac{TP}{TP+FN}$;</li>
+  <li>F1: $\frac{2PR}{P+R}$;</li>
+  <li>specificitás: $\frac{TN}{TN+FP}$.</li>
+  </ul></li>
+<li><strong>ROC-görbe és AUC:</strong> a küszöbtől független minősítés.</li>
+<li>Mindig <strong>független teszthalmazon</strong> mérünk, és összevetjük a <strong>többségi alapmodellel</strong>. Kiegyensúlyozatlan osztályoknál a pontosság félrevezet.</li>
+</ul>
+<p class="ref">📖 <a href="05-dontesi-fa.html#lepes6">5. lecke, 6–9. lépés</a></p></div>
+
+<div class="tetel" id="t48"><h3>48. A naiv Bayes-osztályozó tanító algoritmusa</h3>
+<ul>
+<li><strong>Alapfeltevés:</strong> az osztályon belül az attribútumok <strong>függetlenek</strong>. Ettől „naiv”.</li>
+<li><strong>A tanítás</strong> valószínűségek becslése gyakoriságokkal a tanítóhalmazból:
+  <ol>
+  <li>minden $c$ osztályra az <strong>a priori valószínűség</strong>: $P(c)=\dfrac{|c|}{|T|}$;</li>
+  <li>minden attribútumra, értékre és osztályra a <strong>feltételes valószínűség</strong>: $P(a_j=v\mid c)=\dfrac{\#\{a_j=v \text{ és } c\}}{|c|}$.</li>
+  </ol></li>
+<li>A modell maga ez a <strong>valószínűségtábla</strong>. Nincs iteráció, egyetlen áthaladás elég, ezért gyors.</li>
+<li>Numerikus attribútumot előbb diszkretizálunk, vagy normális eloszlást illesztünk rá (Gauss-féle naiv Bayes).</li>
+<li><strong>Nulla gyakoriság:</strong> ha egy érték egy osztályban nem fordult elő, a szorzat 0 lenne. Ellenszer a Laplace-simítás: $\frac{\#+1}{|c|+m}$, ahol $m$ az attribútum értékeinek száma.</li>
+</ul>
+<p class="ref">📖 <a href="05-dontesi-fa.html#lepes10">5. lecke, 10. lépés</a> · <a href="01-adattisztitas.html#diszkretizalas">diszkretizálás</a></p></div>
+
+<div class="tetel" id="t49"><h3>49. A naiv Bayes-osztályozó predikciós algoritmusa</h3>
+<ul>
+<li>Új eset: $x=(v_1,\dots,v_m)$. Minden osztályra kiszámítjuk az erősségét: $P(c)\cdot\prod_j P(a_j=v_j\mid c)$.</li>
+<li>A győztes a <strong>legnagyobb értékű osztály</strong>. A Bayes-tétel nevezője minden osztálynál ugyanaz, ezért elhagyható.</li>
+<li><strong>Példa.</strong> A tanítóhalmaz:
+  <ul>
+  <li>napos, hétvége → igen;</li>
+  <li>napos, hétköznap → igen;</li>
+  <li>esős, hétvége → igen;</li>
+  <li>esős, hétköznap → nem;</li>
+  <li>napos, hétköznap → nem;</li>
+  <li>esős, hétköznap → nem.</li>
+  </ul>
+  Új eset: (napos, hétvége).
+  <ul>
+  <li>Igen: $\frac36\cdot\frac23\cdot\frac23\approx0{,}222$.</li>
+  <li>Nem: $\frac36\cdot\frac13\cdot\frac03=0$.</li>
+  </ul>
+  A predikció: <strong>igen</strong>. Laplace-simítással $0{,}18$ és $0{,}04$ jön ki, a döntés ugyanaz.</li>
+<li>RapidMiner / Altair AI Studio: Naive Bayes operátor, majd Apply Model (az egyik bemenete a modell, a másik az adat).</li>
+</ul>
+<p class="ref">📖 <a href="#t60">60. tétel</a></p></div>
+
+<div class="tetel" id="t50"><h3>50. A döntési fa felépítése és jellemzése</h3>
+<ul>
+<li><strong>Szerkezet:</strong>
+  <ul>
+  <li>belső csomópont: egy tulajdonságra vonatkozó kérdés;</li>
+  <li>él: a kérdésre adott válasz (érték vagy küszöb);</li>
+  <li>levél: kategória.</li>
+  </ul>
+  A gyökértől egy levélig vezető út egy <strong>HA … ÉS … AKKOR</strong> szabály.</li>
+<li><strong>Építése mohó, felülről lefelé halad:</strong> minden csomópontban az a vágás nyer, amelyik a legjobban csökkenti a kevertséget (entrópia vagy Gini-index).</li>
+<li><strong>Előnyök:</strong> értelmezhető, nem kell skálázni, kategorikus adatot is kezel. <strong>Hátrányok:</strong> hajlamos a túltanulásra, ezért kell a mélységkorlát, a minimális levélméret és a metszés. Instabil is.</li>
+<li><strong>Családok:</strong> ID3, C4.5, CART (bináris, ezt használja az sklearn); a véletlen erdő sok fa együttese.</li>
+</ul>
+<p class="ref">📖 <a href="05-dontesi-fa.html#lepes3">5. lecke, 3–5. lépés</a> · <a href="05-dontesi-fa.html#lepes8">8. lépés</a></p></div>
+
+<div class="tetel" id="t51"><h3>51. Az ID3 tanító algoritmusa</h3>
+<ul>
+<li><strong>Feltétel:</strong> minden attribútum diszkrét, véges értékkészletű. A numerikus változókat előbb diszkretizálni kell.</li>
+<li><strong>Entrópia:</strong> $H(S)=-\sum_i p_i\log_2 p_i$. Homogén halmazra 0.</li>
+</ul>
+<p><strong>ID3(S, attribútumok):</strong></p>
+<ol>
+<li>Ha $S$ minden eleme egy osztályba tartozik, levelet készítünk ezzel az osztállyal.</li>
+<li>Ha nincs több szabad attribútum, levelet készítünk az $S$-beli <strong>többségi osztállyal</strong>.</li>
+<li>Különben minden szabad $A$ attribútumra kiszámítjuk a <strong>súlyozott (eredő) entrópiát</strong>: $\sum_v \frac{|S_v|}{|S|}H(S_v)$.</li>
+<li>Azt az $A$-t választjuk, amelyiknél ez <strong>minimális</strong>, vagyis az információnyereség $H(S)-\sum_v\frac{|S_v|}{|S|}H(S_v)$ maximális.</li>
+<li>Az $A$ minden $v$ értékére külön gyerekág készül (<strong>többágú vágás</strong>). Rekurzívan hívjuk: ID3($S_v$, attribútumok $\setminus\{A\}$).</li>
+</ol>
+<p>Egy úton egy attribútum <strong>nem ismétlődhet</strong>. A cél a minél sekélyebb fa: a leginformatívabb kérdés kerül előre. Buktató: a sok értékű attribútum (pl. azonosító) tiszta, de értelmetlen vágást ad, ezért kezeli a C4.5 nyereségaránnyal.</p>
+<p class="ref">📖 <a href="05-dontesi-fa.html#lepes4">5. lecke, 4. lépés</a> · <a href="05-dontesi-fa.html#lepes5">5. lépés (ID3-kiegészítés és 4. kidolgozott példa)</a></p></div>
+
+<div class="tetel" id="t52"><h3>52. Az ID3 predikciós algoritmusa</h3>
+<ol>
+<li>A <strong>gyökértől</strong> indulunk.</li>
+<li>Megnézzük a csomópont attribútumának értékét az új esetben, és az ennek megfelelő <strong>gyerekágon</strong> lépünk tovább.</li>
+<li>Addig ismételjük, amíg <strong>levélhez</strong> nem érünk. A levél kategóriája a predikció.</li>
+</ol>
+<ul>
+<li>Ha az új esetben olyan érték szerepel, amelyhez nincs ág (a tanításkor nem fordult elő), a csomópont <strong>többségi osztályát</strong> adjuk.</li>
+<li><strong>Példa</strong> (NIU-jegyzet): $x$ = (munkanap, kiküldetés, napos). Útvonal: munkanap? igen → kiküldetés? igen → idő: napos → levél: <em>vonat</em>.</li>
+<li>A predikció költsége a fa mélységével arányos, ezért nagyon gyors.</li>
+</ul>
+<p class="ref">📖 <a href="05-dontesi-fa.html#lepes5">5. lecke, 5. lépés</a></p></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="nn">
+<h2>Neurális háló, tanítás (53–59.)</h2>
+
+<div class="tetel" id="t53"><h3>53. A neurális háló célja és jellemzése</h3>
+<ul>
+<li><strong>Cél:</strong> bonyolult, <strong>nemlineáris</strong> $x\mapsto y$ összefüggések megtanulása példákból (osztályozás, regresszió).</li>
+<li>Sok egyszerű egység (neuron) rétegekbe szervezett hálózata. A tudás a <strong>súlyokban</strong> van.</li>
+<li><strong>Előnyök:</strong> nagy kifejezőerő, zajtűrés, sokféle adat (kép, szöveg, idősor).</li>
+<li><strong>Hátrányok:</strong> „fekete doboz”, sok adat és számítás kell, hajlamos a túltanulásra, és skálázást igényel.</li>
+<li><strong>BI-alkalmazások:</strong> lemorzsolódás, csalásfelismerés, kereslet-előrejelzés.</li>
+</ul>
+<p class="ref">📖 <a href="06-neuralis-halo.html#lepes11">6. lecke, 11. lépés</a></p></div>
+
+<div class="tetel" id="t54"><h3>54. A neuron (perceptron) felépítése és működése</h3>
+<ul>
+<li><strong>Bemenetek</strong> $x_i$, <strong>súlyok</strong> $w_i$, <strong>eltolás</strong> (bias) $b$.</li>
+<li><strong>Súlyozott összeg:</strong> $z=\sum_i w_ix_i+b$. Ebből az <strong>aktivációs függvény</strong> adja a kimenetet: perceptronnál lépcsőfüggvény, $\hat y=1$, ha $z\ge0$, különben 0.</li>
+<li><strong>Tanulási szabály:</strong> $w_i \leftarrow w_i+\eta\,(y-\hat y)\,x_i$, ahol $\eta$ a tanulási ráta.</li>
+<li>A döntési határ <strong>egyenes</strong> (hipersík), ezért egy perceptron csak lineárisan szeparálható feladatot old meg. Az XOR-t nem tudja.</li>
+</ul>
+<p class="ref">📖 <a href="06-neuralis-halo.html#lepes1">6. lecke, 1–2. lépés</a></p></div>
+
+<div class="tetel" id="t55"><h3>55. Az MLP felépítése és működése</h3>
+<ul>
+<li><strong>Többrétegű perceptron (MLP):</strong> bemeneti réteg → egy vagy több <strong>rejtett réteg</strong> → kimeneti réteg. Teljesen összekötött, előrecsatolt hálózat.</li>
+<li>A rejtett rétegekben <strong>nemlineáris aktiváció</strong> van (ReLU, szigmoid, tanh), ezért tud nemlineáris határt tanulni.</li>
+<li>Kimenet: osztályozásnál szigmoid (két osztály) vagy softmax (több osztály).</li>
+<li><strong>Előreterjesztés:</strong> rétegenként $a=f(Wx+b)$, ez halad végig a hálón.</li>
+<li><strong>Méretét</strong> a rétegek száma és a rétegenkénti neuronszám adja (sklearn: <code>hidden_layer_sizes</code>).</li>
+</ul>
+<p class="ref">📖 <a href="06-neuralis-halo.html#lepes3">6. lecke, 3–4. lépés</a></p></div>
+
+<div class="tetel" id="t56"><h3>56. A tanító algoritmus működése</h3>
+<ol>
+<li>A súlyokat kis véletlen értékekkel inicializáljuk.</li>
+<li><strong>Előreterjesztés</strong> egy köteg (batch) példán, majd a <strong>veszteség</strong> kiszámítása (pl. log-loss).</li>
+<li><strong>Hibavisszaterjesztés</strong> (backpropagation): a láncszabállyal kiszámítjuk a veszteség gradiensét minden súlyra.</li>
+<li><strong>Súlyfrissítés</strong> gradienscsökkentéssel: $w\leftarrow w-\eta\,\partial L/\partial w$ (SGD, Adam).</li>
+<li>Ismétlés a teljes tanítóhalmazon (<strong>epoch</strong>), amíg a veszteség érdemben csökken, vagy amíg be nem kapcsol a korai leállítás.</li>
+</ol>
+<p>A bemeneteket előtte <strong>standardizálni</strong> kell, a tanítóhalmaz paramétereivel.</p>
+<p class="ref">📖 <a href="06-neuralis-halo.html#lepes5">6. lecke, 5–8. lépés</a></p></div>
+
+<div class="tetel" id="t57"><h3>57. A predikció működése</h3>
+<ul>
+<li>Az új esetet <strong>ugyanazzal a skálázóval</strong> alakítjuk át, amelyik a tanítóhalmazon tanult (nem illesztjük újra).</li>
+<li>Egyetlen <strong>előreterjesztés</strong> a betanított, rögzített súlyokkal. Tanulás nincs.</li>
+<li>A kimenet osztályvalószínűség (<code>predict_proba</code>). A predikció a legvalószínűbb osztály, két osztálynál a 0,5-ös küszöb (<code>predict</code>). A küszöb az üzleti céltól függően állítható.</li>
+<li>Gyors, a költsége csak a háló méretétől függ.</li>
+</ul>
+<p class="ref">📖 <a href="06-neuralis-halo.html#lepes4">6. lecke, 4. és 7. lépés</a></p></div>
+
+<div class="tetel" id="t58"><h3>58. A túltanulás jellemzése és megelőzése</h3>
+<ul>
+<li><strong>Túltanulás:</strong> a modell bemagolja a tanítóadatot, a zajjal együtt. A tanítóhibája kicsi, a teszthibája viszont nagy, tehát rosszul általánosít. A veszteséggörbén a validációs hiba egy idő után nőni kezd.</li>
+<li><strong>Megelőzés:</strong>
+  <ul>
+  <li>több adat;</li>
+  <li>egyszerűbb modell (kevesebb neuron, kisebb famélység);</li>
+  <li><strong>regularizáció</strong> (L2, sklearn: <code>alpha</code>);</li>
+  <li><strong>korai leállítás</strong> (early stopping);</li>
+  <li>dropout;</li>
+  <li><strong>keresztvalidáció</strong> a hiperparaméterek választásához;</li>
+  <li>fánál metszés és <code>min_samples_leaf</code>.</li>
+  </ul></li>
+<li><strong>Ellentéte az alultanulás:</strong> ilyenkor a modell túl egyszerű, a tanító- és a teszthiba is nagy.</li>
+</ul>
+<p class="ref">📖 <a href="06-neuralis-halo.html#lepes9">6. lecke, 9. lépés</a> · <a href="05-dontesi-fa.html#lepes8">5. lecke, 8. lépés</a></p></div>
+
+<div class="tetel" id="t59"><h3>59. Az adathalmaz szegmentálása</h3>
+<ul>
+<li>Az adatot független részekre bontjuk:
+  <ul>
+  <li><strong>tanítóhalmaz</strong> (pl. 60–80%): ezen illesztjük a súlyokat;</li>
+  <li><strong>validációs halmaz:</strong> ezen választunk hiperparamétert, és ez alapján áll meg a korai leállítás;</li>
+  <li><strong>teszthalmaz:</strong> csak a végső, egyszeri értékelésre használjuk.</li>
+  </ul></li>
+<li><strong>Rétegzett felosztás</strong> (<code>stratify=y</code>): az osztályarányok minden részben azonosak maradnak.</li>
+<li><strong>k-szoros keresztvalidáció:</strong> $k$ részre bontunk, mindegyik egyszer validál, a többi tanít. A $k$ eredmény átlaga és szórása megbízhatóbb becslést ad.</li>
+<li><strong>Szivárgás ellen:</strong> skálázót, diszkretizálót csak a tanítóhalmazon illesztünk (Pipeline).</li>
+</ul>
+<p class="ref">📖 <a href="06-neuralis-halo.html#lepes10">6. lecke, 10. lépés</a> · <a href="05-dontesi-fa.html#lepes2">5. lecke, 2. lépés</a></p></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="rapidminer">
+<h2>RapidMiner / Altair AI Studio (60.)</h2>
+
+<div class="tetel" id="t60"><h3>60. A RapidMiner működése és használata</h3>
+<ul>
+<li>Grafikus, <strong>kódolás nélküli</strong> adatelemző és gépi tanulási környezet. A RapidMiner az Altair céghez került, és ott <strong>Altair AI Studio</strong> néven él tovább.</li>
+<li><strong>Működési elv:</strong> a feldolgozás egy <strong>folyamat</strong> (process), amely <strong>operátorokból</strong> áll. Az operátorokat a portjaikon kötjük össze, így az adat az operátorláncon folyik végig. Működésüket paraméterekkel állítjuk.</li>
+<li><strong>A felület részei:</strong>
+  <ul>
+  <li>menüsor (tervező és futtató nézet, indítás);</li>
+  <li>operátor- és mintaadat-panel (több mint 450 funkció);</li>
+  <li>munkaterület (a folyamat);</li>
+  <li>paraméter- és súgópanel.</li>
+  </ul></li>
+<li><strong>Tipikus folyamat:</strong>
+  <ol>
+  <li>adatbeolvasás (Read Excel, Read CSV, Read Database);</li>
+  <li>előkészítés (szűrés, Normalize, Discretize, dimenziócsökkentés);</li>
+  <li>modell (Naive Bayes, Decision Tree, Random Forest, k-Means, neurális háló);</li>
+  <li><strong>Apply Model</strong> (predikció);</li>
+  <li><strong>Performance</strong> (mérőszámok);</li>
+  <li>validálás (Split Validation, Cross Validation) a túltanulás ellen.</li>
+  </ol></li>
+</ul>
+<p class="ref">📖 forrás: NIU-jegyzet, 14. fejezet (<code>../resources/niu/14_14.-Altair-AI-Studio.md</code>)</p></div>
+</section>
+
+<nav class="pager">
+  <a href="09-vizsgagyakorlo.html">← 9. Vizsgagyakorló</a>
+  <a href="index.html">Tartalom →</a>
+</nav>
+</main>
+</body>
+</html>
